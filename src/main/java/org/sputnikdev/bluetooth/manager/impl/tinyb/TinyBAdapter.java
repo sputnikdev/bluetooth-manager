@@ -60,7 +60,7 @@ public class TinyBAdapter implements Adapter<BluetoothAdapter> {
 
     @Override
     public boolean isDiscovering() {
-        return adapter.getDiscoverable();
+        return adapter.getDiscovering();
     }
 
     @Override
