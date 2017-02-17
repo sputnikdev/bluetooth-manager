@@ -1,11 +1,10 @@
-package org.sputnikdev.bluetooth.manager.impl.tinyb;
+package org.sputnikdev.bluetooth.manager.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.gattparser.URL;
-import tinyb.BluetoothObject;
 
-public abstract class BluetoothObjectGovernor<T extends BluetoothObject> {
+abstract class BluetoothObjectGovernor<T extends BluetoothObject> {
 
     private Logger logger = LoggerFactory.getLogger(BluetoothObjectGovernor.class);
 

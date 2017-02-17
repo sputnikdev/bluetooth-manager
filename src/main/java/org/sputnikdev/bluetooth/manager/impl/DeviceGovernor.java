@@ -1,4 +1,4 @@
-package org.sputnikdev.bluetooth.manager.impl.tinyb;
+package org.sputnikdev.bluetooth.manager.impl;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -15,16 +15,8 @@ import org.sputnikdev.bluetooth.manager.CharacteristicListener;
 import org.sputnikdev.bluetooth.manager.GattCharacteristic;
 import org.sputnikdev.bluetooth.manager.GattService;
 import org.sputnikdev.bluetooth.manager.GenericBluetoothDeviceListener;
-import tinyb.BluetoothAdapter;
-import tinyb.BluetoothDevice;
-import tinyb.BluetoothException;
-import tinyb.BluetoothGattCharacteristic;
-import tinyb.BluetoothGattService;
-import tinyb.BluetoothManager;
-import tinyb.BluetoothNotification;
-import tinyb.BluetoothType;
 
-public class DeviceGovernor extends BluetoothObjectGovernor<BluetoothDevice> {
+class DeviceGovernor extends BluetoothObjectGovernor<Device<?>> {
 
     private Logger logger = LoggerFactory.getLogger(DeviceGovernor.class);
 
@@ -45,7 +37,7 @@ public class DeviceGovernor extends BluetoothObjectGovernor<BluetoothDevice> {
     }
 
     @Override
-    void init(BluetoothDevice device) {
+    void init(Device device) {
         enableRSSINotifications(device);
         enableConnectionNotifications(device);
         enableServicesResolvedNotifications(device);
@@ -53,8 +45,8 @@ public class DeviceGovernor extends BluetoothObjectGovernor<BluetoothDevice> {
     }
 
     @Override
-    void updateState(BluetoothDevice device) {
-        boolean blocked = device.getBlocked();
+    void updateState(Device device) {
+        boolean blocked = device.isBlocked();
 
         if (blockedControl != blocked) {
             device.setBlocked(blockedControl);
@@ -62,7 +54,7 @@ public class DeviceGovernor extends BluetoothObjectGovernor<BluetoothDevice> {
         }
 
         if (!blocked) {
-            boolean connected = device.getConnected();
+            boolean connected = device.isConnected();
             if (connectionEnabled && !connected) {
                 connected = device.connect();
             } else if (!connectionEnabled && connected) {
@@ -81,7 +73,7 @@ public class DeviceGovernor extends BluetoothObjectGovernor<BluetoothDevice> {
         }
     }
     @Override
-    void disableNotifications(BluetoothDevice device) {
+    void disableNotifications(Device device) {
         logger.info("Disable device notifications: " + getURL());
         device.disableConnectedNotifications();
         device.disableServicesResolvedNotifications();
@@ -92,11 +84,8 @@ public class DeviceGovernor extends BluetoothObjectGovernor<BluetoothDevice> {
     }
 
     @Override
-    BluetoothDevice findBluetoothObject() {
-        BluetoothAdapter adapter = (BluetoothAdapter) BluetoothManager.getBluetoothManager().getObject(
-                BluetoothType.ADAPTER, null, getURL().getAdapterAddress(), null);
-        return (BluetoothDevice) BluetoothManager.getBluetoothManager().getObject(
-                BluetoothType.DEVICE, null, getURL().getDeviceAddress(), adapter);
+    Device findBluetoothObject() {
+        return BluetoothObjectFactory.getDefault().getDevice(getURL());
     }
 
     @Override
@@ -113,13 +102,13 @@ public class DeviceGovernor extends BluetoothObjectGovernor<BluetoothDevice> {
     void dispose() {
         logger.info("Disposing device governor: " + getURL());
         try {
-            BluetoothDevice device = getBluetoothObject();
-            if (device != null && device.getConnected()) {
+            Device device = getBluetoothObject();
+            if (device != null && device.isConnected()) {
                 logger.info("Disconnecting device: " + getURL());
                 device.disconnect();
                 notifyConnected(false);
             }
-        } catch (BluetoothException ex) {
+        } catch (Exception ex) {
             logger.warn("Could not disconnect device: " + getURL(), ex);
         }
         reset();
@@ -148,9 +137,9 @@ public class DeviceGovernor extends BluetoothObjectGovernor<BluetoothDevice> {
 
     boolean isConnected() {
         try {
-            BluetoothDevice device = getBluetoothObject();
-            return device != null && device.getConnected();
-        } catch (BluetoothException ex) {
+            Device device = getBluetoothObject();
+            return device != null && device.isConnected();
+        } catch (Exception ex) {
             logger.error("Could not get connection status", ex);
             return false;
         }
@@ -158,9 +147,9 @@ public class DeviceGovernor extends BluetoothObjectGovernor<BluetoothDevice> {
 
     boolean isBlocked() {
         try {
-            BluetoothDevice device = getBluetoothObject();
-            return device != null && device.getBlocked();
-        } catch (BluetoothException ex) {
+            Device device = getBluetoothObject();
+            return device != null && device.isBlocked();
+        } catch (Exception ex) {
             logger.error("Could not get blocked status", ex);
             return false;
         }
@@ -172,9 +161,9 @@ public class DeviceGovernor extends BluetoothObjectGovernor<BluetoothDevice> {
 
     short getRSSI() {
         try {
-            BluetoothDevice device = getBluetoothObject();
+            Device device = getBluetoothObject();
             return device != null ? device.getRSSI() : 0;
-        } catch (BluetoothException ex) {
+        } catch (Exception ex) {
             logger.error("Could not get RSSI status", ex);
             return 0;
         }
@@ -239,7 +228,7 @@ public class DeviceGovernor extends BluetoothObjectGovernor<BluetoothDevice> {
         notifyLastActivityChanged(this.lastActivity);
     }
 
-    private void enableConnectionNotifications(BluetoothDevice bluetoothDevice) {
+    private void enableConnectionNotifications(Device bluetoothDevice) {
         if (this.connectionNotification == null) {
             logger.info("Enabling connection notification: {} ", getURL());
             this.connectionNotification = new ConnectionNotification();
@@ -247,7 +236,7 @@ public class DeviceGovernor extends BluetoothObjectGovernor<BluetoothDevice> {
         }
     }
 
-    private void enableBlockedNotifications(BluetoothDevice bluetoothDevice) {
+    private void enableBlockedNotifications(Device bluetoothDevice) {
         if (this.blockedNotification == null) {
             logger.info("Enabling blocked notification: {} ", getURL());
             this.blockedNotification = new BlockedNotification();
@@ -255,7 +244,7 @@ public class DeviceGovernor extends BluetoothObjectGovernor<BluetoothDevice> {
         }
     }
 
-    private void enableServicesResolvedNotifications(BluetoothDevice bluetoothDevice) {
+    private void enableServicesResolvedNotifications(Device bluetoothDevice) {
         if (this.servicesResolvedNotification == null) {
             logger.info("Enabling services resolved notification: {} ", getURL());
             this.servicesResolvedNotification = new ServicesResolvedNotification();
@@ -263,7 +252,7 @@ public class DeviceGovernor extends BluetoothObjectGovernor<BluetoothDevice> {
         }
     }
 
-    private void enableRSSINotifications(BluetoothDevice bluetoothDevice) {
+    private void enableRSSINotifications(Device bluetoothDevice) {
         if (rssiNotification == null) {
             logger.info("Enabling RSSI notification: {} ", getURL());
             this.rssiNotification = new RSSINotification();
@@ -274,9 +263,10 @@ public class DeviceGovernor extends BluetoothObjectGovernor<BluetoothDevice> {
     private List<GattService> servicesResolved() {
         logger.info("Services resolved: " + getURL());
         List<GattService> services = new ArrayList<>();
-        for (BluetoothGattService service : getBluetoothObject().getServices()) {
+        Device<?> device = getBluetoothObject();
+        for (Service<?> service : device.getServices()) {
             List<GattCharacteristic> characteristics = new ArrayList<>();
-            for (BluetoothGattCharacteristic characteristic : service.getCharacteristics()) {
+            for (Characteristic<?> characteristic : service.getCharacteristics()) {
                 characteristics.add(convert(characteristic));
             }
             services.add(new GattService(service.getUUID(), characteristics));
@@ -309,7 +299,7 @@ public class DeviceGovernor extends BluetoothObjectGovernor<BluetoothDevice> {
         }
     }
 
-    private GattCharacteristic convert(BluetoothGattCharacteristic characteristic) {
+    private GattCharacteristic convert(Characteristic<?> characteristic) {
         return new GattCharacteristic(characteristic.getUUID(), characteristic.getFlags());
     }
 
@@ -403,27 +393,27 @@ public class DeviceGovernor extends BluetoothObjectGovernor<BluetoothDevice> {
         }
     }
 
-    private class ConnectionNotification implements BluetoothNotification<Boolean> {
+    private class ConnectionNotification implements Notification<Boolean> {
         @Override
-        public void run(Boolean connected) {
+        public void notify(Boolean connected) {
             logger.info("Connected (notification): " + getURL() + " " + connected);
             notifyConnected(connected);
             updateLastUpdated();
         }
     }
 
-    private class BlockedNotification implements BluetoothNotification<Boolean> {
+    private class BlockedNotification implements Notification<Boolean> {
         @Override
-        public void run(Boolean blocked) {
+        public void notify(Boolean blocked) {
             logger.info("Blocked (notification): " + getURL() + " " + blocked);
             notifyBlocked(blocked);
             updateLastUpdated();
         }
     }
 
-    private class ServicesResolvedNotification implements BluetoothNotification<Boolean> {
+    private class ServicesResolvedNotification implements Notification<Boolean> {
         @Override
-        public void run(Boolean serviceResolved) {
+        public void notify(Boolean serviceResolved) {
             logger.info("Services resolved (notification): " + serviceResolved);
 
             if (serviceResolved) {
@@ -438,9 +428,9 @@ public class DeviceGovernor extends BluetoothObjectGovernor<BluetoothDevice> {
         }
     }
 
-    private class RSSINotification implements BluetoothNotification<Short> {
+    private class RSSINotification implements Notification<Short> {
         @Override
-        public void run(Short rssi) {
+        public void notify(Short rssi) {
             notifyRSSIChanged(rssi);
             updateLastUpdated();
         }

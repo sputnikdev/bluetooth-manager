@@ -1,4 +1,4 @@
-package org.sputnikdev.bluetooth.manager.impl.tinyb;
+package org.sputnikdev.bluetooth.manager.impl;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.gattparser.URL;
 import org.sputnikdev.bluetooth.manager.AdapterListener;
 import org.sputnikdev.bluetooth.manager.BluetoothSmartDeviceListener;
-import org.sputnikdev.bluetooth.manager.BluetoothSmartService;
+import org.sputnikdev.bluetooth.manager.BluetoothManager;
 import org.sputnikdev.bluetooth.manager.CharacteristicListener;
 import org.sputnikdev.bluetooth.manager.DeviceDiscoveryListener;
 import org.sputnikdev.bluetooth.manager.DiscoveredDevice;
@@ -25,11 +25,10 @@ import org.sputnikdev.bluetooth.manager.GenericBluetoothDeviceListener;
 import tinyb.BluetoothAdapter;
 import tinyb.BluetoothDevice;
 import tinyb.BluetoothException;
-import tinyb.BluetoothManager;
 
-public class BluetoothSmartServiceImpl implements BluetoothSmartService {
+class BluetoothManagerImpl implements BluetoothManager {
 
-    private Logger logger = LoggerFactory.getLogger(BluetoothSmartServiceImpl.class);
+    private Logger logger = LoggerFactory.getLogger(BluetoothManagerImpl.class);
 
     private final ScheduledExecutorService singleThreadScheduler = Executors.newSingleThreadScheduledExecutor();
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(5);
@@ -56,7 +55,7 @@ public class BluetoothSmartServiceImpl implements BluetoothSmartService {
     public synchronized void stopDiscovery() {
         try {
             if (discoveryFuture != null) {
-                BluetoothManager.getBluetoothManager().stopDiscovery();
+                tinyb.BluetoothManager.getBluetoothManager().stopDiscovery();
                 discoveryFuture.cancel(true);
             }
         } catch (BluetoothException ex) {
@@ -320,7 +319,7 @@ public class BluetoothSmartServiceImpl implements BluetoothSmartService {
         public void run() {
             try {
                 //BluetoothManager.getBluetoothManager().startDiscovery();
-                List<BluetoothDevice> list = BluetoothManager.getBluetoothManager().getDevices();
+                List<BluetoothDevice> list = tinyb.BluetoothManager.getBluetoothManager().getDevices();
                 if (list == null) {
                     return;
                 }
@@ -336,7 +335,7 @@ public class BluetoothSmartServiceImpl implements BluetoothSmartService {
                     newDiscovery.add(discoveredDevice);
 
                 }
-                for (BluetoothAdapter adapter : BluetoothManager.getBluetoothManager().getAdapters()) {
+                for (BluetoothAdapter adapter : tinyb.BluetoothManager.getBluetoothManager().getAdapters()) {
                     DiscoveredDevice discoveredAdapter = getDiscoveredAdapter(adapter);
                     notifyDeviceDiscovered(discoveredAdapter);
                     newDiscovery.add(discoveredAdapter);

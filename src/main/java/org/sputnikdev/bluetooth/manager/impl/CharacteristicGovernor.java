@@ -1,4 +1,4 @@
-package org.sputnikdev.bluetooth.manager.impl.tinyb;
+package org.sputnikdev.bluetooth.manager.impl;
 
 import java.util.Arrays;
 import java.util.List;
@@ -7,15 +7,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.gattparser.URL;
 import org.sputnikdev.bluetooth.manager.CharacteristicListener;
-import tinyb.BluetoothDevice;
 import tinyb.BluetoothException;
-import tinyb.BluetoothGattCharacteristic;
-import tinyb.BluetoothGattService;
-import tinyb.BluetoothManager;
-import tinyb.BluetoothNotification;
-import tinyb.BluetoothType;
 
-public class CharacteristicGovernor extends BluetoothObjectGovernor<BluetoothGattCharacteristic> {
+class CharacteristicGovernor extends BluetoothObjectGovernor<Characteristic<?>> {
 
     private static final String NOTIFY_FLAG = "notify";
     private static final String INDICATE_FLAG = "indicate";
@@ -33,26 +27,21 @@ public class CharacteristicGovernor extends BluetoothObjectGovernor<BluetoothGat
     }
 
     @Override
-    BluetoothGattCharacteristic findBluetoothObject() {
-        BluetoothDevice device = deviceGovernor.getBluetoothObject();
-        BluetoothGattService service = (BluetoothGattService)
-                BluetoothManager.getBluetoothManager().getObject(
-                        BluetoothType.GATT_SERVICE, null, getURL().getServiceUUID(), device);
-        return (BluetoothGattCharacteristic) BluetoothManager.getBluetoothManager().getObject(
-                BluetoothType.GATT_CHARACTERISTIC, null, getURL().getCharacteristicUUID(), service);
+    Characteristic findBluetoothObject() {
+        return BluetoothObjectFactory.getDefault().getCharacteristic(getURL());
     }
 
     @Override
-    void disableNotifications(BluetoothGattCharacteristic characteristic) {
+    void disableNotifications(Characteristic characteristic) {
         logger.info("Disable characteristic notifications: " + getURL());
-        if (characteristic.getNotifying()) {
+        if (characteristic.isNotifying()) {
             characteristic.disableValueNotifications();
             characteristicNotification = null;
         }
     }
 
     @Override
-    void init(BluetoothGattCharacteristic characteristic) {
+    void init(Characteristic characteristic) {
         enableNotification(characteristic);
     }
 
@@ -60,14 +49,14 @@ public class CharacteristicGovernor extends BluetoothObjectGovernor<BluetoothGat
     void dispose() { }
 
     @Override
-    void updateState(BluetoothGattCharacteristic characteristic) { }
+    void updateState(Characteristic characteristic) { }
 
     void setCharacteristicListener(CharacteristicListener characteristicListener) {
         this.characteristicListener = characteristicListener;
     }
 
     byte[] read() {
-        BluetoothGattCharacteristic characteristic = getBluetoothObject();
+        Characteristic characteristic = getBluetoothObject();
         if (characteristic == null) {
             throw new IllegalStateException("Characteristic governor is not initialized");
         }
@@ -75,29 +64,29 @@ public class CharacteristicGovernor extends BluetoothObjectGovernor<BluetoothGat
     }
 
     boolean write(byte[] data) {
-        BluetoothGattCharacteristic characteristic = getBluetoothObject();
+        Characteristic characteristic = getBluetoothObject();
         if (characteristic == null) {
             throw new IllegalStateException("Characteristic governor is not initialized");
         }
         return characteristic.writeValue(data);
     }
 
-    private void enableNotification(BluetoothGattCharacteristic characteristic) {
+    private void enableNotification(Characteristic characteristic) {
         logger.info("Enable characteristic notifications: " + getURL());
         this.characteristicNotification = new CharacteristicNotification();
-        if (canNotify(characteristic) && !characteristic.getNotifying()) {
+        if (canNotify(characteristic) && !characteristic.isNotifying()) {
             characteristic.enableValueNotifications(characteristicNotification);
         }
     }
 
-    public static boolean canNotify(BluetoothGattCharacteristic characteristic) {
+    public static boolean canNotify(Characteristic characteristic) {
         List<String> flgs = Arrays.asList(characteristic.getFlags());
         return flgs.contains(NOTIFY_FLAG) || flgs.contains(INDICATE_FLAG);
     }
 
-    private class CharacteristicNotification implements BluetoothNotification<byte[]> {
+    private class CharacteristicNotification implements Notification<byte[]> {
         @Override
-        public void run(byte[] data) {
+        public void notify(byte[] data) {
             try {
                 deviceGovernor.updateLastUpdated();
                 CharacteristicListener listener = characteristicListener;

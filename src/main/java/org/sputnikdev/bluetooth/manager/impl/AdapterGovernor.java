@@ -1,4 +1,4 @@
-package org.sputnikdev.bluetooth.manager.impl.tinyb;
+package org.sputnikdev.bluetooth.manager.impl;
 
 import java.util.Date;
 
@@ -6,12 +6,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.gattparser.URL;
 import org.sputnikdev.bluetooth.manager.AdapterListener;
-import tinyb.BluetoothAdapter;
-import tinyb.BluetoothManager;
-import tinyb.BluetoothNotification;
-import tinyb.BluetoothType;
 
-public class AdapterGovernor extends BluetoothObjectGovernor<BluetoothAdapter> {
+class AdapterGovernor extends BluetoothObjectGovernor<Adapter> {
 
     private Logger logger = LoggerFactory.getLogger(AdapterGovernor.class);
 
@@ -29,27 +25,26 @@ public class AdapterGovernor extends BluetoothObjectGovernor<BluetoothAdapter> {
         super(url);
     }
 
-    void init(BluetoothAdapter adapter) {
-        notifyPowered(adapter.getPowered());
+    void init(Adapter adapter) {
+        notifyPowered(adapter.isPowered());
         enablePoweredNotifications(adapter);
         enableDiscoveringNotifications(adapter);
         updateLastUpdated();
     }
 
-    void updateState(BluetoothAdapter adapter) {
+    void updateState(Adapter adapter) {
         updatePowered(adapter);
         updateAlias(adapter);
         updateDiscovering(adapter);
     }
 
     @Override
-    BluetoothAdapter findBluetoothObject() {
-        return (BluetoothAdapter) BluetoothManager.getBluetoothManager().getObject(
-                BluetoothType.ADAPTER, null, getURL().getAdapterAddress(), null);
+    Adapter findBluetoothObject() {
+        return BluetoothObjectFactory.getDefault().getAdapter(getURL());
     }
 
     @Override
-    void disableNotifications(BluetoothAdapter adapter) {
+    void disableNotifications(Adapter adapter) {
         adapter.disablePoweredNotifications();
         adapter.disableDiscoveringNotifications();
         poweredNotification = null;
@@ -71,8 +66,8 @@ public class AdapterGovernor extends BluetoothObjectGovernor<BluetoothAdapter> {
     }
 
     boolean isPowered() {
-        BluetoothAdapter adapter = getBluetoothObject();
-        return adapter != null && adapter.getPowered();
+        Adapter adapter = getBluetoothObject();
+        return adapter != null && adapter.isPowered();
     }
 
     boolean getDiscoveringControl() {
@@ -84,8 +79,8 @@ public class AdapterGovernor extends BluetoothObjectGovernor<BluetoothAdapter> {
     }
 
     boolean isDiscovering() {
-        BluetoothAdapter adapter = getBluetoothObject();
-        return adapter != null && adapter.getDiscovering();
+        Adapter adapter = getBluetoothObject();
+        return adapter != null && adapter.isDiscovering();
     }
 
     void setAlias(String alias) {
@@ -100,7 +95,7 @@ public class AdapterGovernor extends BluetoothObjectGovernor<BluetoothAdapter> {
         this.adapterListener = adapterListener;
     }
 
-    private void updateAlias(BluetoothAdapter adapter) {
+    private void updateAlias(Adapter adapter) {
         if (this.alias == null) {
             this.alias = adapter.getAlias();
         } else if (!this.alias.equals(adapter.getAlias())) {
@@ -108,17 +103,17 @@ public class AdapterGovernor extends BluetoothObjectGovernor<BluetoothAdapter> {
         }
     }
 
-    private void updatePowered(BluetoothAdapter adapter) {
-        if (this.poweredControl != adapter.getPowered()) {
+    private void updatePowered(Adapter adapter) {
+        if (this.poweredControl != adapter.isPowered()) {
             adapter.setPowered(this.poweredControl);
         }
     }
 
-    private void updateDiscovering(BluetoothAdapter adapter) {
-        if (adapter.getPowered()) {
-            if (discoveringControl && !adapter.getDiscovering()) {
+    private void updateDiscovering(Adapter adapter) {
+        if (adapter.isPowered()) {
+            if (discoveringControl && !adapter.isDiscovering()) {
                 adapter.startDiscovery();
-            } else if (!discoveringControl && adapter.getDiscovering()) {
+            } else if (!discoveringControl && adapter.isDiscovering()) {
                 adapter.stopDiscovery();
             }
         }
@@ -129,19 +124,19 @@ public class AdapterGovernor extends BluetoothObjectGovernor<BluetoothAdapter> {
         notifyLastActivityChanged(this.lastActivity);
     }
 
-    private void enablePoweredNotifications(BluetoothAdapter adapter) {
+    private void enablePoweredNotifications(Adapter adapter) {
         if (this.poweredNotification == null && adapterListener != null) {
             this.poweredNotification = new PoweredNotification();
             adapter.enablePoweredNotifications(this.poweredNotification);
-            notifyPowered(adapter.getPowered());
+            notifyPowered(adapter.isPowered());
         }
     }
 
-    private void enableDiscoveringNotifications(BluetoothAdapter adapter) {
+    private void enableDiscoveringNotifications(Adapter adapter) {
         if (this.discoveringNotification == null && adapterListener != null) {
             this.discoveringNotification = new DiscoveringNotification();
             adapter.enableDiscoveringNotifications(this.discoveringNotification);
-            notifyDiscovering(adapter.getDiscovering());
+            notifyDiscovering(adapter.isDiscovering());
         }
     }
 
@@ -178,9 +173,9 @@ public class AdapterGovernor extends BluetoothObjectGovernor<BluetoothAdapter> {
         }
     }
 
-    private class PoweredNotification implements BluetoothNotification<Boolean> {
+    private class PoweredNotification implements Notification<Boolean> {
         @Override
-        public void run(Boolean powered) {
+        public void notify(Boolean powered) {
             notifyPowered(powered);
             updateLastUpdated();
             if (!powered && AdapterGovernor.this.findBluetoothObject() == null) {
@@ -189,9 +184,9 @@ public class AdapterGovernor extends BluetoothObjectGovernor<BluetoothAdapter> {
         }
     }
 
-    private class DiscoveringNotification implements BluetoothNotification<Boolean> {
+    private class DiscoveringNotification implements Notification<Boolean> {
         @Override
-        public void run(Boolean discovering) {
+        public void notify(Boolean discovering) {
             notifyDiscovering(discovering);
             updateLastUpdated();
         }
