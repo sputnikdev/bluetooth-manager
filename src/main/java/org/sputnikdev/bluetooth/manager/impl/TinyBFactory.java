@@ -1,6 +1,26 @@
 package org.sputnikdev.bluetooth.manager.impl;
 
-import org.sputnikdev.bluetooth.gattparser.URL;
+/*-
+ * #%L
+ * org.sputnikdev:bluetooth-manager
+ * %%
+ * Copyright (C) 2017 Sputnik Dev
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
+
+import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.impl.tinyb.TinyBAdapter;
 import org.sputnikdev.bluetooth.manager.impl.tinyb.TinyBCharacteristic;
 import org.sputnikdev.bluetooth.manager.impl.tinyb.TinyBDevice;
@@ -11,17 +31,23 @@ import tinyb.BluetoothGattService;
 import tinyb.BluetoothManager;
 import tinyb.BluetoothType;
 
+/**
+ *
+ * @author Vlad Kolotov
+ */
 class TinyBFactory extends BluetoothObjectFactory {
 
     TinyBFactory() { }
 
-    @Override Adapter getAdapter(URL url) {
+    @Override
+    Adapter getAdapter(URL url) {
         BluetoothAdapter adapter = (BluetoothAdapter) BluetoothManager.getBluetoothManager().getObject(
                 BluetoothType.ADAPTER, null, url.getAdapterAddress(), null);
         return new TinyBAdapter(adapter);
     }
 
-    @Override Device getDevice(URL url) {
+    @Override
+    Device getDevice(URL url) {
         BluetoothAdapter adapter = (BluetoothAdapter) BluetoothManager.getBluetoothManager().getObject(
                 BluetoothType.ADAPTER, null, url.getAdapterAddress(), null);
         BluetoothDevice device = (BluetoothDevice) BluetoothManager.getBluetoothManager().getObject(
@@ -29,7 +55,8 @@ class TinyBFactory extends BluetoothObjectFactory {
         return new TinyBDevice(device);
     }
 
-    @Override Characteristic getCharacteristic(URL url) {
+    @Override
+    Characteristic getCharacteristic(URL url) {
         BluetoothAdapter adapter = (BluetoothAdapter) BluetoothManager.getBluetoothManager().getObject(
                 BluetoothType.ADAPTER, null, url.getAdapterAddress(), null);
         BluetoothDevice device = (BluetoothDevice) BluetoothManager.getBluetoothManager().getObject(

@@ -1,4 +1,4 @@
-package org.sputnikdev.bluetooth.manager.impl;
+package org.sputnikdev.bluetooth.manager;
 
 /*-
  * #%L
@@ -20,32 +20,28 @@ package org.sputnikdev.bluetooth.manager.impl;
  * #L%
  */
 
-import java.util.List;
 
 /**
  *
  * @author Vlad Kolotov
  */
-public interface Adapter<T> extends BluetoothObject<T> {
+public interface CharacteristicGovernor extends BluetoothGovernor {
 
-    String getName();
+    String READ_FLAG = "read";
+    String NOTIFY_FLAG = "notify";
+    String INDICATE_FLAG = "indicate";
+    String WRITE_FLAG = "write";
 
-    String getAlias();
-    void setAlias(String s);
+    String[] getFlags() throws NotReadyException;
 
-    String getAddress();
+    boolean isReadable() throws NotReadyException;
+    boolean isWritable() throws NotReadyException;
+    boolean isNotifiable() throws NotReadyException;
 
-    boolean isDiscovering();
-    void enableDiscoveringNotifications(Notification<Boolean> notification);
-    void disableDiscoveringNotifications();
-    boolean startDiscovery();
-    boolean stopDiscovery();
+    byte[] read() throws NotReadyException;
+    boolean write(byte[] data) throws NotReadyException;
 
-    boolean isPowered();
-    void setPowered(boolean b);
-    void enablePoweredNotifications(Notification<Boolean> notification);
-    void disablePoweredNotifications();
-
-    List<Device<?>> getDevices();
+    void addValueListener(ValueListener valueListener);
+    void removeValueListener(ValueListener valueListener);
 
 }

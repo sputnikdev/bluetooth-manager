@@ -1,4 +1,4 @@
-package org.sputnikdev.bluetooth.manager.impl;
+package org.sputnikdev.bluetooth.manager;
 
 /*-
  * #%L
@@ -22,30 +22,27 @@ package org.sputnikdev.bluetooth.manager.impl;
 
 import java.util.List;
 
+import org.sputnikdev.bluetooth.URL;
+
 /**
  *
  * @author Vlad Kolotov
  */
-public interface Adapter<T> extends BluetoothObject<T> {
+public interface AdapterGovernor extends BluetoothGovernor {
 
-    String getName();
-
+    String getName() throws NotReadyException;
     String getAlias();
-    void setAlias(String s);
+    String getDisplayName() throws NotReadyException;
+    void setAlias(String alias);
 
-    String getAddress();
+    boolean isPowered() throws NotReadyException;
+    boolean getPoweredControl();
+    void setPoweredControl(boolean powered);
 
-    boolean isDiscovering();
-    void enableDiscoveringNotifications(Notification<Boolean> notification);
-    void disableDiscoveringNotifications();
-    boolean startDiscovery();
-    boolean stopDiscovery();
+    boolean isDiscovering() throws NotReadyException;
+    boolean getDiscoveringControl();
+    void setDiscoveringControl(boolean discovering);
 
-    boolean isPowered();
-    void setPowered(boolean b);
-    void enablePoweredNotifications(Notification<Boolean> notification);
-    void disablePoweredNotifications();
-
-    List<Device<?>> getDevices();
-
+    List<URL> getDevices() throws NotReadyException;
+    List<DeviceGovernor> getDeviceGovernors() throws NotReadyException;
 }

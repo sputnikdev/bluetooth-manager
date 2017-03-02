@@ -1,15 +1,46 @@
 package org.sputnikdev.bluetooth.manager.impl;
 
+/*-
+ * #%L
+ * org.sputnikdev:bluetooth-manager
+ * %%
+ * Copyright (C) 2017 Sputnik Dev
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
+
 import java.util.Date;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.sputnikdev.bluetooth.gattparser.URL;
+import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.AdapterGovernor;
 import org.sputnikdev.bluetooth.manager.AdapterListener;
+import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
+import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
+import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
+import org.sputnikdev.bluetooth.manager.DeviceGovernor;
+import org.sputnikdev.bluetooth.manager.NotReadyException;
 
-class AdapterGovernor extends BluetoothObjectGovernor<Adapter> {
+/**
+ *
+ * @author Vlad Kolotov
+ */
+class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter<?>> implements AdapterGovernor {
 
-    private Logger logger = LoggerFactory.getLogger(AdapterGovernor.class);
+    private Logger logger = LoggerFactory.getLogger(AdapterGovernorImpl.class);
 
     private AdapterListener adapterListener;
 
@@ -21,8 +52,8 @@ class AdapterGovernor extends BluetoothObjectGovernor<Adapter> {
     private boolean poweredControl = true;
     private boolean discoveringControl = true;
 
-    AdapterGovernor(URL url) {
-        super(url);
+    AdapterGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
+        super(bluetoothManager, url);
     }
 
     void init(Adapter adapter) {
@@ -57,38 +88,105 @@ class AdapterGovernor extends BluetoothObjectGovernor<Adapter> {
         logger.info("Adapter governor has been disposed: " + getURL());
     }
 
-    boolean getPoweredControl() {
+    @Override
+    public boolean getPoweredControl() {
         return poweredControl;
     }
 
-    void setPoweredControl(boolean poweredControl) {
+    @Override
+    public void setPoweredControl(boolean poweredControl) {
         this.poweredControl = poweredControl;
     }
 
-    boolean isPowered() {
+    @Override
+    public boolean isPowered() throws NotReadyException {
         Adapter adapter = getBluetoothObject();
         return adapter != null && adapter.isPowered();
     }
 
-    boolean getDiscoveringControl() {
+    @Override
+    public boolean getDiscoveringControl() {
         return discoveringControl;
     }
 
-    void setDiscoveringControl(boolean discovering) {
+    @Override
+    public void setDiscoveringControl(boolean discovering) {
         this.discoveringControl = discovering;
     }
 
-    boolean isDiscovering() {
+    @Override
+    public boolean isDiscovering() throws NotReadyException {
         Adapter adapter = getBluetoothObject();
         return adapter != null && adapter.isDiscovering();
     }
 
-    void setAlias(String alias) {
+    @Override
+    public void setAlias(String alias) {
         this.alias = alias;
     }
 
-    String getAlias() {
+    @Override
+    public String getAlias() {
         return this.alias;
+    }
+
+    @Override
+    public String getName() throws NotReadyException {
+        return getBluetoothObject().getName();
+    }
+
+    @Override
+    public String getDisplayName() throws NotReadyException {
+        return this.alias != null ? this.alias : getName();
+    }
+
+    @Override
+    public List<URL> getDevices() throws NotReadyException {
+        return BluetoothManagerUtils.getURLs((List<BluetoothObject<?>>) (List<?>) getBluetoothObject().getDevices());
+    }
+
+    @Override
+    public List<DeviceGovernor> getDeviceGovernors() throws NotReadyException {
+        return (List) bluetoothManager.getGovernors(getBluetoothObject().getDevices());
+    }
+
+    @Override
+    public String toString() {
+        String result = "[Adapter] " + getURL();
+        if (isReady()) {
+            result += " [" + getDisplayName() + "]";
+        }
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        BluetoothGovernor that = (BluetoothGovernor) o;
+        return url.equals(that.getURL());
+    }
+
+    @Override
+    public int hashCode() {
+        int result = url.hashCode();
+        result = 31 * result + url.hashCode();
+        return result;
+    }
+
+    @Override
+    public BluetoothObjectType getType() {
+        return BluetoothObjectType.ADAPTER;
+    }
+
+    @Override
+    public void accept(BluetoothObjectVisitor visitor) throws Exception {
+        visitor.visit(this);
     }
 
     void setAdapterListener(AdapterListener adapterListener) {
@@ -178,7 +276,7 @@ class AdapterGovernor extends BluetoothObjectGovernor<Adapter> {
         public void notify(Boolean powered) {
             notifyPowered(powered);
             updateLastUpdated();
-            if (!powered && AdapterGovernor.this.findBluetoothObject() == null) {
+            if (!powered && AdapterGovernorImpl.this.findBluetoothObject() == null) {
                 reset();
             }
         }

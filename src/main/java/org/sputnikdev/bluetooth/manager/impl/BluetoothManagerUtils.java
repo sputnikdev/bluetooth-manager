@@ -20,32 +20,26 @@ package org.sputnikdev.bluetooth.manager.impl;
  * #L%
  */
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+
+import org.sputnikdev.bluetooth.URL;
 
 /**
  *
  * @author Vlad Kolotov
  */
-public interface Adapter<T> extends BluetoothObject<T> {
+class BluetoothManagerUtils {
 
-    String getName();
+    private BluetoothManagerUtils() { }
 
-    String getAlias();
-    void setAlias(String s);
-
-    String getAddress();
-
-    boolean isDiscovering();
-    void enableDiscoveringNotifications(Notification<Boolean> notification);
-    void disableDiscoveringNotifications();
-    boolean startDiscovery();
-    boolean stopDiscovery();
-
-    boolean isPowered();
-    void setPowered(boolean b);
-    void enablePoweredNotifications(Notification<Boolean> notification);
-    void disablePoweredNotifications();
-
-    List<Device<?>> getDevices();
+    static List<URL> getURLs(List<BluetoothObject<?>> objects) {
+        List<URL> urls = new ArrayList<>(objects.size());
+        for (BluetoothObject<?> object : objects) {
+            urls.add(object.getURL());
+        }
+        return Collections.unmodifiableList(urls);
+    }
 
 }

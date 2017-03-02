@@ -1,5 +1,25 @@
 package org.sputnikdev.bluetooth.manager.impl;
 
+/*-
+ * #%L
+ * org.sputnikdev:bluetooth-manager
+ * %%
+ * Copyright (C) 2017 Sputnik Dev
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
@@ -9,16 +29,25 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.sputnikdev.bluetooth.gattparser.URL;
+import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
+import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
+import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
 import org.sputnikdev.bluetooth.manager.BluetoothSmartDeviceListener;
-import org.sputnikdev.bluetooth.manager.CharacteristicListener;
+import org.sputnikdev.bluetooth.manager.CharacteristicGovernor;
+import org.sputnikdev.bluetooth.manager.DeviceGovernor;
 import org.sputnikdev.bluetooth.manager.GattCharacteristic;
 import org.sputnikdev.bluetooth.manager.GattService;
 import org.sputnikdev.bluetooth.manager.GenericBluetoothDeviceListener;
+import org.sputnikdev.bluetooth.manager.NotReadyException;
 
-class DeviceGovernor extends BluetoothObjectGovernor<Device<?>> {
+/**
+ *
+ * @author Vlad Kolotov
+ */
+class DeviceGovernorImpl extends BluetoothObjectGovernor<Device<?>> implements DeviceGovernor {
 
-    private Logger logger = LoggerFactory.getLogger(DeviceGovernor.class);
+    private Logger logger = LoggerFactory.getLogger(DeviceGovernorImpl.class);
 
     private GenericBluetoothDeviceListener genericBluetoothDeviceListener;
     private final List<BluetoothSmartDeviceListener> bluetoothSmartDeviceListeners = new ArrayList<>();
@@ -26,14 +55,14 @@ class DeviceGovernor extends BluetoothObjectGovernor<Device<?>> {
     private BlockedNotification blockedNotification;
     private ServicesResolvedNotification servicesResolvedNotification;
     private RSSINotification rssiNotification;
-    private final Map<URL, CharacteristicGovernor> characteristicGovernors = new HashMap<>();
-    private boolean connectionEnabled;
+    private boolean connectionControl;
     private boolean blockedControl;
     private Date lastActivity = new Date();
     private boolean online = false;
+    private String alias;
 
-    DeviceGovernor(URL url) {
-        super(url);
+    DeviceGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
+        super(bluetoothManager, url);
     }
 
     @Override
@@ -53,11 +82,13 @@ class DeviceGovernor extends BluetoothObjectGovernor<Device<?>> {
             blocked = blockedControl;
         }
 
+        updateAlias(device);
+
         if (!blocked) {
             boolean connected = device.isConnected();
-            if (connectionEnabled && !connected) {
+            if (connectionControl && !connected) {
                 connected = device.connect();
-            } else if (!connectionEnabled && connected) {
+            } else if (!connectionControl && connected) {
                 device.disconnect();
                 resetCharacteristics();
                 connected = false;
@@ -119,108 +150,164 @@ class DeviceGovernor extends BluetoothObjectGovernor<Device<?>> {
         logger.info("Device governor has been disposed: " + getURL());
     }
 
-    boolean isConnectionEnabled() {
-        return connectionEnabled;
+    @Override
+    public int getBluetoothClass() throws NotReadyException {
+        return getBluetoothObject().getBluetoothClass();
     }
 
-    void setConnectionEnabled(boolean connectionEnabled) {
-        this.connectionEnabled = connectionEnabled;
+    @Override
+    public boolean isBleEnabled() throws NotReadyException {
+        return getBluetoothClass() == 0;
     }
 
-    boolean getBlockedControl() {
+    @Override
+    public String getName() throws NotReadyException {
+        return getBluetoothObject().getName();
+    }
+
+    @Override
+    public void setAlias(String alias) {
+        this.alias = alias;
+    }
+
+    @Override
+    public String getAlias() {
+        return this.alias;
+    }
+
+    @Override
+    public String getDisplayName() throws NotReadyException {
+        return this.alias != null ? this.alias : getName();
+    }
+
+    @Override
+    public boolean getConnectionControl() {
+        return connectionControl;
+    }
+
+    public void setConnectionControl(boolean connectionControl) {
+        this.connectionControl = connectionControl;
+    }
+
+    @Override
+    public boolean getBlockedControl() {
         return this.blockedControl;
     }
 
-    void setBlockedControl(boolean blockedControl) {
+    @Override
+    public void setBlockedControl(boolean blockedControl) {
         this.blockedControl = blockedControl;
     }
 
-    boolean isConnected() {
-        try {
-            Device device = getBluetoothObject();
-            return device != null && device.isConnected();
-        } catch (Exception ex) {
-            logger.error("Could not get connection status", ex);
-            return false;
-        }
+    @Override
+    public boolean isConnected() throws NotReadyException {
+        return getBluetoothObject().isConnected();
     }
 
-    boolean isBlocked() {
-        try {
-            Device device = getBluetoothObject();
-            return device != null && device.isBlocked();
-        } catch (Exception ex) {
-            logger.error("Could not get blocked status", ex);
-            return false;
-        }
+    @Override
+    public boolean isBlocked() throws NotReadyException {
+        return getBluetoothObject().isBlocked();
     }
 
-    boolean isOnline() {
+    @Override
+    public boolean isOnline() {
         return Instant.now().minusSeconds(20).isBefore(this.lastActivity.toInstant());
     }
 
-    short getRSSI() {
-        try {
-            Device device = getBluetoothObject();
-            return device != null ? device.getRSSI() : 0;
-        } catch (Exception ex) {
-            logger.error("Could not get RSSI status", ex);
-            return 0;
-        }
+    @Override
+    public short getRSSI() throws NotReadyException {
+        return getBluetoothObject().getRSSI();
     }
 
-    void addCharacteristicListener(URL url, CharacteristicListener characteristicListener) {
-        getCharacteristicGovernor(url).setCharacteristicListener(characteristicListener);
-    }
-
-    void removeCharacteristicListener(URL url) {
-        URL characteristicURL = url.getCharacteristicURL();
-        synchronized (characteristicGovernors) {
-            if (characteristicGovernors.containsKey(characteristicURL)) {
-                getCharacteristicGovernor(url).setCharacteristicListener(null);
-            }
-        }
-    }
-
-    byte[] read(URL url) {
-        return getCharacteristicGovernor(url).read();
-    }
-
-    boolean write(URL url, byte[] data) {
-        return getCharacteristicGovernor(url).write(data);
-    }
-
-    private CharacteristicGovernor getCharacteristicGovernor(URL url) {
-        URL characteristicURL = url.getCharacteristicURL();
-        synchronized (characteristicGovernors) {
-            if (!characteristicGovernors.containsKey(characteristicURL)) {
-                CharacteristicGovernor governor = new CharacteristicGovernor(this, characteristicURL);
-                try {
-                    governor.update();
-                } catch (Exception ex) {
-                    logger.error("Could not update characteristic governor: " + governor.getURL(), ex);
-                }
-                characteristicGovernors.put(characteristicURL, governor);
-                return governor;
-            }
-            return characteristicGovernors.get(characteristicURL);
-        }
-    }
-
-    void addBluetoothSmartDeviceListener(BluetoothSmartDeviceListener bluetoothSmartDeviceListener) {
+    @Override
+    public void addBluetoothSmartDeviceListener(BluetoothSmartDeviceListener bluetoothSmartDeviceListener) {
         synchronized (this.bluetoothSmartDeviceListeners) {
             this.bluetoothSmartDeviceListeners.add(bluetoothSmartDeviceListener);
         }
     }
 
-    void removeBluetoothSmartDeviceListener(BluetoothSmartDeviceListener bluetoothSmartDeviceListener) {
+    @Override
+    public void removeBluetoothSmartDeviceListener(BluetoothSmartDeviceListener bluetoothSmartDeviceListener) {
         synchronized (this.bluetoothSmartDeviceListeners) {
             this.bluetoothSmartDeviceListeners.remove(bluetoothSmartDeviceListener);
         }
     }
 
-    void setGenericBluetoothDeviceListener(GenericBluetoothDeviceListener genericBluetoothDeviceListener) {
+    @Override
+    public void addGenericBluetoothDeviceListener(GenericBluetoothDeviceListener genericBluetoothDeviceListener) {
         this.genericBluetoothDeviceListener = genericBluetoothDeviceListener;
+    }
+
+    @Override
+    public void removeGenericBluetoothDeviceListener() {
+        this.genericBluetoothDeviceListener = null;
+    }
+
+    @Override
+    public Map<URL, List<CharacteristicGovernor>> getServicesToCharacteristicsMap() throws NotReadyException {
+        Map<URL, List<CharacteristicGovernor>> services = new HashMap<>();
+        for (Service<?> service : getBluetoothObject().getServices()) {
+            URL serviceURL = service.getURL();
+            services.put(serviceURL, (List) bluetoothManager.getGovernors(service.getCharacteristics()));
+        }
+        return services;
+    }
+
+    @Override
+    public List<URL> getCharacteristics() throws NotReadyException {
+        return BluetoothManagerUtils.getURLs((List<BluetoothObject<?>>) (List<?>) getAllCharacteristics());
+    }
+
+    @Override
+    public List<CharacteristicGovernor> getCharacteristicGovernors() throws NotReadyException {
+        return (List) bluetoothManager.getGovernors(getAllCharacteristics());
+    }
+
+    @Override
+    public String toString() {
+        String result = "[Device] " + getURL();
+        if (isReady()) {
+            result += " [" + getDisplayName() + "]";
+        }
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        BluetoothGovernor that = (BluetoothGovernor) o;
+        return url.equals(that.getURL());
+    }
+
+    @Override
+    public int hashCode() {
+        int result = url.hashCode();
+        result = 31 * result + url.hashCode();
+        return result;
+    }
+
+    @Override
+    public BluetoothObjectType getType() {
+        return BluetoothObjectType.DEVICE;
+    }
+
+    @Override
+    public void accept(BluetoothObjectVisitor visitor) throws Exception {
+        visitor.visit(this);
+    }
+
+    private List<Characteristic<?>> getAllCharacteristics() throws NotReadyException {
+        List<Characteristic<?>> characteristics = new ArrayList<>();
+        for (Service<?> service : getBluetoothObject().getServices()) {
+            characteristics.addAll(service.getCharacteristics());
+        }
+        return characteristics;
     }
 
     void updateLastUpdated() {
@@ -272,31 +359,14 @@ class DeviceGovernor extends BluetoothObjectGovernor<Device<?>> {
             services.add(new GattService(service.getUUID(), characteristics));
         }
         return services;
-
     }
 
     private void updateCharacteristics() {
-        synchronized (characteristicGovernors) {
-            for (CharacteristicGovernor governor : characteristicGovernors.values()) {
-                try {
-                    governor.update();
-                } catch (Throwable ex) {
-                    logger.error("Could not update characteristic governor", ex);
-                }
-            }
-        }
+        bluetoothManager.updateDescendants(url);
     }
 
     private void resetCharacteristics() {
-        synchronized (characteristicGovernors) {
-            for (CharacteristicGovernor governor : characteristicGovernors.values()) {
-                try {
-                    governor.reset();
-                } catch (Throwable ex) {
-                    logger.warn("Could not reset characteristic governor", ex);
-                }
-            }
-        }
+        bluetoothManager.resetDescendants(url);
     }
 
     private GattCharacteristic convert(Characteristic<?> characteristic) {
@@ -373,6 +443,14 @@ class DeviceGovernor extends BluetoothObjectGovernor<Device<?>> {
             notifyOnline(online);
         }
         this.online = online;
+    }
+
+    private void updateAlias(Device device) {
+        if (this.alias == null) {
+            this.alias = device.getAlias();
+        } else if (!this.alias.equals(device.getAlias())) {
+            device.setAlias(this.alias);
+        }
     }
 
     private void notifyOnline(boolean online) {

@@ -17,12 +17,25 @@
         </license>
     </licenses>
 
+    <organization>
+        <name>Sputnik Dev</name>
+        <url>http://sputnikdev.org/</url>
+    </organization>
+    <inceptionYear>2017</inceptionYear>
+
+    <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <license.licenseName>apache_v2</license.licenseName>
+    </properties>
+
     <developers>
         <developer>
             <name>Vlad Kolotov</name>
             <email>vkolotov@gmail.com</email>
             <organization>Sputnik Dev</organization>
-            <organizationUrl>https://github.com/sputnikdev</organizationUrl>
+            <organizationUrl>http://sputnikdev.org/</organizationUrl>
         </developer>
     </developers>
 
@@ -30,13 +43,8 @@
         <url>https://github.com/sputnikdev/bluetooth-manager/tree/master</url>
         <connection>scm:git:git@github.com:sputnikdev/bluetooth-manager.git</connection>
         <developerConnection>scm:git:git@github.com:sputnikdev/bluetooth-manager.git</developerConnection>
-      <tag>HEAD</tag>
-  </scm>
-
-    <properties>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
-    </properties>
+        <tag>HEAD</tag>
+    </scm>
 
     <distributionManagement>
         <snapshotRepository>
@@ -52,8 +60,8 @@
     <dependencies>
         <dependency>
             <groupId>org.sputnikdev</groupId>
-            <artifactId>bluetooth-gatt-parser</artifactId>
-            <version>1.2</version>
+            <artifactId>bluetooth-utils</artifactId>
+            <version>1.0</version>
         </dependency>
         <dependency>
             <groupId>intel-iot-devkit</groupId>

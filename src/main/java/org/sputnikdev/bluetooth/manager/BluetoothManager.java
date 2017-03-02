@@ -1,52 +1,48 @@
 package org.sputnikdev.bluetooth.manager;
 
-import org.sputnikdev.bluetooth.gattparser.URL;
+/*-
+ * #%L
+ * org.sputnikdev:bluetooth-manager
+ * %%
+ * Copyright (C) 2017 Sputnik Dev
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
 
+import java.util.Set;
+
+import org.sputnikdev.bluetooth.URL;
+
+/**
+ *
+ * @author Vlad Kolotov
+ */
 public interface BluetoothManager {
 
-    boolean isAdapterPowered(URL url);
-    boolean getAdapterPoweredControl(URL url);
-    void setAdapterPoweredControl(URL url, boolean power);
+    Set<DiscoveredDevice> getDiscoveredDevices();
 
-    boolean isAdapterDiscovering(URL url);
-    boolean getAdapterDiscoveringControl(URL url);
-    void setAdapterDiscoveringControl(URL url, boolean discovering);
-
-    void setAdapterAlias(URL url, String alias);
-    void addAdapterListener(URL url, AdapterListener adapterListener);
-    void removeAdapterListener(URL url);
+    BluetoothGovernor getGovernor(URL url);
+    AdapterGovernor getAdapterGovernor(URL url);
+    DeviceGovernor getDeviceGovernor(URL url);
+    CharacteristicGovernor getCharacteristicGovernor(URL url);
 
     void startDiscovery();
     void stopDiscovery();
     void addDiscoveryListener(DeviceDiscoveryListener deviceDiscoveryListener);
     void removeDiscoveryListener(DeviceDiscoveryListener deviceDiscoveryListener);
 
-    boolean isConnected(URL url);
-    boolean getConnectionControl(URL url);
-    void setConnectionControl(URL url, boolean connected);
-
-    boolean isBlocked(URL url);
-    boolean getBlockedControl(URL url);
-    void setBlockedControl(URL url, boolean blocked);
-
-    boolean isOnline(URL url);
-
-    void disposeBluetoothObject(URL url);
-
-    short getRSSI(URL url);
-
-    void addBluetoothSmartDeviceListener(URL url, BluetoothSmartDeviceListener listener);
-    void removeBluetoothSmartDeviceListener(URL url, BluetoothSmartDeviceListener listener);
-
-    void addGenericBluetoothDeviceListener(URL url, GenericBluetoothDeviceListener listener);
-    void removeGenericBluetoothDeviceListener(URL url);
-
-    byte[] readCharacteristic(URL url);
-    void addCharacteristicListener(URL url, CharacteristicListener characteristicListener);
-    void removeCharacteristicListener(URL url);
-
-    boolean writeCharacteristic(URL url, byte[] data);
-
+    void disposeGovernor(URL url);
     void dispose();
 
 }
