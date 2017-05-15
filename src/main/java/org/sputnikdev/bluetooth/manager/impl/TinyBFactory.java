@@ -20,6 +20,9 @@ package org.sputnikdev.bluetooth.manager.impl;
  * #L%
  */
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.impl.tinyb.TinyBAdapter;
 import org.sputnikdev.bluetooth.manager.impl.tinyb.TinyBCharacteristic;
@@ -67,6 +70,18 @@ class TinyBFactory extends BluetoothObjectFactory {
                 BluetoothManager.getBluetoothManager().getObject(
                         BluetoothType.GATT_CHARACTERISTIC, null, url.getCharacteristicUUID(), service);
         return new TinyBCharacteristic(characteristic);
+    }
+
+    @Override
+    List<Adapter> getDiscoveredAdapters() {
+        return BluetoothManager.getBluetoothManager().getAdapters().stream().map(
+                TinyBAdapter::new).collect(Collectors.toList());
+    }
+
+    @Override
+    List<Device> getDiscoveredDevices() {
+        return BluetoothManager.getBluetoothManager().getDevices().stream().map(
+                TinyBDevice::new).collect(Collectors.toList());
     }
 
 }

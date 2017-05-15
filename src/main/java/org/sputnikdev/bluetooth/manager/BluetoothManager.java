@@ -25,24 +25,112 @@ import java.util.Set;
 import org.sputnikdev.bluetooth.URL;
 
 /**
+ * The core of the system. Provides various high level methods for accessing bluetooth object governors
+ * ({@link BluetoothGovernor}) as well as subscribing for bluetooth object discovery events.
+ *
+ * Start using it by accessing a default implementation:
+ * <pre>
+ * {@code
+ * BluetoothManager manager = BluetoothManagerFactory.getManager();
+ * manager.addDiscoveryListener(...);
+ * manager.start(true);
+ * }
+ * </pre>
  *
  * @author Vlad Kolotov
  */
 public interface BluetoothManager {
 
-    Set<DiscoveredDevice> getDiscoveredDevices();
+    /**
+     * Starts bluetooth manager background activities.
+     *
+     * If true is provided for the argument, then bluetooth manager will activate bluetooth device discovery
+     * process for all available bluetooth adapters. Discovered bluetooth adapters and devices will be available:
+     * <ul>
+     *     <li>By executing {@link BluetoothManager#getDiscoveredDevices()}</li>
+     *     <li>By listening to discovery events via {@link DeviceDiscoveryListener}</li>
+     * </ul>
+     *
+     * If false is provided for the argument, then bluetooth manager won't activate device discovery process.
+     * However, it is possible to activate device discovery process for a particular bluetooth adapter
+     * if its MAC address is known:
+     * <pre>
+     * {@code
+     *
+     * BluetoothManager manager = BluetoothManagerFactory.getManager();
+     * manager.addDiscoveryListener(...);
+     * manager.start(false);
+     * manager.getAdapterGovernor(new URL("/XX:XX:XX:XX:XX:XX")).setDiscoveringControl(true);
+     * }
+     * </pre>
+     *
+     *
+     * @param startDiscovering controls whether bluetooth manager should start bluetooth device discovery
+     */
+    void start(boolean startDiscovering);
 
-    BluetoothGovernor getGovernor(URL url);
-    AdapterGovernor getAdapterGovernor(URL url);
-    DeviceGovernor getDeviceGovernor(URL url);
-    CharacteristicGovernor getCharacteristicGovernor(URL url);
+    /**
+     * Shuts down all bluetooth manager background activities.
+     */
+    void stop();
 
-    void startDiscovery();
-    void stopDiscovery();
+    /**
+     * Register a new device discovery listener.
+     *
+     * @param deviceDiscoveryListener a new device discovery listener
+     */
     void addDiscoveryListener(DeviceDiscoveryListener deviceDiscoveryListener);
+
+    /**
+     * Unregisters a device discovery listener.
+     * @param deviceDiscoveryListener a device discovery listener
+     */
     void removeDiscoveryListener(DeviceDiscoveryListener deviceDiscoveryListener);
 
+    /**
+     * Return a list of discovered bluetooth adapters and devices.
+     * @return a list of discovered bluetooth adapters and devices
+     */
+    Set<DiscoveredDevice> getDiscoveredDevices();
+
+    /**
+     * Creates a new bluetooth governor or returns an existing one by its URL.
+     *
+     * @param url a URL of a bluetooth object (adapter, device, characteristic)
+     * @return a bluetooth governor
+     */
+    BluetoothGovernor getGovernor(URL url);
+
+    /**
+     * Creates a new adapter governor or returns an existing one by its URL.
+     * @param url a URL of a bluetooth adapter
+     * @return an adapter governor
+     */
+    AdapterGovernor getAdapterGovernor(URL url);
+
+    /**
+     * Creates a new device governor or returns an existing one by its URL.
+     * @param url a URL of a bluetooth device
+     * @return an device governor
+     */
+    DeviceGovernor getDeviceGovernor(URL url);
+
+    /**
+     * Creates a new characteristic governor or returns an existing one by its URL.
+     * @param url a URL of a bluetooth characteristic
+     * @return a characteristic governor
+     */
+    CharacteristicGovernor getCharacteristicGovernor(URL url);
+
+    /**
+     * Disposes/ shuts down a governor by its URL.
+     * @param url a URL of a bluetooth object (adapter, device, characteristic)
+     */
     void disposeGovernor(URL url);
+
+    /**
+     * Disposes/ shut down the bluetooth manager and its governors.
+     */
     void dispose();
 
 }

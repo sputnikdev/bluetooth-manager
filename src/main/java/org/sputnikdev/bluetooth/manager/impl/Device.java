@@ -22,20 +22,17 @@ package org.sputnikdev.bluetooth.manager.impl;
 
 import java.util.List;
 
-
 /**
  *
  * @author Vlad Kolotov
  */
-public interface Device<T> extends BluetoothObject<T> {
+public interface Device extends BluetoothObject {
 
     int getBluetoothClass();
 
     boolean disconnect();
 
     boolean connect();
-
-    String getAddress();
 
     String getName();
 
@@ -69,6 +66,6 @@ public interface Device<T> extends BluetoothObject<T> {
 
     void disableServicesResolvedNotifications();
 
-    List<Service<?>> getServices();
+    List<Service> getServices();
 
 }

@@ -20,23 +20,34 @@ package org.sputnikdev.bluetooth.manager;
  * #L%
  */
 
-import java.util.Date;
-
-
 /**
+ *
+ * A listener of events for generic bluetooth devices.
  *
  * @author Vlad Kolotov
  */
 public interface GenericBluetoothDeviceListener {
 
+    /**
+     * Fires when a device gets online.
+     */
     void online();
 
+    /**
+     * Fires then a device gets offline.
+     */
     void offline();
 
+    /**
+     * Fires when a device gets blocked/unblocked.
+     * @param blocked is true when device get blocked, false otherwise
+     */
     void blocked(boolean blocked);
 
+    /**
+     * Reports a device RSSI level.
+     * @param rssi a device RSSI level
+     */
     void rssiChanged(short rssi);
-
-    void lastUpdatedChanged(Date lastActivity);
 
 }

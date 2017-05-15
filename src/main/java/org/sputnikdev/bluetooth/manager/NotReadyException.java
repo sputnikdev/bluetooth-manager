@@ -23,14 +23,25 @@ package org.sputnikdev.bluetooth.manager;
 
 /**
  *
+ * An exception class is used to signal that some operations could not be done due to device/governor state.
+ * It this exception occurs, this means that a corresponding to a governor low level object is still not acquired.
+ * See {@link BluetoothGovernor} for more info.
+ *
  * @author Vlad Kolotov
  */
 public class NotReadyException extends RuntimeException {
 
+    /**
+     * A constructor without message.
+     */
     public NotReadyException() {
         super();
     }
 
+    /**
+     * A constructor with a message.
+     * @param message a message
+     */
     public NotReadyException(String message) {
         super(message);
     }

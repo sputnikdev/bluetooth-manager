@@ -40,9 +40,7 @@ import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.BluetoothManager;
 import org.sputnikdev.bluetooth.manager.DeviceDiscoveryListener;
 import org.sputnikdev.bluetooth.manager.DiscoveredDevice;
-import tinyb.BluetoothAdapter;
-import tinyb.BluetoothDevice;
-import tinyb.BluetoothException;
+
 
 /**
  *
@@ -63,27 +61,21 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     private final Set<DiscoveredDevice> discovered = new HashSet<>();
 
+    private boolean startDiscovering;
+
     @Override
-    public synchronized void startDiscovery() {
-        try {
-            if (discoveryFuture == null) {
-                discoveryFuture = singleThreadScheduler.scheduleAtFixedRate(
-                        new DiscoveryJob(), 0, 10, TimeUnit.SECONDS);
-            }
-        } catch (BluetoothException ex) {
-            logger.error("Could not start discovery", ex);
+    public synchronized void start(boolean startDiscovering) {
+        if (discoveryFuture == null) {
+            this.startDiscovering = startDiscovering;
+            discoveryFuture = singleThreadScheduler.scheduleAtFixedRate(
+                    new DiscoveryJob(), 0, 10, TimeUnit.SECONDS);
         }
     }
 
     @Override
-    public synchronized void stopDiscovery() {
-        try {
-            if (discoveryFuture != null) {
-                tinyb.BluetoothManager.getBluetoothManager().stopDiscovery();
-                discoveryFuture.cancel(true);
-            }
-        } catch (BluetoothException ex) {
-            logger.error("Could not stop discovery", ex);
+    public synchronized void stop() {
+        if (discoveryFuture != null) {
+            discoveryFuture.cancel(true);
         }
     }
 
@@ -233,14 +225,16 @@ class BluetoothManagerImpl implements BluetoothManager {
         }
     }
 
-    private DiscoveredDevice getDiscoveredDevice(BluetoothDevice device) {
-        return new DiscoveredDevice(new URL(device.getAdapter().getAddress(), device.getAddress()),
+    private DiscoveredDevice getDiscoveredDevice(Device device) {
+        URL url = device.getURL();
+        return new DiscoveredDevice(new URL(url.getAdapterAddress(), url.getDeviceAddress()),
                 device.getName(), device.getAlias(), device.getRSSI(),
                 device.getBluetoothClass());
     }
 
-    private DiscoveredDevice getDiscoveredAdapter(BluetoothAdapter adapter) {
-        return new DiscoveredDevice(new URL(adapter.getAddress(), null), adapter.getName(), adapter.getAlias());
+    private DiscoveredDevice getDiscoveredAdapter(Adapter adapter) {
+        return new DiscoveredDevice(new URL(adapter.getURL().getAdapterAddress(), null),
+                adapter.getName(), adapter.getAlias());
     }
 
     private void notifyDeviceLost(URL url) {
@@ -273,13 +267,13 @@ class BluetoothManagerImpl implements BluetoothManager {
         public void run() {
             try {
                 synchronized (discovered) {
-                    List<BluetoothDevice> list = tinyb.BluetoothManager.getBluetoothManager().getDevices();
+                    List<Device> list = BluetoothObjectFactory.getDefault().getDiscoveredDevices();
                     if (list == null) {
                         return;
                     }
 
                     Set<DiscoveredDevice> newDiscovery = new HashSet<>();
-                    for (BluetoothDevice device : list) {
+                    for (Device device : list) {
                         short rssi = device.getRSSI();
                         if (rssi == 0) {
                             continue;
@@ -289,10 +283,15 @@ class BluetoothManagerImpl implements BluetoothManager {
                         newDiscovery.add(discoveredDevice);
 
                     }
-                    for (BluetoothAdapter adapter : tinyb.BluetoothManager.getBluetoothManager().getAdapters()) {
+                    for (Adapter adapter : BluetoothObjectFactory.getDefault().getDiscoveredAdapters()) {
                         DiscoveredDevice discoveredAdapter = getDiscoveredAdapter(adapter);
                         notifyDeviceDiscovered(discoveredAdapter);
                         newDiscovery.add(discoveredAdapter);
+                        if (startDiscovering) {
+                            // create (if not created before) adapter governor which will trigger its discovering status
+                            // (by default when it is created "discovering" flag is set to true)
+                            getAdapterGovernor(adapter.getURL());
+                        }
                     }
                     for (DiscoveredDevice lost : Sets.difference(discovered, newDiscovery)) {
                         notifyDeviceLost(lost.getURL());

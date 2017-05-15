@@ -24,13 +24,24 @@ import org.sputnikdev.bluetooth.URL;
 
 
 /**
+ * A listener of discovery events.
  *
  * @author Vlad Kolotov
  */
 public interface DeviceDiscoveryListener {
 
+    /**
+     * Fires when a new bluetooth adapter or bluetooth device gets discovered.
+     *
+     * @param discoveredDevice a new discovered bluetooth adapter or bluetooth device
+     */
     void discovered(DiscoveredDevice discoveredDevice);
 
+    /**
+     * Fires when a bluetooth adapter or a blueooth device gets lost.
+     *
+     * @param url of a bluetooth adapter or device
+     */
     void lost(URL url);
 
 }

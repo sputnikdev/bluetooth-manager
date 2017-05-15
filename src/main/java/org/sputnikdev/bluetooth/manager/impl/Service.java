@@ -26,10 +26,10 @@ import java.util.List;
  *
  * @author Vlad Kolotov
  */
-public interface Service<T> extends BluetoothObject<T> {
+public interface Service extends BluetoothObject {
 
     String getUUID();
 
-    List<Characteristic<?>> getCharacteristics();
+    List<Characteristic> getCharacteristics();
 
 }

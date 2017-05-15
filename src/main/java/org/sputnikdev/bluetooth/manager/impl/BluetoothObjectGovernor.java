@@ -20,10 +20,15 @@ package org.sputnikdev.bluetooth.manager.impl;
  * #L%
  */
 
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
+import org.sputnikdev.bluetooth.manager.GovernorListener;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
 
 /**
@@ -37,6 +42,8 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
     protected final BluetoothManagerImpl bluetoothManager;
     protected final URL url;
     private T bluetoothObject;
+    private Date lastActivity = new Date();
+    private final List<GovernorListener> governorListeners = new ArrayList<>();
 
     BluetoothObjectGovernor(BluetoothManagerImpl bluetoothManager, URL url) {
         this.bluetoothManager = bluetoothManager;
@@ -78,9 +85,34 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
         }
     }
 
+    @Override
+    public void addGovernorListener(GovernorListener listener) {
+        synchronized (this.governorListeners) {
+            this.governorListeners.add(listener);
+        }
+    }
+
+    @Override
+    public void removeGovernorListener(GovernorListener listener) {
+        synchronized (this.governorListeners) {
+            this.governorListeners.remove(listener);
+        }
+    }
+
+    @Override
+    public Date getLastChanged() {
+        return lastActivity;
+    }
+
+    void updateLastUpdated() {
+        this.lastActivity = new Date();
+        notifyLastActivityChanged(this.lastActivity);
+    }
+
     void reset() {
         logger.info("Resetting governor: " + getURL());
         if (this.bluetoothObject != null) {
+            notifyReady(false);
             disableNotifications(this.bluetoothObject);
         }
         this.bluetoothObject = null;
@@ -102,9 +134,34 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
             this.bluetoothObject = findBluetoothObject();
             if (this.bluetoothObject != null) {
                 init(this.bluetoothObject);
+                notifyReady(true);
             }
         }
         return bluetoothObject;
+    }
+
+    private void notifyReady(boolean ready) {
+        synchronized (this.governorListeners) {
+            for (GovernorListener listener : this.governorListeners) {
+                try {
+                    listener.ready(ready);
+                } catch (Exception ex) {
+                    logger.error("Execution error of a governor listener: ready", ex);
+                }
+            }
+        }
+    }
+
+    private void notifyLastActivityChanged(Date date) {
+        synchronized (this.governorListeners) {
+            for (GovernorListener listener : this.governorListeners) {
+                try {
+                    listener.lastUpdatedChanged(date);
+                } catch (Exception ex) {
+                    logger.error("Execution error of a governor listener: last changed", ex);
+                }
+            }
+        }
     }
 
 }

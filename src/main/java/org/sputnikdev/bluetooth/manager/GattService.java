@@ -25,6 +25,7 @@ import java.util.List;
 
 
 /**
+ * A class to capture discovered GATT services.
  *
  * @author Vlad Kolotov
  */
@@ -33,15 +34,28 @@ public class GattService {
     private final String uuid;
     private final List<GattCharacteristic> characteristics;
 
+    /**
+     * Create a new object.
+     * @param uuid service UUID
+     * @param characteristics a list of service characteristics
+     */
     public GattService(String uuid, List<GattCharacteristic> characteristics) {
         this.uuid = uuid;
         this.characteristics = Collections.unmodifiableList(characteristics);
     }
 
+    /**
+     * Returns service UUID.
+     * @return serice UUID
+     */
     public String getUUID() {
         return uuid;
     }
 
+    /**
+     * Returns characteristics list of the service.
+     * @return characteristics list of the service
+     */
     public List<GattCharacteristic> getCharacteristics() {
         return characteristics;
     }

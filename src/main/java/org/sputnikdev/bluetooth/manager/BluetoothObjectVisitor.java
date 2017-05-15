@@ -22,6 +22,8 @@ package org.sputnikdev.bluetooth.manager;
 
 
 /**
+ * A helper interface to handle different bluetooth objects in a generic manner. It is a part of visitor pattern
+ * (see {@link BluetoothGovernor#accept(BluetoothObjectVisitor)}).
  *
  * @author Vlad Kolotov
  */

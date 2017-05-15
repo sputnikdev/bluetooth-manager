@@ -37,7 +37,7 @@ import tinyb.BluetoothNotification;
  *
  * @author Vlad Kolotov
  */
-public class TinyBDevice implements Device<BluetoothDevice> {
+public class TinyBDevice implements Device {
 
     private final BluetoothDevice device;
 
@@ -63,11 +63,6 @@ public class TinyBDevice implements Device<BluetoothDevice> {
     @Override
     public boolean connect() throws BluetoothException {
         return device.connect();
-    }
-
-    @Override
-    public String getAddress() {
-        return device.getAddress();
     }
 
     @Override
@@ -167,9 +162,9 @@ public class TinyBDevice implements Device<BluetoothDevice> {
     }
 
     @Override
-    public List<Service<?>> getServices() {
+    public List<Service> getServices() {
         List<BluetoothGattService> services = device.getServices();
-        List<Service<?>> result = new ArrayList<>(services.size());
+        List<Service> result = new ArrayList<>(services.size());
         for (BluetoothGattService nativeService : services) {
             result.add(new TinyBService(nativeService));
         }

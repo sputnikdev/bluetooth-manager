@@ -35,7 +35,7 @@ import tinyb.BluetoothGattService;
  *
  * @author Vlad Kolotov
  */
-public class TinyBService implements Service<BluetoothGattService> {
+public class TinyBService implements Service {
 
     private final BluetoothGattService service;
 
@@ -53,9 +53,9 @@ public class TinyBService implements Service<BluetoothGattService> {
         return service.getUUID();
     }
 
-    @Override public List<Characteristic<?>> getCharacteristics() {
+    @Override public List<Characteristic> getCharacteristics() {
         List<BluetoothGattCharacteristic> characteristics = service.getCharacteristics();
-        List<Characteristic<?>> result = new ArrayList<>(characteristics.size());
+        List<Characteristic> result = new ArrayList<>(characteristics.size());
         for (BluetoothGattCharacteristic nativeCharacteristic : characteristics) {
             result.add(new TinyBCharacteristic(nativeCharacteristic));
         }

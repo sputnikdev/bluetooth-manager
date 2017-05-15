@@ -25,24 +25,95 @@ import java.util.List;
 import org.sputnikdev.bluetooth.URL;
 
 /**
+ *  A governor that manages Bluetooth adapter objects ({@link BluetoothGovernor}). Contains some "offline" and
+ *  "online" methods see {@link BluetoothGovernor}.
  *
  * @author Vlad Kolotov
  */
 public interface AdapterGovernor extends BluetoothGovernor {
 
+    /**
+     * Returns name of the adapter.
+     * @return name of the adapter
+     * @throws NotReadyException if the adapter is not ready
+     */
     String getName() throws NotReadyException;
-    String getAlias();
-    String getDisplayName() throws NotReadyException;
-    void setAlias(String alias);
 
+    /**
+     *  Returns alias of the adapter.
+     * @return alias of the adapter
+     * @throws NotReadyException if the adapter is not ready
+     */
+    String getAlias() throws NotReadyException;
+
+    /**
+     * Returns alias of the adapter.
+     * @return alias of the adapter
+     */
+    String getAliasControl();
+
+    /**
+     * Sets alias for the adapter.
+     * @param alias new alias
+     */
+    void setAliasControl(String alias);
+
+    /**
+     * Returns display name of the adapter.
+     * @return display name of the adapter
+     * @throws NotReadyException if the adapter object is not ready
+     */
+    String getDisplayName() throws NotReadyException;
+
+    /**
+     * Returns adapter powered status.
+     * @return powered status
+     * @throws NotReadyException if the adapter object is not ready
+     */
     boolean isPowered() throws NotReadyException;
+
+    /**
+     * Returns adapter powered control status.
+     * @return powered control status
+     */
     boolean getPoweredControl();
+
+    /**
+     * Sets adapter powered control status.
+     * @param powered a new powered control status
+     */
     void setPoweredControl(boolean powered);
 
+    /**
+     * Returns adapter discovering status.
+     * @return adapter discovering status
+     * @throws NotReadyException if the adapter object is not ready
+     */
     boolean isDiscovering() throws NotReadyException;
+
+    /**
+     * Returns adapter discovering control status.
+     * @return adapter discovering control status
+     */
     boolean getDiscoveringControl();
+
+    /**
+     * Sets adapter discovering control status.
+     * @param discovering a new adapter discovering control status
+     */
     void setDiscoveringControl(boolean discovering);
 
+    /**
+     * Returns a list of discovered Bluetooth devices by the adapter.
+     * @return a list of discovered Bluetooth devices by the adapter
+     * @throws NotReadyException if the adapter object is not ready
+     */
     List<URL> getDevices() throws NotReadyException;
+
+    /**
+     * Returns a list of discovered device governors by the adapter.
+     * @return a list of discovered device governors by the adapter
+     * @throws NotReadyException if the adapter object is not ready
+     */
     List<DeviceGovernor> getDeviceGovernors() throws NotReadyException;
 }

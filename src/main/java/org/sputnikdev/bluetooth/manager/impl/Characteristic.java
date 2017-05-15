@@ -24,7 +24,7 @@ package org.sputnikdev.bluetooth.manager.impl;
  *
  * @author Vlad Kolotov
  */
-public interface Characteristic<T> extends BluetoothObject<T> {
+public interface Characteristic extends BluetoothObject {
 
     String getUUID();
 

@@ -34,9 +34,9 @@ class BluetoothManagerUtils {
 
     private BluetoothManagerUtils() { }
 
-    static List<URL> getURLs(List<BluetoothObject<?>> objects) {
+    static List<URL> getURLs(List<? extends BluetoothObject> objects) {
         List<URL> urls = new ArrayList<>(objects.size());
-        for (BluetoothObject<?> object : objects) {
+        for (BluetoothObject object : objects) {
             urls.add(object.getURL());
         }
         return Collections.unmodifiableList(urls);

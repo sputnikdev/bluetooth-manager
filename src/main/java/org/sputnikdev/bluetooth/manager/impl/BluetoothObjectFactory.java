@@ -20,6 +20,8 @@ package org.sputnikdev.bluetooth.manager.impl;
  * #L%
  */
 
+import java.util.List;
+
 import org.sputnikdev.bluetooth.URL;
 
 /**
@@ -39,5 +41,9 @@ public abstract class BluetoothObjectFactory {
     abstract Device getDevice(URL url);
 
     abstract Characteristic getCharacteristic(URL url);
+
+    abstract List<Adapter> getDiscoveredAdapters();
+
+    abstract List<Device> getDiscoveredDevices();
 
 }

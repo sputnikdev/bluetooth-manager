@@ -31,7 +31,7 @@ import tinyb.BluetoothNotification;
  *
  * @author Vlad Kolotov
  */
-public class TinyBCharacteristic implements Characteristic<BluetoothGattCharacteristic> {
+public class TinyBCharacteristic implements Characteristic {
 
     private final BluetoothGattCharacteristic characteristic;
 

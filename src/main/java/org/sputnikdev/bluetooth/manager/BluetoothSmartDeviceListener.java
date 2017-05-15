@@ -24,15 +24,32 @@ import java.util.List;
 
 
 /**
+ * A listener of events for BLE devices.
  *
  * @author Vlad Kolotov
  */
 public interface BluetoothSmartDeviceListener {
 
+    /**
+     * Fires when the device gets connected.
+     */
     void connected();
+
+    /**
+     * Fires when the device gets disconnected.
+     */
     void disconnected();
 
+    /**
+     * Fires when GATT services get resolved.
+     *
+     * @param gattServices a list of resolved GATT services
+     */
     void servicesResolved(List<GattService> gattServices);
+
+    /**
+     * Fires when GATT services get unresolved.
+     */
     void servicesUnresolved();
 
 }

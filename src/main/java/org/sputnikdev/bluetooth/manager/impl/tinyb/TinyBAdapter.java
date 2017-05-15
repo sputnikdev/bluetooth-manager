@@ -37,7 +37,7 @@ import tinyb.BluetoothNotification;
  *
  * @author Vlad Kolotov
  */
-public class TinyBAdapter implements Adapter<BluetoothAdapter> {
+public class TinyBAdapter implements Adapter {
 
     private final BluetoothAdapter adapter;
 
@@ -47,7 +47,7 @@ public class TinyBAdapter implements Adapter<BluetoothAdapter> {
 
     @Override
     public URL getURL() {
-        return new URL(getAddress());
+        return new URL(adapter.getAddress(), null);
     }
 
     @Override
@@ -63,11 +63,6 @@ public class TinyBAdapter implements Adapter<BluetoothAdapter> {
     @Override
     public void setAlias(String s) {
         adapter.setAlias(s);
-    }
-
-    @Override
-    public String getAddress() {
-        return adapter.getAddress();
     }
 
     @Override
@@ -124,9 +119,9 @@ public class TinyBAdapter implements Adapter<BluetoothAdapter> {
     }
 
     @Override
-    public List<Device<?>> getDevices() {
+    public List<Device> getDevices() {
         List<BluetoothDevice> devices = adapter.getDevices();
-        List<Device<?>> result = new ArrayList<>(devices.size());
+        List<Device> result = new ArrayList<>(devices.size());
         for (BluetoothDevice device : devices) {
             if (device.getRSSI() != 0) {
                 result.add(new TinyBDevice(device));

@@ -22,7 +22,7 @@ package org.sputnikdev.bluetooth.manager;
 
 
 /**
- *
+ * Bluetooth object types enum.
  * @author Vlad Kolotov
  */
 public enum BluetoothObjectType {

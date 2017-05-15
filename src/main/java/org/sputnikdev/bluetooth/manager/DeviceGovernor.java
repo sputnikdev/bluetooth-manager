@@ -27,40 +27,158 @@ import org.sputnikdev.bluetooth.URL;
 
 
 /**
- *
+ * Bluetooth device governor.
+ * 
  * @author Vlad Kolotov
  */
 public interface DeviceGovernor extends BluetoothGovernor {
 
+    /**
+     * Returns bluetooth class of the device.
+     * 
+     * @return bluetooth class
+     * @throws NotReadyException if the bluetooth device is not ready
+     */
     int getBluetoothClass() throws NotReadyException;
+
+    /**
+     * Checks whether the device supports BLE protocol.
+     * 
+     * @return true if the deice is a BLE device
+     * @throws NotReadyException if the bluetooth device is not ready 
+     */
     boolean isBleEnabled() throws NotReadyException;
+
+    /**
+     * Returns name of the device.
+     * @return name of the adapter
+     * @throws NotReadyException if the device is not ready
+     */
     String getName() throws NotReadyException;
+
+    /**
+     *  Returns alias of the device.
+     * @return alias of the device
+     * @throws NotReadyException if the device is not ready
+     */
     String getAlias() throws NotReadyException;
-    void setAlias(String alias) throws NotReadyException;
+
+    /**
+     * Returns alias of the device.
+     * @return alias of the device
+     */
+    String getAliasControl();
+
+    /**
+     * Sets alias for the device.
+     * @param alias new alias
+     */
+    void setAliasControl(String alias);
+
+    /**
+     * Returns display name of the device.
+     * @return display name of the device
+     * @throws NotReadyException if the device object is not ready
+     */
     String getDisplayName() throws NotReadyException;
 
+    /**
+     * Checks whether the device is connected.
+     * @return true if the device is connected, false otherwise
+     * @throws NotReadyException if the device object is not ready
+     */
     boolean isConnected() throws NotReadyException;
+
+    /**
+     * Returns device connection control status.
+     * @return device connection control status
+     */
     boolean getConnectionControl();
+
+    /**
+     * Sets device connection control status.
+     * @param connected device connection control status
+     */
     void setConnectionControl(boolean connected);
 
+    /**
+     * Checks whether the device is blocked.
+     * @return true if the device is blocked, false otherwise
+     * @throws NotReadyException if the device object is not ready
+     */
     boolean isBlocked() throws NotReadyException;
+
+    /**
+     * Returns device blocked control status.
+     *
+     * @return device blocked control status
+     */
     boolean getBlockedControl();
+
+    /**
+     * Sets device blocked control status.
+     *
+     * @param blocked a new blocked control status
+     */
     void setBlockedControl(boolean blocked);
 
+    /**
+     * Checks whether the device is online
+     * @return true if online, false otherwise
+     */
     boolean isOnline();
 
+    /**
+     * Returns device RSSI
+     * @return device RSSI
+     * @throws NotReadyException if the device object is not ready
+     */
     short getRSSI() throws NotReadyException;
 
+    /**
+     * Register a new Bluetooth Smart device listener
+     * @param listener a new Bluetooth Smart device listener
+     */
     void addBluetoothSmartDeviceListener(BluetoothSmartDeviceListener listener);
+
+    /**
+     * Unregister a Bluetooth Smart device listener
+     * @param listener a previously registered listener
+     */
     void removeBluetoothSmartDeviceListener(BluetoothSmartDeviceListener listener);
 
+    /**
+     * Registers a new Generic Bluetooth device listener
+     * @param listener a new Generic Bluetooth device listener
+     */
     void addGenericBluetoothDeviceListener(GenericBluetoothDeviceListener listener);
-    void removeGenericBluetoothDeviceListener();
 
+    /**
+     * Unregisters a Generic Bluetooth device listener
+     * @param listener a previously registered listener
+     */
+    void removeGenericBluetoothDeviceListener(GenericBluetoothDeviceListener listener);
+
+    /**
+     * Returns a map of services to their characteristics.
+     *
+     * @return a map of services to their characteristics
+     * @throws NotReadyException if the device object is not ready
+     */
     Map<URL, List<CharacteristicGovernor>> getServicesToCharacteristicsMap() throws NotReadyException;
 
+    /**
+     * Returns a list of characteristic URLs of the device.
+     * @return a list of characteristic URLs of the device
+     * @throws NotReadyException if the device object is not ready
+     */
     List<URL> getCharacteristics() throws NotReadyException;
 
+    /**
+     * Returns a list of characteristic governors associated to the device.
+     * @return a list of characteristic governors associated to the device
+     * @throws NotReadyException if the device object is not ready
+     */
     List<CharacteristicGovernor> getCharacteristicGovernors() throws NotReadyException;
 
 }

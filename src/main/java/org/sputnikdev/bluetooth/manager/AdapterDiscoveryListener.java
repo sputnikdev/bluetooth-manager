@@ -22,12 +22,24 @@ package org.sputnikdev.bluetooth.manager;
 
 /**
  *
+ * A listener to handle discovery results for Bluetooth adapters.
+ *
  * @author Vlad Kolotov
  */
 public interface AdapterDiscoveryListener {
 
+    /**
+     * Method is called when a new Bluetooth adapter gets discovered.
+     *
+     * @param address a new bluetooth adapter MAC address
+     */
     void discovered(String address);
 
+    /**
+     * Method is called when a Bluetooth adapter gets lost for any reason, e.g. disconnected from the system.
+     *
+     * @param address adapter MAC address
+     */
     void lost(String address);
 
 }

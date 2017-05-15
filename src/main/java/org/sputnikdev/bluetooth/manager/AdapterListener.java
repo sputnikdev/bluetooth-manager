@@ -20,18 +20,23 @@ package org.sputnikdev.bluetooth.manager;
  * #L%
  */
 
-import java.util.Date;
-
 /**
+ * A listener to handle bluetooth adapter events.
  *
  * @author Vlad Kolotov
  */
 public interface AdapterListener {
 
+    /**
+     * Fires when powered status is changed.
+     * @param powered a new powered status
+     */
     void powered(boolean powered);
 
+    /**
+     * Fires when discovering status is changed.
+     * @param discovering a new discovering status
+     */
     void discovering(boolean discovering);
-
-    void lastUpdatedChanged(Date lastActivity);
 
 }

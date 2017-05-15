@@ -23,10 +23,16 @@ package org.sputnikdev.bluetooth.manager;
 
 /**
  *
+ * A value change listener. Mainly is used within a characteristic governor.
+ *
  * @author Vlad Kolotov
  */
 public interface ValueListener {
 
+    /**
+     * Reports value changed event.
+     * @param value a new state
+     */
     void changed(byte[] value);
 
 }

@@ -38,7 +38,7 @@ import tinyb.BluetoothException;
  *
  * @author Vlad Kolotov
  */
-class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic<?>> implements CharacteristicGovernor {
+class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic> implements CharacteristicGovernor {
 
     private Logger logger = LoggerFactory.getLogger(CharacteristicGovernorImpl.class);
 
@@ -111,7 +111,9 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic<
         if (characteristic == null) {
             throw new IllegalStateException("Characteristic governor is not initialized");
         }
-        return characteristic.readValue();
+        byte[] result = characteristic.readValue();
+        updateLastUpdated();
+        return result;
     }
 
     @Override
@@ -120,7 +122,9 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic<
         if (characteristic == null) {
             throw new IllegalStateException("Characteristic governor is not initialized");
         }
-        return characteristic.writeValue(data);
+        boolean result = characteristic.writeValue(data);
+        updateLastUpdated();
+        return result;
     }
 
     @Override

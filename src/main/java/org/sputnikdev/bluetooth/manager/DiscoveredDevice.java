@@ -24,6 +24,15 @@ import org.sputnikdev.bluetooth.URL;
 
 
 /**
+ * Objects of this class capture discovery results for Bluetooth adapters and devices.
+ * To check the type of the bluetooth object use its URL:
+ * <pre>
+ *     <code>
+ * DiscoveredDevice device = ...;
+ * device.getURL().isAdapter();
+ * device.getURL().isDevice();
+ *     </code>
+ * </pre>
  *
  * @author Vlad Kolotov
  */
@@ -35,12 +44,26 @@ public class DiscoveredDevice {
     private short rssi;
     private int bluetoothClass;
 
+    /**
+     * Creates a new object.
+     * @param url bluetooth object URL
+     * @param name bluetooth object name
+     * @param alias bluetooth object alis
+     */
     public DiscoveredDevice(URL url, String name, String alias) {
         this.url = url;
         this.name = name;
         this.alias = alias;
     }
 
+    /**
+     * Creates a new object.
+     * @param url bluetooth object URL
+     * @param name bluetooth object name
+     * @param alias bluetooth object alis
+     * @param rssi bluetooth object RSSI
+     * @param bluetoothClass bluetooth object class
+     */
     public DiscoveredDevice(URL url, String name, String alias, short rssi, int bluetoothClass) {
         this.url = url;
         this.name = name;
@@ -49,22 +72,42 @@ public class DiscoveredDevice {
         this.bluetoothClass = bluetoothClass;
     }
 
+    /**
+     * Returns bluetooth object URL
+     * @return bluetooth object URL
+     */
     public URL getURL() {
         return url;
     }
 
+    /**
+     * Returns bluetooth object name
+     * @return bluetooth object name
+     */
     public String getName() {
         return name;
     }
 
+    /**
+     * Returns bluetooth object alias
+     * @return bluetooth object alias
+     */
     public String getAlias() {
         return alias;
     }
 
+    /**
+     * Returns bluetooth object RSSI
+     * @return bluetooth object RSSI
+     */
     public short getRSSI() {
         return rssi;
     }
 
+    /**
+     * Returns bluetooth object class
+     * @return bluetooth object class
+     */
     public int getBluetoothClass() {
         return bluetoothClass;
     }

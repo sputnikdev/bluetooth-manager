@@ -20,7 +20,6 @@ package org.sputnikdev.bluetooth.manager.impl;
  * #L%
  */
 
-import java.util.Date;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -38,7 +37,7 @@ import org.sputnikdev.bluetooth.manager.NotReadyException;
  *
  * @author Vlad Kolotov
  */
-class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter<?>> implements AdapterGovernor {
+class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements AdapterGovernor {
 
     private Logger logger = LoggerFactory.getLogger(AdapterGovernorImpl.class);
 
@@ -47,7 +46,6 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter<?>> implements
     private PoweredNotification poweredNotification;
     private DiscoveringNotification discoveringNotification;
 
-    private Date lastActivity = new Date();
     private String alias;
     private boolean poweredControl = true;
     private boolean discoveringControl = true;
@@ -121,13 +119,18 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter<?>> implements
     }
 
     @Override
-    public void setAlias(String alias) {
+    public void setAliasControl(String alias) {
         this.alias = alias;
     }
 
     @Override
-    public String getAlias() {
+    public String getAliasControl() {
         return this.alias;
+    }
+
+    @Override
+    public String getAlias() throws NotReadyException {
+        return getBluetoothObject().getAlias();
     }
 
     @Override
@@ -142,7 +145,7 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter<?>> implements
 
     @Override
     public List<URL> getDevices() throws NotReadyException {
-        return BluetoothManagerUtils.getURLs((List<BluetoothObject<?>>) (List<?>) getBluetoothObject().getDevices());
+        return BluetoothManagerUtils.getURLs(getBluetoothObject().getDevices());
     }
 
     @Override
@@ -217,11 +220,6 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter<?>> implements
         }
     }
 
-    private void updateLastUpdated() {
-        this.lastActivity = new Date();
-        notifyLastActivityChanged(this.lastActivity);
-    }
-
     private void enablePoweredNotifications(Adapter adapter) {
         if (this.poweredNotification == null && adapterListener != null) {
             this.poweredNotification = new PoweredNotification();
@@ -257,17 +255,6 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter<?>> implements
             }
         } catch (Exception ex) {
             logger.error("Execution error of a powered listener", ex);
-        }
-    }
-
-    private void notifyLastActivityChanged(Date date) {
-        try {
-            AdapterListener listener = this.adapterListener;
-            if (listener != null) {
-                listener.lastUpdatedChanged(date);
-            }
-        } catch (Exception ex) {
-            logger.error("Execution error of a last activity listener: " + getURL(), ex);
         }
     }
 
