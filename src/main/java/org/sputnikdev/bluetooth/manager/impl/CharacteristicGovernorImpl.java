@@ -69,9 +69,6 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic>
     }
 
     @Override
-    void dispose() { }
-
-    @Override
     void updateState(Characteristic characteristic) { }
 
     @Override

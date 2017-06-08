@@ -26,8 +26,6 @@ package org.sputnikdev.bluetooth.manager.impl;
  */
 public interface Characteristic extends BluetoothObject {
 
-    String getUUID();
-
     String[] getFlags();
 
     boolean isNotifying();

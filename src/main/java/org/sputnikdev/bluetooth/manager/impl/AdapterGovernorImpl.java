@@ -20,6 +20,7 @@ package org.sputnikdev.bluetooth.manager.impl;
  * #L%
  */
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -41,7 +42,7 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
 
     private Logger logger = LoggerFactory.getLogger(AdapterGovernorImpl.class);
 
-    private AdapterListener adapterListener;
+    private final List<AdapterListener> adapterListeners = new ArrayList<>();
 
     private PoweredNotification poweredNotification;
     private DiscoveringNotification discoveringNotification;
@@ -77,12 +78,15 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
         adapter.disablePoweredNotifications();
         adapter.disableDiscoveringNotifications();
         poweredNotification = null;
+        discoveringNotification = null;
     }
 
     void dispose() {
         logger.info("Disposing adapter governor: " + getURL());
-        reset();
-        this.adapterListener = null;
+        synchronized (this.adapterListeners) {
+            this.adapterListeners.clear();
+        }
+        super.dispose();
         logger.info("Adapter governor has been disposed: " + getURL());
     }
 
@@ -192,8 +196,18 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
         visitor.visit(this);
     }
 
-    void setAdapterListener(AdapterListener adapterListener) {
-        this.adapterListener = adapterListener;
+    @Override
+    public void addAdapterListener(AdapterListener adapterListener) {
+        synchronized (this.adapterListeners) {
+            this.adapterListeners.add(adapterListener);
+        }
+    }
+
+    @Override
+    public void removeAdapterListener(AdapterListener adapterListener) {
+        synchronized (this.adapterListeners) {
+            this.adapterListeners.remove(adapterListener);
+        }
     }
 
     private void updateAlias(Adapter adapter) {
@@ -221,7 +235,7 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
     }
 
     private void enablePoweredNotifications(Adapter adapter) {
-        if (this.poweredNotification == null && adapterListener != null) {
+        if (this.poweredNotification == null) {
             this.poweredNotification = new PoweredNotification();
             adapter.enablePoweredNotifications(this.poweredNotification);
             notifyPowered(adapter.isPowered());
@@ -229,7 +243,7 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
     }
 
     private void enableDiscoveringNotifications(Adapter adapter) {
-        if (this.discoveringNotification == null && adapterListener != null) {
+        if (this.discoveringNotification == null) {
             this.discoveringNotification = new DiscoveringNotification();
             adapter.enableDiscoveringNotifications(this.discoveringNotification);
             notifyDiscovering(adapter.isDiscovering());
@@ -237,24 +251,26 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
     }
 
     private void notifyPowered(boolean powered) {
-        try {
-            AdapterListener listener = this.adapterListener;
-            if (listener != null) {
-                listener.powered(powered);
+        synchronized (this.adapterListeners) {
+            for (AdapterListener listener : this.adapterListeners) {
+                try {
+                    listener.powered(powered);
+                } catch (Exception ex) {
+                    logger.error("Execution error of a powered listener: " + powered, ex);
+                }
             }
-        } catch (Exception ex) {
-            logger.error("Execution error of a powered listener", ex);
         }
     }
 
     private void notifyDiscovering(boolean discovering) {
-        try {
-            AdapterListener listener = this.adapterListener;
-            if (listener != null) {
-                listener.discovering(discovering);
+        synchronized (this.adapterListeners) {
+            for (AdapterListener listener : this.adapterListeners) {
+                try {
+                    listener.powered(discovering);
+                } catch (Exception ex) {
+                    logger.error("Execution error of a discovering listener: " + discovering, ex);
+                }
             }
-        } catch (Exception ex) {
-            logger.error("Execution error of a powered listener", ex);
         }
     }
 

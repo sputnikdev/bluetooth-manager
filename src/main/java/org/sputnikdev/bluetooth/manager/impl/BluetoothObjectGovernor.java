@@ -63,7 +63,7 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
             return;
         }
         try {
-            logger.info("Updating governor state: {}", getURL());
+            logger.info("Updating governor state: {}", url);
             updateState(bluetoothObject);
         } catch (Exception ex) {
             logger.info("Could not update governor state.", ex);
@@ -78,11 +78,7 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
 
     @Override
     public boolean isReady() {
-        try {
-            return getBluetoothObject() != null;
-        } catch (NotReadyException e) {
-            return false;
-        }
+        return bluetoothObject != null;
     }
 
     @Override
@@ -106,17 +102,17 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
 
     void updateLastUpdated() {
         this.lastActivity = new Date();
-        notifyLastActivityChanged(this.lastActivity);
+        notifyLastUpdatedChanged(this.lastActivity);
     }
 
     void reset() {
-        logger.info("Resetting governor: " + getURL());
+        logger.info("Resetting governor: " + url);
         if (this.bluetoothObject != null) {
-            notifyReady(false);
             disableNotifications(this.bluetoothObject);
+            notifyReady(false);
         }
         this.bluetoothObject = null;
-        logger.info("Governor has been reset: " + getURL());
+        logger.info("Governor has been reset: " + url);
     }
 
     abstract T findBluetoothObject();
@@ -127,20 +123,18 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
 
     abstract void init(T object);
 
-    abstract void dispose();
-
-    synchronized private T getOrFindBluetoothObject() {
-        if (bluetoothObject == null) {
-            this.bluetoothObject = findBluetoothObject();
-            if (this.bluetoothObject != null) {
-                init(this.bluetoothObject);
-                notifyReady(true);
-            }
+    void dispose() {
+        logger.info("Disposing governor: " + url);
+        if (this.bluetoothObject != null) {
+            disableNotifications(this.bluetoothObject);
         }
-        return bluetoothObject;
+        synchronized (this.governorListeners) {
+            this.governorListeners.clear();
+        }
+        logger.info("Governor has been disposed: " + url);
     }
 
-    private void notifyReady(boolean ready) {
+    void notifyReady(boolean ready) {
         synchronized (this.governorListeners) {
             for (GovernorListener listener : this.governorListeners) {
                 try {
@@ -152,7 +146,7 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
         }
     }
 
-    private void notifyLastActivityChanged(Date date) {
+    void notifyLastUpdatedChanged(Date date) {
         synchronized (this.governorListeners) {
             for (GovernorListener listener : this.governorListeners) {
                 try {
@@ -162,6 +156,17 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
                 }
             }
         }
+    }
+
+    synchronized private T getOrFindBluetoothObject() {
+        if (bluetoothObject == null) {
+            this.bluetoothObject = findBluetoothObject();
+            if (this.bluetoothObject != null) {
+                init(this.bluetoothObject);
+                notifyReady(true);
+            }
+        }
+        return bluetoothObject;
     }
 
 }

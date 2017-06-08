@@ -140,13 +140,13 @@ class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements Devi
         } catch (Exception ex) {
             logger.warn("Could not disconnect device: " + getURL(), ex);
         }
-        reset();
         synchronized (this.bluetoothSmartDeviceListeners) {
             this.bluetoothSmartDeviceListeners.clear();
         }
         synchronized (this.genericBluetoothDeviceListener) {
             this.genericBluetoothDeviceListener.clear();
         }
+        super.dispose();
         logger.info("Device governor has been disposed: " + getURL());
     }
 
@@ -360,7 +360,7 @@ class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements Devi
             for (Characteristic characteristic : service.getCharacteristics()) {
                 characteristics.add(convert(characteristic));
             }
-            services.add(new GattService(service.getUUID(), characteristics));
+            services.add(new GattService(service.getURL().getServiceUUID(), characteristics));
         }
         return services;
     }
@@ -374,7 +374,7 @@ class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements Devi
     }
 
     private GattCharacteristic convert(Characteristic characteristic) {
-        return new GattCharacteristic(characteristic.getUUID(), characteristic.getFlags());
+        return new GattCharacteristic(characteristic.getURL().getCharacteristicUUID(), characteristic.getFlags());
     }
 
     private void notifyConnected(boolean connected) {

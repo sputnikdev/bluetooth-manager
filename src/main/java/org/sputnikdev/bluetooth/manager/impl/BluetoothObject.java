@@ -26,7 +26,7 @@ import org.sputnikdev.bluetooth.URL;
  *
  * @author Vlad Kolotov
  */
-interface BluetoothObject {
+public interface BluetoothObject {
 
     URL getURL();
 

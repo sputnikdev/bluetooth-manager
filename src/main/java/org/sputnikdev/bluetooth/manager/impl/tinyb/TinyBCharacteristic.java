@@ -23,8 +23,10 @@ package org.sputnikdev.bluetooth.manager.impl.tinyb;
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.impl.Characteristic;
 import org.sputnikdev.bluetooth.manager.impl.Notification;
+import tinyb.BluetoothDevice;
 import tinyb.BluetoothException;
 import tinyb.BluetoothGattCharacteristic;
+import tinyb.BluetoothGattService;
 import tinyb.BluetoothNotification;
 
 /**
@@ -41,14 +43,10 @@ public class TinyBCharacteristic implements Characteristic {
 
     @Override
     public URL getURL() {
-        return new URL(characteristic.getService().getDevice().getAdapter().getAddress(),
-                characteristic.getService().getDevice().getAddress(), characteristic.getService().getUUID(),
+        BluetoothGattService service = characteristic.getService();
+        BluetoothDevice device = service.getDevice();
+        return new URL(device.getAdapter().getAddress(), device.getAddress(), service.getUUID(),
                 characteristic.getUUID());
-    }
-
-    @Override
-    public String getUUID() {
-        return characteristic.getUUID();
     }
 
     @Override

@@ -79,19 +79,38 @@ public interface BluetoothManager {
      *
      * @param deviceDiscoveryListener a new device discovery listener
      */
-    void addDiscoveryListener(DeviceDiscoveryListener deviceDiscoveryListener);
+    void addDeviceDiscoveryListener(DeviceDiscoveryListener deviceDiscoveryListener);
 
     /**
      * Unregisters a device discovery listener.
      * @param deviceDiscoveryListener a device discovery listener
      */
-    void removeDiscoveryListener(DeviceDiscoveryListener deviceDiscoveryListener);
+    void removeDeviceDiscoveryListener(DeviceDiscoveryListener deviceDiscoveryListener);
 
     /**
-     * Return a list of discovered bluetooth adapters and devices.
-     * @return a list of discovered bluetooth adapters and devices
+     * Register a new adapter discovery listener.
+     *
+     * @param adapterDiscoveryListener a new device discovery listener
+     */
+    void addApterDiscoveryListener(AdapterDiscoveryListener adapterDiscoveryListener);
+
+    /**
+     * Unregisters a adapter discovery listener.
+     * @param adapterDiscoveryListener a device discovery listener
+     */
+    void removeAdapterDiscoveryListener(AdapterDiscoveryListener adapterDiscoveryListener);
+
+    /**
+     * Return a list of discovered bluetooth devices.
+     * @return a list of discovered bluetooth devices
      */
     Set<DiscoveredDevice> getDiscoveredDevices();
+
+    /**
+     * Return a list of discovered bluetooth adapters.
+     * @return a list of discovered bluetooth adapters
+     */
+    Set<DiscoveredAdapter> getDiscoveredAdapters();
 
     /**
      * Creates a new bluetooth governor or returns an existing one by its URL.
@@ -132,5 +151,21 @@ public interface BluetoothManager {
      * Disposes/ shut down the bluetooth manager and its governors.
      */
     void dispose();
+
+    /**
+     * Sets how frequent the discovery process should update its state.
+     * Note: discovery rate must be set before calling {@link BluetoothManager#start} method
+     * @param seconds discovery rate in seconds
+     */
+    void setDiscoveryRate(int seconds);
+
+    /**
+     * Sets whether the discovery process should repeatedly notify clients
+     * ({@link AdapterDiscoveryListener#discovered(DiscoveredAdapter)} and
+     * {@link DeviceDiscoveryListener#discovered(DiscoveredDevice)}) about discovered devices every update step.
+     * See {@link #setDiscoveryRate(int)} to set discovery rate
+     * @param rediscover controls whether clients
+     */
+    void setRediscover(boolean rediscover);
 
 }

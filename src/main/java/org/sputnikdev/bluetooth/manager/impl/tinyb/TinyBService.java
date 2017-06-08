@@ -27,6 +27,7 @@ import java.util.List;
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.impl.Characteristic;
 import org.sputnikdev.bluetooth.manager.impl.Service;
+import tinyb.BluetoothDevice;
 import tinyb.BluetoothGattCharacteristic;
 import tinyb.BluetoothGattService;
 
@@ -45,15 +46,12 @@ public class TinyBService implements Service {
 
     @Override
     public URL getURL() {
-        return new URL(service.getDevice().getAdapter().getAddress(),
-                service.getDevice().getAddress(), service.getUUID());
+        BluetoothDevice device = service.getDevice();
+        return new URL(device.getAdapter().getAddress(), device.getAddress(), service.getUUID());
     }
 
-    @Override public String getUUID() {
-        return service.getUUID();
-    }
-
-    @Override public List<Characteristic> getCharacteristics() {
+    @Override
+    public List<Characteristic> getCharacteristics() {
         List<BluetoothGattCharacteristic> characteristics = service.getCharacteristics();
         List<Characteristic> result = new ArrayList<>(characteristics.size());
         for (BluetoothGattCharacteristic nativeCharacteristic : characteristics) {

@@ -22,19 +22,16 @@ package org.sputnikdev.bluetooth.manager;
 
 import org.sputnikdev.bluetooth.URL;
 
-
 /**
- * Objects of this class capture discovery results for Bluetooth devices.
+ * Objects of this class capture discovery results for Bluetooth adapters.
  *
  * @author Vlad Kolotov
  */
-public class DiscoveredDevice implements DiscoveredObject {
-    
+public class DiscoveredAdapter implements DiscoveredObject {
+
     private final URL url;
     private final String name;
     private final String alias;
-    private short rssi;
-    private int bluetoothClass;
 
     /**
      * Creates a new object.
@@ -42,26 +39,10 @@ public class DiscoveredDevice implements DiscoveredObject {
      * @param name bluetooth object name
      * @param alias bluetooth object alias
      */
-    public DiscoveredDevice(URL url, String name, String alias) {
+    public DiscoveredAdapter(URL url, String name, String alias) {
         this.url = url;
         this.name = name;
         this.alias = alias;
-    }
-
-    /**
-     * Creates a new object.
-     * @param url bluetooth object URL
-     * @param name bluetooth object name
-     * @param alias bluetooth object alis
-     * @param rssi bluetooth object RSSI
-     * @param bluetoothClass bluetooth object class
-     */
-    public DiscoveredDevice(URL url, String name, String alias, short rssi, int bluetoothClass) {
-        this.url = url;
-        this.name = name;
-        this.alias = alias;
-        this.rssi = rssi;
-        this.bluetoothClass = bluetoothClass;
     }
 
     /**
@@ -91,22 +72,6 @@ public class DiscoveredDevice implements DiscoveredObject {
         return alias;
     }
 
-    /**
-     * Returns bluetooth object RSSI
-     * @return bluetooth object RSSI
-     */
-    public short getRSSI() {
-        return rssi;
-    }
-
-    /**
-     * Returns bluetooth object class
-     * @return bluetooth object class
-     */
-    public int getBluetoothClass() {
-        return bluetoothClass;
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -116,7 +81,7 @@ public class DiscoveredDevice implements DiscoveredObject {
             return false;
         }
 
-        DiscoveredDevice that = (DiscoveredDevice) o;
+        DiscoveredAdapter that = (DiscoveredAdapter) o;
         return url.equals(that.url);
 
     }
@@ -131,6 +96,6 @@ public class DiscoveredDevice implements DiscoveredObject {
     @Override
     public String toString() {
         String displayName = alias != null ? alias : name;
-        return "[Device] " + getURL() + " [" + displayName + "]";
+        return "[Adapter] " + getURL() + " [" + displayName + "]";
     }
 }

@@ -116,4 +116,9 @@ public interface AdapterGovernor extends BluetoothGovernor {
      * @throws NotReadyException if the adapter object is not ready
      */
     List<DeviceGovernor> getDeviceGovernors() throws NotReadyException;
+
+    void addAdapterListener(AdapterListener adapterListener);
+
+    void removeAdapterListener(AdapterListener adapterListener);
+
 }
