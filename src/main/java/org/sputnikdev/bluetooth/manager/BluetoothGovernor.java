@@ -57,6 +57,9 @@ import org.sputnikdev.bluetooth.URL;
  * <li>an offline method to get "control state" of the attribute</li>
  * </ul>
  *
+ * See also {@link org.sputnikdev.bluetooth.manager.impl.BluetoothObjectGovernor} for more info about
+ * internal implementation
+ *
  * @author Vlad Kolotov
  */
 public interface BluetoothGovernor {
@@ -84,7 +87,7 @@ public interface BluetoothGovernor {
      * Returns the last known date of the bluetooth object activity
      * @return the last known date of the bluetooth object activity
      */
-    Date getLastChanged();
+    Date getLastActivity();
 
     /**
      * An accept method of the visitor pattern to process different bluetooth governors at once.

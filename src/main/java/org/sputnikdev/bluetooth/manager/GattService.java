@@ -23,6 +23,7 @@ package org.sputnikdev.bluetooth.manager;
 import java.util.Collections;
 import java.util.List;
 
+import org.sputnikdev.bluetooth.URL;
 
 /**
  * A class to capture discovered GATT services.
@@ -31,24 +32,24 @@ import java.util.List;
  */
 public class GattService {
 
-    private final String uuid;
+    private final URL uuid;
     private final List<GattCharacteristic> characteristics;
 
     /**
      * Create a new object.
-     * @param uuid service UUID
+     * @param uuid service URL
      * @param characteristics a list of service characteristics
      */
-    public GattService(String uuid, List<GattCharacteristic> characteristics) {
+    public GattService(URL uuid, List<GattCharacteristic> characteristics) {
         this.uuid = uuid;
         this.characteristics = Collections.unmodifiableList(characteristics);
     }
 
     /**
-     * Returns service UUID.
-     * @return serice UUID
+     * Returns service URL.
+     * @return serice URL
      */
-    public String getUUID() {
+    public URL getURL() {
         return uuid;
     }
 

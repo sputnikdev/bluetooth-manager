@@ -24,7 +24,6 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -49,10 +48,10 @@ public class BluetoothObjectGovernorTest {
             return bluetoothObject;
         }
 
-        @Override void disableNotifications(BluetoothObject object) {
+        @Override void reset(BluetoothObject object) {
         }
 
-        @Override void updateState(BluetoothObject object) {
+        @Override void update(BluetoothObject object) {
         }
 
         @Override void init(BluetoothObject object) {
@@ -94,7 +93,7 @@ public class BluetoothObjectGovernorTest {
         // check interactions
         InOrder inOrder = inOrder(governor, governorListener);
 
-        inOrder.verify(governor, times(1)).update();
+        //inOrder.verify(governor, times(1)).update();
         inOrder.verify(governor, times(1)).findBluetoothObject();
         inOrder.verifyNoMoreInteractions();
     }
@@ -111,18 +110,11 @@ public class BluetoothObjectGovernorTest {
 
         // check interactions
         InOrder inOrder = inOrder(governor, governorListener);
-        // side effect of using spy
-        inOrder.verify(governor, times(1)).addGovernorListener(governorListener);
-        inOrder.verify(governor, times(1)).update();
-
-        // actual verification
         inOrder.verify(governor, times(1)).findBluetoothObject();
         inOrder.verify(governor, times(1)).init(bluetoothObject);
         inOrder.verify(governorListener, times(1)).ready(true);
-        inOrder.verify(governor, times(1)).updateState(bluetoothObject);
-
-
-
+        inOrder.verify(governor, times(1)).update(bluetoothObject);
+        inOrder.verify(governorListener, times(1)).lastUpdatedChanged(any());
         inOrder.verifyNoMoreInteractions();
     }
 
@@ -130,7 +122,7 @@ public class BluetoothObjectGovernorTest {
     public void testUpdateReadyToNotReady() throws Exception {
         // conditions
         when(governor.findBluetoothObject()).thenReturn(bluetoothObject);
-        doThrow(Exception.class).when(governor).updateState(bluetoothObject);
+        doThrow(Exception.class).when(governor).update(bluetoothObject);
         governor.addGovernorListener(governorListener);
 
         // invocation
@@ -138,14 +130,8 @@ public class BluetoothObjectGovernorTest {
 
         // check interactions
         InOrder inOrder = inOrder(governor, governorListener);
-        // side effect of using spy
-        inOrder.verify(governor, times(1)).addGovernorListener(governorListener);
-        inOrder.verify(governor, times(1)).update();
-
-        // actual verification
-        inOrder.verify(governor, times(1)).updateState(bluetoothObject);
-        inOrder.verify(governor, times(1)).reset();
-        inOrder.verify(governor, times(1)).disableNotifications(bluetoothObject);
+        inOrder.verify(governor, times(1)).update(bluetoothObject);
+        inOrder.verify(governor, times(1)).reset(bluetoothObject);
         inOrder.verify(governorListener, times(1)).ready(false);
 
         inOrder.verifyNoMoreInteractions();
@@ -177,18 +163,18 @@ public class BluetoothObjectGovernorTest {
     public void testLastChanged() throws Exception {
         governor.addGovernorListener(governorListener);
 
-        Date lastChanged = governor.getLastChanged();
+        Date lastChanged = governor.getLastActivity();
 
         governor.updateLastUpdated();
 
         InOrder inOrder = inOrder(governor, governorListener);
-        assertTrue(lastChanged.before(governor.getLastChanged()));
+        assertTrue(lastChanged.before(governor.getLastActivity()));
         inOrder.verify(governor, times(1)).addGovernorListener(governorListener);
-        inOrder.verify(governor, times(1)).getLastChanged();
+        inOrder.verify(governor, times(1)).getLastActivity();
         inOrder.verify(governor, times(1)).updateLastUpdated();
         inOrder.verify(governor, times(1)).notifyLastUpdatedChanged(any());
         inOrder.verify(governorListener, times(1)).lastUpdatedChanged(any());
-        inOrder.verify(governor, times(1)).getLastChanged();
+        inOrder.verify(governor, times(1)).getLastActivity();
         verifyNoMoreInteractions(governor);
     }
 
@@ -203,7 +189,6 @@ public class BluetoothObjectGovernorTest {
         InOrder inOrder = inOrder(governor, governorListener);
         // side effect of using spy
         inOrder.verify(governor, times(1)).addGovernorListener(governorListener);
-        inOrder.verify(governor, times(1)).reset();
 
         // actual verification
         inOrder.verifyNoMoreInteractions();
@@ -217,36 +202,8 @@ public class BluetoothObjectGovernorTest {
 
         // check interactions
         InOrder inOrder = inOrder(governor, governorListener);
-        // side effect of using spy
-        inOrder.verify(governor, times(1)).addGovernorListener(governorListener);
-        inOrder.verify(governor, times(1)).reset();
-
-        // actual verification
-        inOrder.verify(governor, times(1)).disableNotifications(bluetoothObject);
+        inOrder.verify(governor, times(1)).reset(bluetoothObject);
         inOrder.verify(governorListener, times(1)).ready(false);
-
-        inOrder.verifyNoMoreInteractions();
-    }
-
-    @Test
-    public void testDispose() throws Exception {
-        governor.addGovernorListener(governorListener);
-        governor.dispose();
-        // this must trigger governor listener
-        governor.updateLastUpdated();
-
-        // check interactions
-        InOrder inOrder = inOrder(governor, governorListener);
-        // side effect of using spy
-        inOrder.verify(governor, times(1)).addGovernorListener(governorListener);
-        inOrder.verify(governor, times(1)).dispose();
-
-        // actual verification
-        inOrder.verify(governor, times(1)).disableNotifications(bluetoothObject);
-        inOrder.verify(governor, times(1)).updateLastUpdated();
-        // check that governor listener is not triggered
-        inOrder.verify(governor, times(1)).notifyLastUpdatedChanged(any());
-        inOrder.verify(governorListener, never()).lastUpdatedChanged(any());
 
         inOrder.verifyNoMoreInteractions();
     }

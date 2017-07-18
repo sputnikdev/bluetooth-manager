@@ -20,6 +20,7 @@ package org.sputnikdev.bluetooth.manager;
  * #L%
  */
 
+import org.sputnikdev.bluetooth.URL;
 
 /**
  * A class to capture discovered GATT characteristics.
@@ -28,25 +29,25 @@ package org.sputnikdev.bluetooth.manager;
  */
 public class GattCharacteristic {
 
-    private final String uuid;
+    private final URL url;
     private final String[] flags;
 
     /**
      * Creates a new object.
-     * @param uuid characteristic UUID
+     * @param url characteristic URL
      * @param flags characteristic access flags
      */
-    public GattCharacteristic(String uuid, String[] flags) {
-        this.uuid = uuid;
+    public GattCharacteristic(URL url, String[] flags) {
+        this.url = url;
         this.flags = flags;
     }
 
     /**
-     * Returns characteristic UUID.
-     * @return characteristic UUID
+     * Returns characteristic URL.
+     * @return characteristic URL
      */
-    public String getUUID() {
-        return uuid;
+    public URL getURL() {
+        return url;
     }
 
     /**

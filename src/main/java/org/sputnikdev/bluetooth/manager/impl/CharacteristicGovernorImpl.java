@@ -55,21 +55,21 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic>
     }
 
     @Override
-    void disableNotifications(Characteristic characteristic) {
+    void init(Characteristic characteristic) {
+        enableNotification(characteristic);
+    }
+
+    @Override
+    void update(Characteristic characteristic) { }
+
+    @Override
+    void reset(Characteristic characteristic) {
         logger.info("Disable characteristic notifications: " + getURL());
         if (characteristic.isNotifying()) {
             characteristic.disableValueNotifications();
             valueNotification = null;
         }
     }
-
-    @Override
-    void init(Characteristic characteristic) {
-        enableNotification(characteristic);
-    }
-
-    @Override
-    void updateState(Characteristic characteristic) { }
 
     @Override
     public void addValueListener(ValueListener valueListener) {

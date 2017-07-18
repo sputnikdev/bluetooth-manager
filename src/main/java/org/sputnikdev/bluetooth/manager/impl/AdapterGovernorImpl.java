@@ -47,7 +47,6 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
     private PoweredNotification poweredNotification;
     private DiscoveringNotification discoveringNotification;
 
-    private String alias;
     private boolean poweredControl = true;
     private boolean discoveringControl = true;
 
@@ -56,15 +55,12 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
     }
 
     void init(Adapter adapter) {
-        notifyPowered(adapter.isPowered());
         enablePoweredNotifications(adapter);
         enableDiscoveringNotifications(adapter);
-        updateLastUpdated();
     }
 
-    void updateState(Adapter adapter) {
+    void update(Adapter adapter) {
         updatePowered(adapter);
-        updateAlias(adapter);
         updateDiscovering(adapter);
     }
 
@@ -74,20 +70,11 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
     }
 
     @Override
-    void disableNotifications(Adapter adapter) {
+    void reset(Adapter adapter) {
         adapter.disablePoweredNotifications();
         adapter.disableDiscoveringNotifications();
         poweredNotification = null;
         discoveringNotification = null;
-    }
-
-    void dispose() {
-        logger.info("Disposing adapter governor: " + getURL());
-        synchronized (this.adapterListeners) {
-            this.adapterListeners.clear();
-        }
-        super.dispose();
-        logger.info("Adapter governor has been disposed: " + getURL());
     }
 
     @Override
@@ -123,13 +110,8 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
     }
 
     @Override
-    public void setAliasControl(String alias) {
-        this.alias = alias;
-    }
-
-    @Override
-    public String getAliasControl() {
-        return this.alias;
+    public void setAlias(String alias) throws NotReadyException {
+        getBluetoothObject().setAlias(alias);
     }
 
     @Override
@@ -144,7 +126,8 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
 
     @Override
     public String getDisplayName() throws NotReadyException {
-        return this.alias != null ? this.alias : getName();
+        String alias = getAlias();
+        return alias != null ? alias : getName();
     }
 
     @Override
@@ -210,47 +193,7 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
         }
     }
 
-    private void updateAlias(Adapter adapter) {
-        if (this.alias == null) {
-            this.alias = adapter.getAlias();
-        } else if (!this.alias.equals(adapter.getAlias())) {
-            adapter.setAlias(this.alias);
-        }
-    }
-
-    private void updatePowered(Adapter adapter) {
-        if (this.poweredControl != adapter.isPowered()) {
-            adapter.setPowered(this.poweredControl);
-        }
-    }
-
-    private void updateDiscovering(Adapter adapter) {
-        if (adapter.isPowered()) {
-            if (discoveringControl && !adapter.isDiscovering()) {
-                adapter.startDiscovery();
-            } else if (!discoveringControl && adapter.isDiscovering()) {
-                adapter.stopDiscovery();
-            }
-        }
-    }
-
-    private void enablePoweredNotifications(Adapter adapter) {
-        if (this.poweredNotification == null) {
-            this.poweredNotification = new PoweredNotification();
-            adapter.enablePoweredNotifications(this.poweredNotification);
-            notifyPowered(adapter.isPowered());
-        }
-    }
-
-    private void enableDiscoveringNotifications(Adapter adapter) {
-        if (this.discoveringNotification == null) {
-            this.discoveringNotification = new DiscoveringNotification();
-            adapter.enableDiscoveringNotifications(this.discoveringNotification);
-            notifyDiscovering(adapter.isDiscovering());
-        }
-    }
-
-    private void notifyPowered(boolean powered) {
+    void notifyPowered(boolean powered) {
         synchronized (this.adapterListeners) {
             for (AdapterListener listener : this.adapterListeners) {
                 try {
@@ -262,15 +205,44 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
         }
     }
 
-    private void notifyDiscovering(boolean discovering) {
+    void notifyDiscovering(boolean discovering) {
         synchronized (this.adapterListeners) {
             for (AdapterListener listener : this.adapterListeners) {
                 try {
-                    listener.powered(discovering);
+                    listener.discovering(discovering);
                 } catch (Exception ex) {
                     logger.error("Execution error of a discovering listener: " + discovering, ex);
                 }
             }
+        }
+    }
+
+    private void updatePowered(Adapter adapter) {
+        if (this.poweredControl != adapter.isPowered()) {
+            adapter.setPowered(this.poweredControl);
+        }
+    }
+
+    private void updateDiscovering(Adapter adapter) {
+        boolean isDiscovering = adapter.isDiscovering();
+        if (discoveringControl && !isDiscovering) {
+            adapter.startDiscovery();
+        } else if (!discoveringControl && isDiscovering) {
+            adapter.stopDiscovery();
+        }
+    }
+
+    private void enablePoweredNotifications(Adapter adapter) {
+        if (this.poweredNotification == null) {
+            this.poweredNotification = new PoweredNotification();
+            adapter.enablePoweredNotifications(this.poweredNotification);
+        }
+    }
+
+    private void enableDiscoveringNotifications(Adapter adapter) {
+        if (this.discoveringNotification == null) {
+            this.discoveringNotification = new DiscoveringNotification();
+            adapter.enableDiscoveringNotifications(this.discoveringNotification);
         }
     }
 
@@ -279,6 +251,7 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
         public void notify(Boolean powered) {
             notifyPowered(powered);
             updateLastUpdated();
+            // handling the case when the adapter gets physically disconnected
             if (!powered && AdapterGovernorImpl.this.findBluetoothObject() == null) {
                 reset();
             }

@@ -38,6 +38,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.AdapterDiscoveryListener;
+import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
 import org.sputnikdev.bluetooth.manager.BluetoothManager;
 import org.sputnikdev.bluetooth.manager.DeviceDiscoveryListener;
 import org.sputnikdev.bluetooth.manager.DiscoveredAdapter;
@@ -112,7 +113,7 @@ class BluetoothManagerImpl implements BluetoothManager {
     public void disposeGovernor(URL url) {
         synchronized (governors) {
             if (governors.containsKey(url)) {
-                governors.get(url).dispose();
+                governors.get(url).reset();
                 synchronized (governorFutures) {
                     if (governorFutures.containsKey(url)) {
                         governorFutures.get(url).cancel(true);
@@ -155,7 +156,7 @@ class BluetoothManagerImpl implements BluetoothManager {
         synchronized (governors) {
             for (BluetoothObjectGovernor governor : governors.values()) {
                 try {
-                    governor.dispose();
+                    governor.reset();
                 } catch (Exception ex) {
                     logger.error("Could not dispose governor: " + governor.getURL());
                 }
@@ -207,7 +208,7 @@ class BluetoothManagerImpl implements BluetoothManager {
         this.rediscover = rediscover;
     }
 
-    List<BluetoothObjectGovernor> getGovernors(List<? extends BluetoothObject> objects) {
+    List<BluetoothGovernor> getGovernors(List<? extends BluetoothObject> objects) {
         List<BluetoothObjectGovernor> result = new ArrayList<>(objects.size());
         synchronized (governors) {
             for (BluetoothObject object : objects) {

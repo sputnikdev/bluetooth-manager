@@ -64,16 +64,10 @@ public interface DeviceGovernor extends BluetoothGovernor {
     String getAlias() throws NotReadyException;
 
     /**
-     * Returns alias of the device.
-     * @return alias of the device
-     */
-    String getAliasControl();
-
-    /**
      * Sets alias for the device.
      * @param alias new alias
      */
-    void setAliasControl(String alias);
+    void setAlias(String alias) throws NotReadyException;
 
     /**
      * Returns display name of the device.
@@ -123,10 +117,24 @@ public interface DeviceGovernor extends BluetoothGovernor {
     void setBlockedControl(boolean blocked);
 
     /**
-     * Checks whether the device is online
+     * Checks whether the device is online.
+     * A device is "online" if the device has shown its activity (see {@link BluetoothGovernor#getLastActivity()})
+     * within configured "online timeout" setting (see {@link #getOnlineTimeout()}).
      * @return true if online, false otherwise
      */
     boolean isOnline();
+
+    /**
+     * Returns the device online timeout in seconds (see {@link #isOnline()}).
+     * @return online timeout in seconds
+     */
+    int getOnlineTimeout();
+
+    /**
+     * Sets the device online timeout in seconds (see {@link #isOnline()}).
+     * @param onlineTimeout a new value for the device online timeout
+     */
+    void setOnlineTimeout(int onlineTimeout);
 
     /**
      * Returns device RSSI

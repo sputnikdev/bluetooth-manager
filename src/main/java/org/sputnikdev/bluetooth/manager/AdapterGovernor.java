@@ -40,23 +40,16 @@ public interface AdapterGovernor extends BluetoothGovernor {
     String getName() throws NotReadyException;
 
     /**
-     *  Returns alias of the adapter.
-     * @return alias of the adapter
-     * @throws NotReadyException if the adapter is not ready
-     */
-    String getAlias() throws NotReadyException;
-
-    /**
      * Returns alias of the adapter.
      * @return alias of the adapter
      */
-    String getAliasControl();
+    String getAlias() throws NotReadyException;
 
     /**
      * Sets alias for the adapter.
      * @param alias new alias
      */
-    void setAliasControl(String alias);
+    void setAlias(String alias) throws NotReadyException;
 
     /**
      * Returns display name of the adapter.
