@@ -42,6 +42,6 @@ public interface AdapterDiscoveryListener {
      *
      * @param address adapter URL
      */
-    void lost(URL address);
+    void adapterLost(URL address);
 
 }

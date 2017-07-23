@@ -43,4 +43,15 @@ public class BluetoothManagerFactory {
         return instance;
     }
 
+    public static void dispose(BluetoothManager bluetoothManager) {
+        if (instance != null) {
+            synchronized (BluetoothManager.class) {
+                if (instance == bluetoothManager) {
+                    instance = null;
+                }
+            }
+        }
+        bluetoothManager.dispose();
+    }
+
 }

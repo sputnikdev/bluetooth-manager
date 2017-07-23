@@ -92,7 +92,7 @@ public interface BluetoothManager {
      *
      * @param adapterDiscoveryListener a new device discovery listener
      */
-    void addApterDiscoveryListener(AdapterDiscoveryListener adapterDiscoveryListener);
+    void addAdapterDiscoveryListener(AdapterDiscoveryListener adapterDiscoveryListener);
 
     /**
      * Unregisters a adapter discovery listener.
@@ -167,5 +167,12 @@ public interface BluetoothManager {
      * @param rediscover controls whether clients
      */
     void setRediscover(boolean rediscover);
+
+    /**
+     * Sets the refresh rate which controls how often bluetooth devices are checked/updated.
+     * Restart is required if the manager is already started.
+     * @param refreshRate refresh rate
+     */
+    void setRefreshRate(int refreshRate);
 
 }

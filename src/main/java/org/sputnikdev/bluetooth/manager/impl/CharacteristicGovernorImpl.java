@@ -109,7 +109,7 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic>
             throw new IllegalStateException("Characteristic governor is not initialized");
         }
         byte[] result = characteristic.readValue();
-        updateLastUpdated();
+        updateLastChanged();
         return result;
     }
 
@@ -120,7 +120,7 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic>
             throw new IllegalStateException("Characteristic governor is not initialized");
         }
         boolean result = characteristic.writeValue(data);
-        updateLastUpdated();
+        updateLastChanged();
         return result;
     }
 

@@ -160,21 +160,20 @@ public class BluetoothObjectGovernorTest {
     }
 
     @Test
-    public void testLastChanged() throws Exception {
+    public void testUpdateLastChanged() throws Exception {
         governor.addGovernorListener(governorListener);
 
         Date lastChanged = governor.getLastActivity();
-
-        governor.updateLastUpdated();
+        Thread.sleep(1);
+        governor.updateLastChanged();
 
         InOrder inOrder = inOrder(governor, governorListener);
         assertTrue(lastChanged.before(governor.getLastActivity()));
         inOrder.verify(governor, times(1)).addGovernorListener(governorListener);
         inOrder.verify(governor, times(1)).getLastActivity();
-        inOrder.verify(governor, times(1)).updateLastUpdated();
-        inOrder.verify(governor, times(1)).notifyLastUpdatedChanged(any());
-        inOrder.verify(governorListener, times(1)).lastUpdatedChanged(any());
+        inOrder.verify(governor, times(1)).updateLastChanged();
         inOrder.verify(governor, times(1)).getLastActivity();
+
         verifyNoMoreInteractions(governor);
     }
 
@@ -217,22 +216,24 @@ public class BluetoothObjectGovernorTest {
     }
 
     @Test
-    public void testNotifyLastUpdatedChanged() {
+    public void testNotifyLastChanged() {
         Date date = new Date();
+        Whitebox.setInternalState(governor, "lastActivity", date);
         governor.addGovernorListener(governorListener);
 
-        governor.notifyLastUpdatedChanged(date);
+        governor.notifyLastChanged();
 
         verify(governorListener, times(1)).lastUpdatedChanged(date);
     }
 
     @Test
-    public void testNotifyLastUpdatedChangedException() {
+    public void testNotifyLastChangedException() {
         Date date = new Date();
+        Whitebox.setInternalState(governor, "lastActivity", date);
         governor.addGovernorListener(governorListener);
         doThrow(Exception.class).when(governorListener).lastUpdatedChanged(any());
 
-        governor.notifyLastUpdatedChanged(date);
+        governor.notifyLastChanged();
 
         verify(governorListener, times(1)).lastUpdatedChanged(date);
     }

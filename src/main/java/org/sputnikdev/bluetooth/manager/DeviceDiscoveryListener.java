@@ -42,6 +42,6 @@ public interface DeviceDiscoveryListener {
      *
      * @param url of a bluetooth adapter or device
      */
-    void lost(URL url);
+    void deviceLost(URL url);
 
 }

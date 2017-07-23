@@ -29,6 +29,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.AdapterGovernor;
 import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
@@ -75,19 +76,19 @@ class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements Devi
 
     @Override
     void update(Device device) {
-
-        updateBlocked(device);
-
-        if (!blockedControl) {
-            boolean connected = updateConnected(device);
-            if (connected) {
-                updateOnline(true);
-                updateCharacteristics();
-            } else {
-                boolean inRange = isOnline();
-                updateOnline(inRange);
+        AdapterGovernor adapterGovernor = bluetoothManager.getAdapterGovernor(getURL());
+        if (adapterGovernor != null && adapterGovernor.isReady() && adapterGovernor.isPowered()) {
+            updateBlocked(device);
+            if (!blockedControl && isBleEnabled()) {
+                boolean connected = updateConnected(device);
+                if (connected) {
+                    updateOnline(true);
+                    updateCharacteristics();
+                    return;
+                }
             }
         }
+        updateOnline(isOnline());
     }
 
     @Override
@@ -453,7 +454,7 @@ class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements Devi
         public void notify(Boolean connected) {
             logger.info("Connected (notification): " + getURL() + " " + connected);
             notifyConnected(connected);
-            updateLastUpdated();
+            updateLastChanged();
         }
     }
 
@@ -462,7 +463,7 @@ class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements Devi
         public void notify(Boolean blocked) {
             logger.info("Blocked (notification): " + getURL() + " " + blocked);
             notifyBlocked(blocked);
-            updateLastUpdated();
+            updateLastChanged();
         }
     }
 
@@ -479,7 +480,7 @@ class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements Devi
             }
 
             notifyServicesResolved(serviceResolved);
-            updateLastUpdated();
+            updateLastChanged();
         }
     }
 
@@ -487,7 +488,7 @@ class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements Devi
         @Override
         public void notify(Short rssi) {
             notifyRSSIChanged(rssi);
-            updateLastUpdated();
+            updateLastChanged();
         }
     }
 

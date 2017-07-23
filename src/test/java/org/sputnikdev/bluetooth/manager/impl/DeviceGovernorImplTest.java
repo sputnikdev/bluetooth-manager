@@ -40,6 +40,7 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -53,7 +54,7 @@ import static org.mockito.Mockito.when;
 @PrepareForTest(BluetoothObjectFactory.class)
 public class DeviceGovernorImplTest {
 
-    private static final int BLUETOOTH_CLASS = 1;
+    private static final int BLUETOOTH_CLASS = 0;
     private static final String ALIAS = "device alias";
     private static final String NAME = "device name";
     private static final short RSSI = -90;
@@ -134,6 +135,11 @@ public class DeviceGovernorImplTest {
         charGovernors.add(mockCharacteristicGovernor(CHARACTERISTIC_1_URL));
         charGovernors.add(mockCharacteristicGovernor(CHARACTERISTIC_2_URL));
         when(bluetoothManager.getGovernors(any())).thenReturn(charGovernors);
+
+        AdapterGovernorImpl adapterGovernor = mock(AdapterGovernorImpl.class);
+        when(adapterGovernor.isReady()).thenReturn(true);
+        when(adapterGovernor.isPowered()).thenReturn(true);
+        when(bluetoothManager.getAdapterGovernor(URL)).thenReturn(adapterGovernor);
     }
 
     @Test
@@ -172,11 +178,14 @@ public class DeviceGovernorImplTest {
     }
 
     @Test
-    public void testUpdateConnected() throws Exception {
+    public void testUpdateConnectedBleDevice() throws Exception {
+        doReturn(true).when(governor).isBleEnabled();
+
         governor.setBlockedControl(false);
         when(device.isBlocked()).thenReturn(false);
         when(device.isConnected()).thenReturn(false).thenReturn(true).thenReturn(false).thenReturn(true);
         when(device.connect()).thenReturn(true);
+
 
         governor.setConnectionControl(false);
 
@@ -202,6 +211,49 @@ public class DeviceGovernorImplTest {
 
         verify(device, atLeastOnce()).isBlocked();
         verify(device, atLeastOnce()).isConnected();
+    }
+
+    @Test
+    public void testUpdateConnectedGenericDevice() throws Exception {
+        doReturn(false).when(governor).isBleEnabled();
+
+        governor.setBlockedControl(false);
+        when(device.isBlocked()).thenReturn(false);
+        when(device.isConnected()).thenReturn(false).thenReturn(true).thenReturn(false).thenReturn(true);
+        when(device.connect()).thenReturn(true);
+
+        governor.setConnectionControl(false);
+
+        governor.update(device);
+        verify(device, never()).connect();
+        verify(device, never()).disconnect();
+
+        governor.update(device);
+        verify(device, never()).connect();
+        verify(device, never()).disconnect();
+        verify(bluetoothManager, never()).resetDescendants(URL);
+
+        governor.setConnectionControl(true);
+
+        governor.update(device);
+        verify(device, never()).connect();
+        verify(device, never()).disconnect();
+        verify(bluetoothManager, never()).updateDescendants(URL);
+
+        governor.update(device);
+        verify(device, never()).connect();
+        verify(device, never()).disconnect();
+    }
+
+    @Test
+    public void testUpdateAdapterIsNotPowered() throws Exception {
+        AdapterGovernorImpl adapterGovernor = mock(AdapterGovernorImpl.class);
+        when(adapterGovernor.isReady()).thenReturn(false);
+        when(adapterGovernor.isPowered()).thenReturn(false);
+        when(bluetoothManager.getAdapterGovernor(URL)).thenReturn(adapterGovernor);
+
+        governor.update(device);
+        verifyNoMoreInteractions(device);
     }
 
     @Test
@@ -738,12 +790,12 @@ public class DeviceGovernorImplTest {
 
         verify(bluetoothSmartDeviceListener, times(1)).connected();
         verify(governor, times(1)).notifyConnected(true);
-        verify(governor, times(1)).updateLastUpdated();
+        verify(governor, times(1)).updateLastChanged();
 
         notificationCaptor.getValue().notify(Boolean.FALSE);
         verify(bluetoothSmartDeviceListener, times(1)).disconnected();
         verify(governor, times(1)).notifyConnected(false);
-        verify(governor, times(2)).updateLastUpdated();
+        verify(governor, times(2)).updateLastChanged();
     }
 
     @Test
@@ -761,13 +813,13 @@ public class DeviceGovernorImplTest {
 
         verify(bluetoothSmartDeviceListener, times(1)).servicesResolved(any());
         verify(governor, times(1)).notifyServicesResolved(true);
-        verify(governor, times(1)).updateLastUpdated();
+        verify(governor, times(1)).updateLastChanged();
         verify(bluetoothManager, times(1)).updateDescendants(URL);
 
         notificationCaptor.getValue().notify(Boolean.FALSE);
         verify(bluetoothSmartDeviceListener, times(1)).servicesUnresolved();
         verify(governor, times(1)).notifyServicesResolved(false);
-        verify(governor, times(2)).updateLastUpdated();
+        verify(governor, times(2)).updateLastChanged();
         verify(bluetoothManager, times(1)).resetDescendants(URL);
     }
 
@@ -786,7 +838,7 @@ public class DeviceGovernorImplTest {
 
         verify(genericDeviceListener, times(1)).rssiChanged(RSSI);
         verify(governor, times(1)).notifyRSSIChanged(RSSI);
-        verify(governor, times(1)).updateLastUpdated();
+        verify(governor, times(1)).updateLastChanged();
     }
 
     @Test
@@ -804,13 +856,13 @@ public class DeviceGovernorImplTest {
 
         verify(genericDeviceListener, times(1)).blocked(true);
         verify(governor, times(1)).notifyBlocked(true);
-        verify(governor, times(1)).updateLastUpdated();
+        verify(governor, times(1)).updateLastChanged();
 
         notificationCaptor.getValue().notify(false);
 
         verify(genericDeviceListener, times(1)).blocked(false);
         verify(governor, times(1)).notifyBlocked(false);
-        verify(governor, times(2)).updateLastUpdated();
+        verify(governor, times(2)).updateLastChanged();
     }
 
     private CharacteristicGovernor mockCharacteristicGovernor(URL url) {

@@ -57,7 +57,7 @@ import org.sputnikdev.bluetooth.URL;
  * <li>an offline method to get "control state" of the attribute</li>
  * </ul>
  *
- * See also {@link org.sputnikdev.bluetooth.manager.impl.BluetoothObjectGovernor} for more info about
+ * See also org.sputnikdev.bluetooth.manager.impl.BluetoothObjectGovernor for more info about
  * internal implementation
  *
  * @author Vlad Kolotov

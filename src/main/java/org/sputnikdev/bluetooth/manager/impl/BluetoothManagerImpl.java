@@ -51,7 +51,7 @@ import org.sputnikdev.bluetooth.manager.DiscoveredDevice;
  */
 class BluetoothManagerImpl implements BluetoothManager {
 
-    private static final int DISCOVERY_RATE_SEC = 10;
+    private static final int REFRESH_RATE_SEC = 10;
 
     private Logger logger = LoggerFactory.getLogger(BluetoothManagerImpl.class);
 
@@ -70,7 +70,7 @@ class BluetoothManagerImpl implements BluetoothManager {
 
 
     private boolean startDiscovering;
-    private int discoveryRate = DISCOVERY_RATE_SEC;
+    private int refreshRate = REFRESH_RATE_SEC;
     private boolean rediscover = false;
 
     @Override
@@ -78,7 +78,7 @@ class BluetoothManagerImpl implements BluetoothManager {
         if (discoveryFuture == null) {
             this.startDiscovering = startDiscovering;
             discoveryFuture = singleThreadScheduler.scheduleAtFixedRate(
-                    new DiscoveryJob(), 0, discoveryRate, TimeUnit.SECONDS);
+                    new DiscoveryJob(), 0, refreshRate, TimeUnit.SECONDS);
         }
     }
 
@@ -86,6 +86,7 @@ class BluetoothManagerImpl implements BluetoothManager {
     public synchronized void stop() {
         if (discoveryFuture != null) {
             discoveryFuture.cancel(true);
+            discoveryFuture = null;
         }
     }
 
@@ -100,7 +101,7 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     @Override
-    public void addApterDiscoveryListener(AdapterDiscoveryListener adapterDiscoveryListener) {
+    public void addAdapterDiscoveryListener(AdapterDiscoveryListener adapterDiscoveryListener) {
         adapterDiscoveryListeners.add(adapterDiscoveryListener);
     }
 
@@ -200,12 +201,17 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     @Override
     public void setDiscoveryRate(int seconds) {
-        this.discoveryRate = seconds;
+        this.refreshRate = seconds;
     }
 
     @Override
     public void setRediscover(boolean rediscover) {
         this.rediscover = rediscover;
+    }
+
+    @Override
+    public void setRefreshRate(int refreshRate) {
+        this.refreshRate = refreshRate;
     }
 
     List<BluetoothGovernor> getGovernors(List<? extends BluetoothObject> objects) {
@@ -292,15 +298,10 @@ class BluetoothManagerImpl implements BluetoothManager {
         logger.info("Device has been lost: " + url);
         for (DeviceDiscoveryListener deviceDiscoveryListener : Lists.newArrayList(deviceDiscoveryListeners)) {
             try {
-                deviceDiscoveryListener.lost(url);
+                deviceDiscoveryListener.deviceLost(url);
             } catch (Throwable ex) {
                 logger.error("Device listener error", ex);
             }
-        }
-        try {
-            getDeviceGovernor(url).reset();
-        } catch (Throwable ex) {
-            logger.warn("Could not reset device governor", ex);
         }
     }
 
@@ -308,7 +309,7 @@ class BluetoothManagerImpl implements BluetoothManager {
         logger.info("Adapter has been lost: " + url);
         for (AdapterDiscoveryListener adapterDiscoveryListener : Lists.newArrayList(adapterDiscoveryListeners)) {
             try {
-                adapterDiscoveryListener.lost(url);
+                adapterDiscoveryListener.adapterLost(url);
             } catch (Throwable ex) {
                 logger.error("Adapter listener error", ex);
             }

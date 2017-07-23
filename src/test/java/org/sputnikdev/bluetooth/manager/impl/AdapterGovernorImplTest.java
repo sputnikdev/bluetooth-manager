@@ -34,6 +34,7 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -117,32 +118,58 @@ public class AdapterGovernorImplTest {
 
     @Test
     public void testUpdate() throws Exception {
-        when(adapter.isDiscovering()).thenReturn(false).thenReturn(true);
-        when(adapter.isPowered()).thenReturn(false).thenReturn(true);
-
-        governor.update(adapter);
-
-        InOrder inOrder = inOrder(adapter);
-
-        inOrder.verify(adapter).isPowered();
-        inOrder.verify(adapter).setPowered(true);
-
-        inOrder.verify(adapter).isDiscovering();
-        inOrder.verify(adapter).startDiscovery();
-
-        governor.update(adapter);
-        inOrder.verify(adapter).isPowered();
-        inOrder.verify(adapter).isDiscovering();
+        when(adapter.isDiscovering())
+                .thenReturn(false)
+                .thenReturn(false)
+                .thenReturn(true);
+        when(adapter.isPowered())
+                .thenReturn(false).thenReturn(false)
+                .thenReturn(false).thenReturn(true)
+                .thenReturn(true).thenReturn(true);
 
         governor.setPoweredControl(false);
         governor.setDiscoveringControl(false);
 
         governor.update(adapter);
-        inOrder.verify(adapter).isPowered();
-        inOrder.verify(adapter).setPowered(false);
 
+        // first case
+        InOrder inOrder = inOrder(adapter);
+        inOrder.verify(adapter, times(2)).isPowered();
+        inOrder.verify(adapter, never()).setPowered(anyBoolean());
+        inOrder.verify(adapter, never()).isDiscovering();
+        inOrder.verify(adapter, never()).startDiscovery();
+        inOrder.verify(adapter, never()).stopDiscovery();
+
+        // second case
+        governor.setPoweredControl(true);
+        governor.setDiscoveringControl(false);
+        governor.update(adapter);
+        inOrder.verify(adapter).isPowered();
+        inOrder.verify(adapter).setPowered(true);
+        inOrder.verify(adapter).isPowered();
         inOrder.verify(adapter).isDiscovering();
-        inOrder.verify(adapter).stopDiscovery();
+        inOrder.verify(adapter, never()).startDiscovery();
+        inOrder.verify(adapter, never()).stopDiscovery();
+
+        // third case
+        governor.setPoweredControl(true);
+        governor.setDiscoveringControl(true);
+        governor.update(adapter);
+        inOrder.verify(adapter, times(2)).isPowered();
+        inOrder.verify(adapter, never()).setPowered(anyBoolean());
+        inOrder.verify(adapter).isDiscovering();
+        inOrder.verify(adapter, times(1)).startDiscovery();
+        inOrder.verify(adapter, never()).stopDiscovery();
+
+        // forth case
+        governor.setPoweredControl(true);
+        governor.setDiscoveringControl(false);
+        governor.update(adapter);
+        inOrder.verify(adapter, times(2)).isPowered();
+        inOrder.verify(adapter, never()).setPowered(anyBoolean());
+        inOrder.verify(adapter).isDiscovering();
+        inOrder.verify(adapter, never()).startDiscovery();
+        inOrder.verify(adapter, times(1)).stopDiscovery();
 
         inOrder.verifyNoMoreInteractions();
     }
@@ -423,16 +450,16 @@ public class AdapterGovernorImplTest {
 
         verify(listener, times(1)).powered(true);
         verify(governor, times(1)).notifyPowered(true);
-        verify(governor, times(1)).updateLastUpdated();
+        verify(governor, times(1)).updateLastChanged();
 
-        when(governor.findBluetoothObject()).thenReturn(null);
-
-        notificationCaptor.getValue().notify(Boolean.FALSE);
-        // handling the case when the adapter physically disconnected
-        verify(listener, times(1)).powered(false);
-        verify(governor, times(1)).notifyPowered(false);
-        verify(governor, times(2)).updateLastUpdated();
-        verify(governor, times(1)).reset();
+//        when(governor.findBluetoothObject()).thenReturn(null);
+//
+//        notificationCaptor.getValue().notify(Boolean.FALSE);
+//        // handling the case when the adapter physically disconnected
+//        verify(listener, times(1)).powered(false);
+//        verify(governor, times(1)).notifyPowered(false);
+//        verify(governor, times(2)).updateLastChanged();
+//        verify(governor, times(1)).reset();
     }
 
     @Test
@@ -452,7 +479,7 @@ public class AdapterGovernorImplTest {
 
         verify(listener, times(1)).discovering(true);
         verify(governor, times(1)).notifyDiscovering(true);
-        verify(governor, times(1)).updateLastUpdated();
+        verify(governor, times(1)).updateLastChanged();
     }
 
     private static Device mockDevice(URL url, String name) {

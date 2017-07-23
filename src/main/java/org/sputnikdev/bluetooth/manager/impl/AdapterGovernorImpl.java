@@ -61,7 +61,9 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
 
     void update(Adapter adapter) {
         updatePowered(adapter);
-        updateDiscovering(adapter);
+        if (isPowered()) {
+            updateDiscovering(adapter);
+        }
     }
 
     @Override
@@ -250,11 +252,7 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
         @Override
         public void notify(Boolean powered) {
             notifyPowered(powered);
-            updateLastUpdated();
-            // handling the case when the adapter gets physically disconnected
-            if (!powered && AdapterGovernorImpl.this.findBluetoothObject() == null) {
-                reset();
-            }
+            updateLastChanged();
         }
     }
 
@@ -262,7 +260,7 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
         @Override
         public void notify(Boolean discovering) {
             notifyDiscovering(discovering);
-            updateLastUpdated();
+            updateLastChanged();
         }
     }
 }
