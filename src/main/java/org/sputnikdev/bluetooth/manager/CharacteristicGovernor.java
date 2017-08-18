@@ -20,6 +20,7 @@ package org.sputnikdev.bluetooth.manager;
  * #L%
  */
 
+import java.util.List;
 
 /**
  * Bluetooth characteristic governor ({@link BluetoothGovernor}).
@@ -39,7 +40,7 @@ public interface CharacteristicGovernor extends BluetoothGovernor {
      * @return flags supported by the characteristic
      * @throws NotReadyException if the bluetooth object is not ready
      */
-    String[] getFlags() throws NotReadyException;
+    List<String> getFlags() throws NotReadyException;
 
     /**
      * Checks whether the characteristic can be read.

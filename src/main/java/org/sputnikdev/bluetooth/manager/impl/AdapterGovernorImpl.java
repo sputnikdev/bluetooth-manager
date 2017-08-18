@@ -28,7 +28,6 @@ import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.AdapterGovernor;
 import org.sputnikdev.bluetooth.manager.AdapterListener;
-import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
 import org.sputnikdev.bluetooth.manager.DeviceGovernor;
@@ -64,11 +63,6 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
         if (isPowered()) {
             updateDiscovering(adapter);
         }
-    }
-
-    @Override
-    Adapter findBluetoothObject() {
-        return BluetoothObjectFactory.getDefault().getAdapter(getURL());
     }
 
     @Override
@@ -146,28 +140,11 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
     public String toString() {
         String result = "[Adapter] " + getURL();
         if (isReady()) {
-            result += " [" + getDisplayName() + "]";
+            String displayName = getDisplayName();
+            if (displayName != null) {
+                result += " [" + displayName + "]";
+            }
         }
-        return result;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        BluetoothGovernor that = (BluetoothGovernor) o;
-        return url.equals(that.getURL());
-    }
-
-    @Override
-    public int hashCode() {
-        int result = url.hashCode();
-        result = 31 * result + url.hashCode();
         return result;
     }
 

@@ -9,9 +9,9 @@ package org.sputnikdev.bluetooth.manager.impl;
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -38,9 +38,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.AdapterDiscoveryListener;
+import org.sputnikdev.bluetooth.manager.AdapterGovernor;
 import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
 import org.sputnikdev.bluetooth.manager.BluetoothManager;
+import org.sputnikdev.bluetooth.manager.CharacteristicGovernor;
 import org.sputnikdev.bluetooth.manager.DeviceDiscoveryListener;
+import org.sputnikdev.bluetooth.manager.DeviceGovernor;
 import org.sputnikdev.bluetooth.manager.DiscoveredAdapter;
 import org.sputnikdev.bluetooth.manager.DiscoveredDevice;
 
@@ -51,7 +54,8 @@ import org.sputnikdev.bluetooth.manager.DiscoveredDevice;
  */
 class BluetoothManagerImpl implements BluetoothManager {
 
-    private static final int REFRESH_RATE_SEC = 10;
+    private static final int REFRESH_RATE_SEC = 5;
+    private static final int DISCOVERY_RATE_SEC = 10;
 
     private Logger logger = LoggerFactory.getLogger(BluetoothManagerImpl.class);
 
@@ -68,8 +72,11 @@ class BluetoothManagerImpl implements BluetoothManager {
     private final Set<DiscoveredDevice> discoveredDevices = new HashSet<>();
     private final Set<DiscoveredAdapter> discoveredAdapters = new HashSet<>();
 
+    private final Map<String, String> adapterToProtocolCache = Collections.synchronizedMap(new HashMap<>());
+
 
     private boolean startDiscovering;
+    private int discoveryRate = DISCOVERY_RATE_SEC;
     private int refreshRate = REFRESH_RATE_SEC;
     private boolean rediscover = false;
 
@@ -78,7 +85,7 @@ class BluetoothManagerImpl implements BluetoothManager {
         if (discoveryFuture == null) {
             this.startDiscovering = startDiscovering;
             discoveryFuture = singleThreadScheduler.scheduleAtFixedRate(
-                    new DiscoveryJob(), 0, refreshRate, TimeUnit.SECONDS);
+                    new DiscoveryJob(), 0, discoveryRate, TimeUnit.SECONDS);
         }
     }
 
@@ -127,15 +134,15 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     @Override
-    public DeviceGovernorImpl getDeviceGovernor(URL url) {
+    public DeviceGovernor getDeviceGovernor(URL url) {
         return (DeviceGovernorImpl) getGovernor(url.getDeviceURL());
     }
     @Override
-    public AdapterGovernorImpl getAdapterGovernor(URL url) {
+    public AdapterGovernor getAdapterGovernor(URL url) {
         return (AdapterGovernorImpl) getGovernor(url.getAdapterURL());
     }
     @Override
-    public CharacteristicGovernorImpl getCharacteristicGovernor(URL url) {
+    public CharacteristicGovernor getCharacteristicGovernor(URL url) {
         return (CharacteristicGovernorImpl) getGovernor(url.getCharacteristicURL());
     }
 
@@ -182,7 +189,7 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     @Override
-    public BluetoothObjectGovernor getGovernor(URL url) {
+    public BluetoothGovernor getGovernor(URL url) {
         synchronized (governors) {
             if (!governors.containsKey(url)) {
                 BluetoothObjectGovernor governor = createGovernor(url);
@@ -191,7 +198,8 @@ class BluetoothManagerImpl implements BluetoothManager {
 
                 governors.put(url, governor);
                 governorFutures.put(url,
-                        scheduler.scheduleAtFixedRate((Runnable) () -> update(governor), 5, 5, TimeUnit.SECONDS));
+                        scheduler.scheduleAtFixedRate((Runnable) () -> update(governor),
+                                5, refreshRate, TimeUnit.SECONDS));
 
                 return governor;
             }
@@ -201,7 +209,7 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     @Override
     public void setDiscoveryRate(int seconds) {
-        this.refreshRate = seconds;
+        this.discoveryRate = seconds;
     }
 
     @Override
@@ -215,7 +223,7 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     List<BluetoothGovernor> getGovernors(List<? extends BluetoothObject> objects) {
-        List<BluetoothObjectGovernor> result = new ArrayList<>(objects.size());
+        List<BluetoothGovernor> result = new ArrayList<>(objects.size());
         synchronized (governors) {
             for (BluetoothObject object : objects) {
                 result.add(getGovernor(object.getURL()));
@@ -238,14 +246,32 @@ class BluetoothManagerImpl implements BluetoothManager {
         synchronized (governors) {
             for (BluetoothObjectGovernor governor : governors.values()) {
                 if (governor.getURL().isDescendant(parent)) {
-                    governor.reset();
+                    reset(governor);
                 }
             }
         }
     }
 
+    <T extends BluetoothObject> T getBluetoothObject(URL url) {
+        BluetoothObjectFactory factory = findFactory(url);
+        BluetoothObject bluetoothObject = null;
+        if (factory != null) {
+            if (url.isAdapter()) {
+                bluetoothObject = factory.getAdapter(url);
+            } else if (url.isDevice()) {
+                bluetoothObject = factory.getDevice(url);
+            } else if (url.isCharacteristic()) {
+                bluetoothObject = factory.getCharacteristic(url);
+            }
+            if (bluetoothObject != null && !adapterToProtocolCache.containsKey(url.getAdapterAddress())) {
+                adapterToProtocolCache.put(url.getAdapterAddress(), factory.getProtocolName());
+            }
+        }
 
-    private BluetoothObjectGovernor createGovernor(URL url) {
+        return (T) bluetoothObject;
+    }
+
+    BluetoothObjectGovernor createGovernor(URL url) {
         if (url.isAdapter()) {
             return new AdapterGovernorImpl(this, url);
         } else if (url.isDevice()) {
@@ -254,6 +280,24 @@ class BluetoothManagerImpl implements BluetoothManager {
             return new CharacteristicGovernorImpl(this, url);
         }
         throw new IllegalStateException("Unknown url");
+    }
+
+    private BluetoothObjectFactory findFactory(URL url) {
+        String protocol = url.getProtocol();
+        String adapterAddress = url.getAdapterAddress();
+        if (url.getProtocol() != null) {
+            return BluetoothObjectFactory.getFactory(protocol);
+        } else if (adapterToProtocolCache.containsKey(adapterAddress)) {
+            return BluetoothObjectFactory.getFactory(adapterToProtocolCache.get(adapterAddress));
+        } else {
+            for (Adapter adapter : BluetoothObjectFactory.getAllDiscoveredAdapters()) {
+                if (adapter.getURL().getAdapterAddress().equals(adapterAddress)) {
+                    adapterToProtocolCache.put(url.getAdapterAddress(), adapter.getURL().getProtocol());
+                    return BluetoothObjectFactory.getFactory(adapter.getURL().getProtocol());
+                }
+            }
+        }
+        return null;
     }
 
     private void notifyDeviceDiscovered(DiscoveredDevice device) {
@@ -284,13 +328,13 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     private DiscoveredDevice getDiscoveredDevice(Device device) {
         URL url = device.getURL();
-        return new DiscoveredDevice(new URL(url.getAdapterAddress(), url.getDeviceAddress()),
+        return new DiscoveredDevice(device.getURL().copyWithProtocol(null),
                 device.getName(), device.getAlias(), device.getRSSI(),
                 device.getBluetoothClass());
     }
 
     private DiscoveredAdapter getDiscoveredAdapter(Adapter adapter) {
-        return new DiscoveredAdapter(new URL(adapter.getURL().getAdapterAddress(), null),
+        return new DiscoveredAdapter(adapter.getURL().copyWithProtocol(null),
                 adapter.getName(), adapter.getAlias());
     }
 
@@ -315,17 +359,25 @@ class BluetoothManagerImpl implements BluetoothManager {
             }
         }
         try {
-            getAdapterGovernor(url).reset();
+            ((AdapterGovernorImpl) getAdapterGovernor(url)).reset();
         } catch (Throwable ex) {
             logger.warn("Could not reset adapter governor", ex);
+        }
+    }
+
+    void reset(BluetoothObjectGovernor governor) {
+        try {
+            governor.reset();
+        } catch (Exception ex) {
+            logger.error("Could not reset governor: " + governor, ex);
         }
     }
 
     private void update(BluetoothObjectGovernor governor) {
         try {
             governor.update();
-        } catch (Throwable ex) {
-            logger.error("Could not update governor: " + governor.getURL(), ex);
+        } catch (Exception ex) {
+            logger.error("Could not update governor: " + governor, ex);
         }
     }
 
@@ -340,7 +392,7 @@ class BluetoothManagerImpl implements BluetoothManager {
         private void discoverDevices() {
             try {
                 synchronized (discoveredDevices) {
-                    List<Device> list = BluetoothObjectFactory.getDefault().getDiscoveredDevices();
+                    List<Device> list = BluetoothObjectFactory.getAllDiscoveredDevices();
                     if (list == null) {
                         return;
                     }
@@ -370,7 +422,7 @@ class BluetoothManagerImpl implements BluetoothManager {
             try {
                 synchronized (discoveredAdapters) {
                     Set<DiscoveredAdapter> newDiscovery = new HashSet<>();
-                    for (Adapter adapter : BluetoothObjectFactory.getDefault().getDiscoveredAdapters()) {
+                    for (Adapter adapter : BluetoothObjectFactory.getAllDiscoveredAdapters()) {
                         DiscoveredAdapter discoveredAdapter = getDiscoveredAdapter(adapter);
                         notifyAdapterDiscovered(discoveredAdapter);
                         newDiscovery.add(discoveredAdapter);

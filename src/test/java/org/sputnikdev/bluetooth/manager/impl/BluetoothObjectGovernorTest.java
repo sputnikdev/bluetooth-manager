@@ -24,6 +24,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -34,19 +35,15 @@ public class BluetoothObjectGovernorTest {
 
     private static final URL URL= new URL("/11:22:33:44:55:66");
 
-    @Mock
-    private BluetoothObject bluetoothObject;
-    @Mock
-    private BluetoothManagerImpl bluetoothManager;
+    private BluetoothObject bluetoothObject = mock(BluetoothObject.class);
+    private BluetoothManagerImpl bluetoothManager = mock(BluetoothManagerImpl.class);
+
     @Mock
     private GovernorListener governorListener;
 
     @InjectMocks
     @Spy
     private BluetoothObjectGovernor governor = new BluetoothObjectGovernor(bluetoothManager, URL) {
-        @Override BluetoothObject findBluetoothObject() {
-            return bluetoothObject;
-        }
 
         @Override void reset(BluetoothObject object) {
         }
@@ -67,7 +64,7 @@ public class BluetoothObjectGovernorTest {
 
     @Before
     public void setUp() {
-
+        when(bluetoothManager.getBluetoothObject(URL)).thenReturn(bluetoothObject);
     }
 
     @Test
@@ -86,15 +83,15 @@ public class BluetoothObjectGovernorTest {
     @Test
     public void testUpdateNotReady() throws Exception {
         Whitebox.setInternalState(governor, "bluetoothObject", null);
-        when(governor.findBluetoothObject()).thenReturn(null);
+        when(bluetoothManager.getBluetoothObject(URL)).thenReturn(null);
 
         governor.update();
 
         // check interactions
-        InOrder inOrder = inOrder(governor, governorListener);
+        InOrder inOrder = inOrder(governor, governorListener, bluetoothManager);
 
         //inOrder.verify(governor, times(1)).update();
-        inOrder.verify(governor, times(1)).findBluetoothObject();
+        inOrder.verify(bluetoothManager, times(1)).getBluetoothObject(URL);
         inOrder.verifyNoMoreInteractions();
     }
 
@@ -102,15 +99,14 @@ public class BluetoothObjectGovernorTest {
     public void testUpdateNotReadyToReady() throws Exception {
         // conditions
         Whitebox.setInternalState(governor, "bluetoothObject", null);
-        when(governor.findBluetoothObject()).thenReturn(bluetoothObject);
         governor.addGovernorListener(governorListener);
 
         // invocation
         governor.update();
 
         // check interactions
-        InOrder inOrder = inOrder(governor, governorListener);
-        inOrder.verify(governor, times(1)).findBluetoothObject();
+        InOrder inOrder = inOrder(governor, governorListener, bluetoothManager);
+        inOrder.verify(bluetoothManager, times(1)).getBluetoothObject(URL);
         inOrder.verify(governor, times(1)).init(bluetoothObject);
         inOrder.verify(governorListener, times(1)).ready(true);
         inOrder.verify(governor, times(1)).update(bluetoothObject);
@@ -121,7 +117,6 @@ public class BluetoothObjectGovernorTest {
     @Test
     public void testUpdateReadyToNotReady() throws Exception {
         // conditions
-        when(governor.findBluetoothObject()).thenReturn(bluetoothObject);
         doThrow(Exception.class).when(governor).update(bluetoothObject);
         governor.addGovernorListener(governorListener);
 

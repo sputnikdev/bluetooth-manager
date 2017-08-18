@@ -104,7 +104,7 @@ public class DeviceGovernorImplTest {
         governor.addBluetoothSmartDeviceListener(bluetoothSmartDeviceListener);
 
         PowerMockito.mockStatic(BluetoothObjectFactory.class);
-        when(BluetoothObjectFactory.getDefault()).thenReturn(bluetoothObjectFactory);
+        when(BluetoothObjectFactory.getFactory(any())).thenReturn(bluetoothObjectFactory);
         when(bluetoothObjectFactory.getDevice(URL)).thenReturn(device);
 
         when(device.getBluetoothClass()).thenReturn(BLUETOOTH_CLASS);
@@ -317,12 +317,6 @@ public class DeviceGovernorImplTest {
         verify(bluetoothManager, times(1)).resetDescendants(URL);
 
         verifyNoMoreInteractions(device, genericDeviceListener, bluetoothSmartDeviceListener);
-    }
-
-    @Test
-    public void testFindBluetoothObject() throws Exception {
-        assertEquals(device, governor.findBluetoothObject());
-        verify(bluetoothObjectFactory, times(1)).getDevice(URL);
     }
 
     @Test

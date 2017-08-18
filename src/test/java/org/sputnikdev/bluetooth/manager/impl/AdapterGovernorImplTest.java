@@ -29,6 +29,7 @@ import org.sputnikdev.bluetooth.manager.DeviceGovernor;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
@@ -94,7 +95,7 @@ public class AdapterGovernorImplTest {
         when(adapter.getURL()).thenReturn(URL);
 
         PowerMockito.mockStatic(BluetoothObjectFactory.class);
-        when(BluetoothObjectFactory.getDefault()).thenReturn(bluetoothObjectFactory);
+        when(BluetoothObjectFactory.getFactory(any())).thenReturn(bluetoothObjectFactory);
         when(bluetoothObjectFactory.getAdapter(URL)).thenReturn(adapter);
         when(adapter.getDevices()).thenReturn(DEVICES);
     }
@@ -172,15 +173,6 @@ public class AdapterGovernorImplTest {
         inOrder.verify(adapter, times(1)).stopDiscovery();
 
         inOrder.verifyNoMoreInteractions();
-    }
-
-    @Test
-    public void testFindBluetoothObject() throws Exception {
-        Adapter ad = governor.findBluetoothObject();
-        assertEquals(adapter, ad);
-
-        verify(bluetoothObjectFactory, times(1)).getAdapter(URL);
-        verifyNoMoreInteractions(bluetoothObjectFactory, adapter);
     }
 
     @Test

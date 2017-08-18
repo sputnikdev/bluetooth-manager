@@ -21,12 +21,12 @@ package org.sputnikdev.bluetooth.manager.impl;
  */
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
-import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
 import org.sputnikdev.bluetooth.manager.CharacteristicGovernor;
@@ -47,11 +47,6 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic>
 
     CharacteristicGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
         super(bluetoothManager, url);
-    }
-
-    @Override
-    Characteristic findBluetoothObject() {
-        return BluetoothObjectFactory.getDefault().getCharacteristic(getURL());
     }
 
     @Override
@@ -82,24 +77,24 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic>
     }
 
     @Override
-    public String[] getFlags() throws NotReadyException {
-        return getBluetoothObject().getFlags();
+    public List<String> getFlags() throws NotReadyException {
+        return getFlags(getBluetoothObject());
     }
 
     @Override
     public boolean isNotifiable() throws NotReadyException {
-        List<String> flgs = Arrays.asList(getFlags());
+        List<String> flgs = getFlags();
         return flgs.contains(NOTIFY_FLAG) || flgs.contains(INDICATE_FLAG);
     }
 
     @Override
     public boolean isWritable() throws NotReadyException {
-        return Arrays.asList(getFlags()).contains(WRITE_FLAG);
+        return getFlags().contains(WRITE_FLAG);
     }
 
     @Override
     public boolean isReadable() throws NotReadyException {
-        return Arrays.asList(getFlags()).contains(READ_FLAG);
+        return getFlags().contains(READ_FLAG);
     }
 
     @Override
@@ -130,26 +125,6 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic>
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        BluetoothGovernor that = (BluetoothGovernor) o;
-        return url.equals(that.getURL());
-    }
-
-    @Override
-    public int hashCode() {
-        int result = url.hashCode();
-        result = 31 * result + url.hashCode();
-        return result;
-    }
-
-    @Override
     public BluetoothObjectType getType() {
         return BluetoothObjectType.CHARACTERISTIC;
     }
@@ -168,8 +143,16 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic>
     }
 
     private static boolean canNotify(Characteristic characteristic) {
-        List<String> flgs = Arrays.asList(characteristic.getFlags());
+        List<String> flgs = getFlags(characteristic);
         return flgs.contains(NOTIFY_FLAG) || flgs.contains(INDICATE_FLAG);
+    }
+
+    private static List<String> getFlags(Characteristic characteristic) {
+        String[] flags = characteristic.getFlags();
+        if (flags != null && flags.length > 0) {
+            return Arrays.asList(flags);
+        }
+        return Collections.emptyList();
     }
 
     private class ValueNotification implements Notification<byte[]> {

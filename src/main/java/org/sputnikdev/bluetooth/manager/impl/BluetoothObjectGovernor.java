@@ -58,7 +58,6 @@ import org.sputnikdev.bluetooth.manager.NotReadyException;
  *
  * then the following happens:
  *
- * {@link #findBluetoothObject()}
  * {@link #init(BluetoothObject)}
  * {@link GovernorListener#ready(boolean)} with argument - true
  * {@link #update(BluetoothObject)}
@@ -118,7 +117,25 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
         return lastActivity;
     }
 
-    abstract T findBluetoothObject();
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        BluetoothObjectGovernor that = (BluetoothObjectGovernor) o;
+        return url.equals(that.url);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = url.hashCode();
+        result = 31 * result + url.hashCode();
+        return result;
+    }
 
     abstract void init(T object);
 
@@ -189,7 +206,7 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
 
     synchronized private T getOrFindBluetoothObject() {
         if (bluetoothObject == null) {
-            this.bluetoothObject = findBluetoothObject();
+            this.bluetoothObject = bluetoothManager.getBluetoothObject(url);
             if (this.bluetoothObject != null) {
                 init(this.bluetoothObject);
                 notifyReady(true);
