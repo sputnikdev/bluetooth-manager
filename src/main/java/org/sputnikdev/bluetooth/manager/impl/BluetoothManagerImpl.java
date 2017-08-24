@@ -121,14 +121,18 @@ class BluetoothManagerImpl implements BluetoothManager {
     public void disposeGovernor(URL url) {
         synchronized (governors) {
             if (governors.containsKey(url)) {
-                governors.get(url).reset();
-                synchronized (governorFutures) {
-                    if (governorFutures.containsKey(url)) {
-                        governorFutures.get(url).cancel(true);
-                        governorFutures.remove(url);
-                    }
+                disposeGovernor(governors.get(url));
+            }
+        }
+    }
+
+    @Override
+    public void disposeDescendantGovernors(URL url) {
+        synchronized (governors) {
+            for (BluetoothObjectGovernor governor : new ArrayList<>(governors.values())) {
+                if (governor.getURL().isDescendant(url)) {
+                    disposeGovernor(governor);
                 }
-                governors.remove(url);
             }
         }
     }
@@ -273,7 +277,9 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     BluetoothObjectGovernor createGovernor(URL url) {
         if (url.isAdapter()) {
-            return new AdapterGovernorImpl(this, url);
+            AdapterGovernorImpl adapterGovernor = new AdapterGovernorImpl(this, url);
+            adapterGovernor.setDiscoveringControl(startDiscovering);
+            return adapterGovernor;
         } else if (url.isDevice()) {
             return new DeviceGovernorImpl(this, url);
         } else if (url.isCharacteristic()) {
@@ -282,18 +288,30 @@ class BluetoothManagerImpl implements BluetoothManager {
         throw new IllegalStateException("Unknown url");
     }
 
+    private void disposeGovernor(BluetoothObjectGovernor governor) {
+        URL url = governor.getURL();
+        reset(governor);
+        synchronized (governorFutures) {
+            if (governorFutures.containsKey(url)) {
+                governorFutures.get(url).cancel(true);
+                governorFutures.remove(url);
+            }
+        }
+        governors.remove(url);
+    }
+
     private BluetoothObjectFactory findFactory(URL url) {
         String protocol = url.getProtocol();
         String adapterAddress = url.getAdapterAddress();
         if (url.getProtocol() != null) {
-            return BluetoothObjectFactory.getFactory(protocol);
+            return BluetoothObjectFactoryProvider.getFactory(protocol);
         } else if (adapterToProtocolCache.containsKey(adapterAddress)) {
-            return BluetoothObjectFactory.getFactory(adapterToProtocolCache.get(adapterAddress));
+            return BluetoothObjectFactoryProvider.getFactory(adapterToProtocolCache.get(adapterAddress));
         } else {
-            for (Adapter adapter : BluetoothObjectFactory.getAllDiscoveredAdapters()) {
+            for (Adapter adapter : BluetoothObjectFactoryProvider.getAllDiscoveredAdapters()) {
                 if (adapter.getURL().getAdapterAddress().equals(adapterAddress)) {
                     adapterToProtocolCache.put(url.getAdapterAddress(), adapter.getURL().getProtocol());
-                    return BluetoothObjectFactory.getFactory(adapter.getURL().getProtocol());
+                    return BluetoothObjectFactoryProvider.getFactory(adapter.getURL().getProtocol());
                 }
             }
         }
@@ -392,7 +410,7 @@ class BluetoothManagerImpl implements BluetoothManager {
         private void discoverDevices() {
             try {
                 synchronized (discoveredDevices) {
-                    List<Device> list = BluetoothObjectFactory.getAllDiscoveredDevices();
+                    List<Device> list = BluetoothObjectFactoryProvider.getAllDiscoveredDevices();
                     if (list == null) {
                         return;
                     }
@@ -422,7 +440,7 @@ class BluetoothManagerImpl implements BluetoothManager {
             try {
                 synchronized (discoveredAdapters) {
                     Set<DiscoveredAdapter> newDiscovery = new HashSet<>();
-                    for (Adapter adapter : BluetoothObjectFactory.getAllDiscoveredAdapters()) {
+                    for (Adapter adapter : BluetoothObjectFactoryProvider.getAllDiscoveredAdapters()) {
                         DiscoveredAdapter discoveredAdapter = getDiscoveredAdapter(adapter);
                         notifyAdapterDiscovered(discoveredAdapter);
                         newDiscovery.add(discoveredAdapter);

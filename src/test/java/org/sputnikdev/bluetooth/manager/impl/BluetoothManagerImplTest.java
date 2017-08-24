@@ -21,7 +21,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest(fullyQualifiedNames = {"org.sputnikdev.bluetooth.manager.impl.BluetoothObjectFactory"})
+@PrepareForTest(fullyQualifiedNames = {"org.sputnikdev.bluetooth.manager.impl.BluetoothObjectFactoryProvider"})
 public class BluetoothManagerImplTest {
 
     private static final String TINYB_PROTOCOL_NAME = "tinyb";
@@ -64,12 +64,12 @@ public class BluetoothManagerImplTest {
 
     @Before
     public void setUp() {
-        PowerMockito.mockStatic(BluetoothObjectFactory.class);
+        PowerMockito.mockStatic(BluetoothObjectFactoryProvider.class);
 
-        when(BluetoothObjectFactory.getFactory(TINYB_PROTOCOL_NAME)).thenReturn(tinybObjectFactory);
+        when(BluetoothObjectFactoryProvider.getFactory(TINYB_PROTOCOL_NAME)).thenReturn(tinybObjectFactory);
         when(tinybObjectFactory.getProtocolName()).thenReturn(TINYB_PROTOCOL_NAME);
 
-        when(BluetoothObjectFactory.getFactory(DBUS_PROTOCOL_NAME)).thenReturn(tinybObjectFactory);
+        when(BluetoothObjectFactoryProvider.getFactory(DBUS_PROTOCOL_NAME)).thenReturn(tinybObjectFactory);
         when(tinybObjectFactory.getProtocolName()).thenReturn(TINYB_PROTOCOL_NAME);
 
         when(tinybObjectFactory.getAdapter(TINYB_ADAPTER_URL)).thenReturn(tinyaAdapter);
@@ -88,7 +88,7 @@ public class BluetoothManagerImplTest {
         when(tinybObjectFactory.getCharacteristic(
                 DBUS_CHARACTERISTIC_URL.copyWithProtocol(null))).thenReturn(dbusCharacteristic);
 
-        when(BluetoothObjectFactory.getAllDiscoveredAdapters()).thenReturn(Arrays.asList(tinyaAdapter, dbusAdapter));
+        when(BluetoothObjectFactoryProvider.getAllDiscoveredAdapters()).thenReturn(Arrays.asList(tinyaAdapter, dbusAdapter));
 
 
         when(tinyaAdapter.getURL()).thenReturn(TINYB_ADAPTER_URL);
@@ -121,7 +121,7 @@ public class BluetoothManagerImplTest {
         assertEquals(tinybCharacteristic, bluetoothObject);
 
         PowerMockito.verifyStatic(times(0));
-        BluetoothObjectFactory.getAllDiscoveredAdapters();
+        BluetoothObjectFactoryProvider.getAllDiscoveredAdapters();
     }
 
     @Test
@@ -188,18 +188,18 @@ public class BluetoothManagerImplTest {
         BluetoothObject bluetoothObject = bluetoothManager.getBluetoothObject(url);
         assertNull(bluetoothObject);
         PowerMockito.verifyStatic(times(0));
-        BluetoothObjectFactory.getAllDiscoveredAdapters();
+        BluetoothObjectFactoryProvider.getAllDiscoveredAdapters();
 
         bluetoothObject = bluetoothManager.getBluetoothObject(url.copyWithProtocol(null));
         assertNull(bluetoothObject);
         PowerMockito.verifyStatic(times(1));
-        BluetoothObjectFactory.getAllDiscoveredAdapters();
+        BluetoothObjectFactoryProvider.getAllDiscoveredAdapters();
 
         // the previous steps should not affect cache
         bluetoothObject = bluetoothManager.getBluetoothObject(url.copyWithProtocol(null));
         assertNull(bluetoothObject);
         PowerMockito.verifyStatic(times(2));
-        BluetoothObjectFactory.getAllDiscoveredAdapters();
+        BluetoothObjectFactoryProvider.getAllDiscoveredAdapters();
     }
 
     private void assertGetBluetoothObjectNoProtocol(BluetoothObject expected, URL url) {
@@ -207,14 +207,14 @@ public class BluetoothManagerImplTest {
         BluetoothObject bluetoothObject = bluetoothManager.getBluetoothObject(url.copyWithProtocol(null));
         assertEquals(expected, bluetoothObject);
         PowerMockito.verifyStatic(times(1));
-        BluetoothObjectFactory.getAllDiscoveredAdapters();
+        BluetoothObjectFactoryProvider.getAllDiscoveredAdapters();
 
         // next time the "device to protocol cache" should be used to get protocol by bluetoothObject address
         bluetoothObject = bluetoothManager.getBluetoothObject(url.copyWithProtocol(null));
         assertEquals(expected, bluetoothObject);
         // no more invocations should be made
         PowerMockito.verifyStatic(times(1));
-        BluetoothObjectFactory.getAllDiscoveredAdapters();
+        BluetoothObjectFactoryProvider.getAllDiscoveredAdapters();
     }
 
 }

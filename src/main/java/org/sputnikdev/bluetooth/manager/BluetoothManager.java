@@ -148,7 +148,13 @@ public interface BluetoothManager {
     void disposeGovernor(URL url);
 
     /**
-     * Disposes/ shut down the bluetooth manager and its governors.
+     * Disposes/ shuts down descendatn governors by provided URL ({@link URL#isDescendant(URL)}).
+     * @param url a URL of a bluetooth object (adapter, device, characteristic)
+     */
+    void disposeDescendantGovernors(URL url);
+
+    /**
+     * Disposes/ shuts down the bluetooth manager and its governors.
      */
     void dispose();
 

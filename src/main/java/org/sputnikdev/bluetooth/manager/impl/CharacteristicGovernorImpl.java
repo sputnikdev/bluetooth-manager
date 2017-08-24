@@ -32,7 +32,6 @@ import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
 import org.sputnikdev.bluetooth.manager.CharacteristicGovernor;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
 import org.sputnikdev.bluetooth.manager.ValueListener;
-import tinyb.BluetoothException;
 
 /**
  *
@@ -163,7 +162,7 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic>
                 if (listener != null) {
                     listener.changed(data);
                 }
-            } catch (BluetoothException ex) {
+            } catch (Exception ex) {
                 logger.error("Execution error of a characteristic listener", ex);
             }
         }

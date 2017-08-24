@@ -15,7 +15,7 @@ import static org.mockito.Mockito.when;
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest(fullyQualifiedNames = {"org.sputnikdev.bluetooth.manager.impl.BluetoothManagerFactory"})
-public class BluetoothObjectFactoryTest {
+public class BluetoothObjectFactoryProviderTest {
 
     private static final String PROTOCOL_NAME = "tinyb";
 
@@ -39,7 +39,7 @@ public class BluetoothObjectFactoryTest {
 
     @Test
     public void testUnregisterFactory() throws Exception {
-        BluetoothObjectFactory.unregisterFactory(objectFactory);
+        BluetoothObjectFactoryProvider.unregisterFactory(objectFactory);
         verify(bluetoothManager, times(1)).resetDescendants(new URL(PROTOCOL_NAME + "://"));
     }
 }

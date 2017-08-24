@@ -71,6 +71,9 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
         adapter.disableDiscoveringNotifications();
         poweredNotification = null;
         discoveringNotification = null;
+        if (isPowered() && adapter.isDiscovering()) {
+            adapter.stopDiscovery();
+        }
     }
 
     @Override
