@@ -26,6 +26,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.transport.Adapter;
+import org.sputnikdev.bluetooth.manager.transport.BluetoothObjectFactory;
+import org.sputnikdev.bluetooth.manager.transport.Device;
 
 /**
  * A root interface for all Bluetooth transport implementations.

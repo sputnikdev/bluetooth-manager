@@ -16,6 +16,7 @@ import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
 import org.sputnikdev.bluetooth.manager.GovernorListener;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
+import org.sputnikdev.bluetooth.manager.transport.BluetoothObject;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;

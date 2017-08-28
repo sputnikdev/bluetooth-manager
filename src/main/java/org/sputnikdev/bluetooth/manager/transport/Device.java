@@ -1,4 +1,4 @@
-package org.sputnikdev.bluetooth.manager.impl;
+package org.sputnikdev.bluetooth.manager.transport;
 
 /*-
  * #%L
@@ -19,6 +19,8 @@ package org.sputnikdev.bluetooth.manager.impl;
  * limitations under the License.
  * #L%
  */
+
+import org.sputnikdev.bluetooth.manager.impl.Notification;
 
 import java.util.List;
 

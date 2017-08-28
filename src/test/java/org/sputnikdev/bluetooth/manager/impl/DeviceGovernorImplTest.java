@@ -32,6 +32,10 @@ import org.sputnikdev.bluetooth.manager.DeviceGovernor;
 import org.sputnikdev.bluetooth.manager.GattCharacteristic;
 import org.sputnikdev.bluetooth.manager.GattService;
 import org.sputnikdev.bluetooth.manager.GenericBluetoothDeviceListener;
+import org.sputnikdev.bluetooth.manager.transport.BluetoothObjectFactory;
+import org.sputnikdev.bluetooth.manager.transport.Characteristic;
+import org.sputnikdev.bluetooth.manager.transport.Device;
+import org.sputnikdev.bluetooth.manager.transport.Service;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;

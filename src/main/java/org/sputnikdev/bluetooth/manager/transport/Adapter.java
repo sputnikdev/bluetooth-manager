@@ -1,4 +1,4 @@
-package org.sputnikdev.bluetooth.manager.impl;
+package org.sputnikdev.bluetooth.manager.transport;
 
 /*-
  * #%L
@@ -20,14 +20,32 @@ package org.sputnikdev.bluetooth.manager.impl;
  * #L%
  */
 
-import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.impl.Notification;
+
+import java.util.List;
 
 /**
  *
  * @author Vlad Kolotov
  */
-public interface BluetoothObject {
+public interface Adapter extends BluetoothObject {
 
-    URL getURL();
+    String getName();
+
+    String getAlias();
+    void setAlias(String s);
+
+    boolean isDiscovering();
+    void enableDiscoveringNotifications(Notification<Boolean> notification);
+    void disableDiscoveringNotifications();
+    boolean startDiscovery();
+    boolean stopDiscovery();
+
+    boolean isPowered();
+    void setPowered(boolean b);
+    void enablePoweredNotifications(Notification<Boolean> notification);
+    void disablePoweredNotifications();
+
+    List<Device> getDevices();
 
 }

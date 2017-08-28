@@ -1,4 +1,4 @@
-package org.sputnikdev.bluetooth.manager.impl;
+package org.sputnikdev.bluetooth.manager.transport;
 
 /*-
  * #%L
@@ -20,21 +20,14 @@ package org.sputnikdev.bluetooth.manager.impl;
  * #L%
  */
 
+import org.sputnikdev.bluetooth.URL;
+
 /**
  *
  * @author Vlad Kolotov
  */
-public interface Characteristic extends BluetoothObject {
+public interface BluetoothObject {
 
-    String[] getFlags();
+    URL getURL();
 
-    boolean isNotifying();
-
-    void disableValueNotifications();
-
-    byte[] readValue();
-
-    boolean writeValue(byte[] data);
-
-    void enableValueNotifications(Notification<byte[]> notification);
 }

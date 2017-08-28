@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.List;
 
 import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.transport.BluetoothObject;
 
 /**
  *

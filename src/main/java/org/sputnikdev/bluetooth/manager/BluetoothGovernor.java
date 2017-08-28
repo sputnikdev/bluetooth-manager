@@ -23,12 +23,15 @@ package org.sputnikdev.bluetooth.manager;
 import java.util.Date;
 
 import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.transport.Adapter;
+import org.sputnikdev.bluetooth.manager.transport.Characteristic;
+import org.sputnikdev.bluetooth.manager.transport.Device;
 
 /**
  * An interface for all Bluetooth governors. Bluetooth governors are the central part of the system. They represent
- * different Bluetooth objects such us adapters ({@link org.sputnikdev.bluetooth.manager.impl.Adapter}),
- * devices ({@link org.sputnikdev.bluetooth.manager.impl.Device}) and characteristics
- * ({@link org.sputnikdev.bluetooth.manager.impl.Characteristic}). By its nature, Bluetooth protocol
+ * different Bluetooth objects such us adapters ({@link Adapter}),
+ * devices ({@link Device}) and characteristics
+ * ({@link Characteristic}). By its nature, Bluetooth protocol
  * and Bluetooth communication is unstable (devices and adapters can get disconnected or can be out of radio range).
  * Therefore the main function of the bluetooth governors is to provide robustness to Bluetooth protocol
  * and communication, e.g. once a bluetooth governor is created, it is monitoring and recovering the state of

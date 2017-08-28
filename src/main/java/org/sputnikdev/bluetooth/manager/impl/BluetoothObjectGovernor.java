@@ -30,6 +30,7 @@ import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
 import org.sputnikdev.bluetooth.manager.GovernorListener;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
+import org.sputnikdev.bluetooth.manager.transport.BluetoothObject;
 
 /**
  * A root class for all governors in the system. Defines lifecycle and error handling/recovery processes for governors.

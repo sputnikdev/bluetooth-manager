@@ -32,6 +32,7 @@ import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
 import org.sputnikdev.bluetooth.manager.CharacteristicGovernor;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
 import org.sputnikdev.bluetooth.manager.ValueListener;
+import org.sputnikdev.bluetooth.manager.transport.Characteristic;
 
 /**
  *
