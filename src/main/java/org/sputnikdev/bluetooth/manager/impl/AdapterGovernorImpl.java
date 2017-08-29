@@ -26,12 +26,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
-import org.sputnikdev.bluetooth.manager.AdapterGovernor;
-import org.sputnikdev.bluetooth.manager.AdapterListener;
-import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
-import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
-import org.sputnikdev.bluetooth.manager.DeviceGovernor;
-import org.sputnikdev.bluetooth.manager.NotReadyException;
+import org.sputnikdev.bluetooth.manager.*;
 import org.sputnikdev.bluetooth.manager.transport.Adapter;
 
 /**
