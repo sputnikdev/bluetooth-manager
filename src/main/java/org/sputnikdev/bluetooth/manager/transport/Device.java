@@ -20,8 +20,6 @@ package org.sputnikdev.bluetooth.manager.transport;
  * #L%
  */
 
-import org.sputnikdev.bluetooth.manager.Notification;
-
 import java.util.List;
 
 /**
@@ -43,6 +41,8 @@ public interface Device extends BluetoothObject {
     void setAlias(String alias);
 
     boolean isBlocked();
+
+    boolean isBleEnabled();
 
     void enableBlockedNotifications(Notification<Boolean> notification);
 

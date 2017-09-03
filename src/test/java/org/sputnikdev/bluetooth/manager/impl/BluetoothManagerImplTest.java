@@ -11,15 +11,12 @@ import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.DiscoveredAdapter;
 import org.sputnikdev.bluetooth.manager.transport.*;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest(fullyQualifiedNames = {"org.sputnikdev.bluetooth.manager.impl.BluetoothObjectFactoryProvider"})
@@ -89,7 +86,12 @@ public class BluetoothManagerImplTest {
         when(tinybObjectFactory.getCharacteristic(
                 DBUS_CHARACTERISTIC_URL.copyWithProtocol(null))).thenReturn(dbusCharacteristic);
 
-        when(BluetoothObjectFactoryProvider.getAllDiscoveredAdapters()).thenReturn(Arrays.asList(tinyaAdapter, dbusAdapter));
+        DiscoveredAdapter tinyBDiscoveredAdapter = mock(DiscoveredAdapter.class);
+        when(tinyBDiscoveredAdapter.getURL()).thenReturn(TINYB_ADAPTER_URL);
+        DiscoveredAdapter dbusDiscoveredAdapter = mock(DiscoveredAdapter.class);
+        when(dbusDiscoveredAdapter.getURL()).thenReturn(DBUS_ADAPTER_URL);
+        when(BluetoothObjectFactoryProvider.getAllDiscoveredAdapters()).thenReturn(
+                Arrays.asList(tinyBDiscoveredAdapter, dbusDiscoveredAdapter));
 
 
         when(tinyaAdapter.getURL()).thenReturn(TINYB_ADAPTER_URL);

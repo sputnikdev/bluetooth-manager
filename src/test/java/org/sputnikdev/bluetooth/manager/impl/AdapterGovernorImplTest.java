@@ -22,6 +22,7 @@ import org.sputnikdev.bluetooth.manager.*;
 import org.sputnikdev.bluetooth.manager.transport.Adapter;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObjectFactory;
 import org.sputnikdev.bluetooth.manager.transport.Device;
+import org.sputnikdev.bluetooth.manager.transport.Notification;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;

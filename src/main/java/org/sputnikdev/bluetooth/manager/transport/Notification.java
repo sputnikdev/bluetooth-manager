@@ -1,4 +1,4 @@
-package org.sputnikdev.bluetooth.manager;
+package org.sputnikdev.bluetooth.manager.transport;
 
 /*-
  * #%L

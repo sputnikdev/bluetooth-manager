@@ -20,8 +20,6 @@ package org.sputnikdev.bluetooth.manager.transport;
  * #L%
  */
 
-import org.sputnikdev.bluetooth.manager.Notification;
-
 /**
  *
  * @author Vlad Kolotov

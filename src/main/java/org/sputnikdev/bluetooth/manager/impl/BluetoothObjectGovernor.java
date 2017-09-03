@@ -172,6 +172,7 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
         if (this.bluetoothObject != null) {
             reset(this.bluetoothObject);
             notifyReady(false);
+            this.bluetoothObject.dispose();
         }
         this.bluetoothObject = null;
         logger.info("Governor has been reset: " + url);

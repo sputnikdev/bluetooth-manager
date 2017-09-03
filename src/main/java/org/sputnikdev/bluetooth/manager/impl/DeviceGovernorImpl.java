@@ -21,10 +21,7 @@ package org.sputnikdev.bluetooth.manager.impl;
  */
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +29,7 @@ import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.*;
 import org.sputnikdev.bluetooth.manager.transport.Characteristic;
 import org.sputnikdev.bluetooth.manager.transport.Device;
+import org.sputnikdev.bluetooth.manager.transport.Notification;
 import org.sputnikdev.bluetooth.manager.transport.Service;
 
 /**
@@ -113,7 +111,7 @@ class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements Devi
 
     @Override
     public boolean isBleEnabled() throws NotReadyException {
-        return getBluetoothClass() == BLE_BLUETOOTH_CLASS;
+        return getBluetoothObject().isBleEnabled();
     }
 
     @Override
@@ -242,6 +240,9 @@ class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements Devi
             if (displayName != null) {
                 result += " [" + displayName + "]";
             }
+            if (isBleEnabled()) {
+                result += " [BLE]";
+            }
         }
         return result;
     }
@@ -330,8 +331,14 @@ class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements Devi
 
     private List<Characteristic> getAllCharacteristics() throws NotReadyException {
         List<Characteristic> characteristics = new ArrayList<>();
-        for (Service service : getBluetoothObject().getServices()) {
-            characteristics.addAll(service.getCharacteristics());
+        List<Service> services = getBluetoothObject().getServices();
+        if (services != null) {
+            for (Service service : services) {
+                List<Characteristic> chars = service.getCharacteristics();
+                if (chars != null) {
+                    characteristics.addAll(chars);
+                }
+            }
         }
         return characteristics;
     }

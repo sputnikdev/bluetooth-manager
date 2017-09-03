@@ -21,6 +21,8 @@ package org.sputnikdev.bluetooth.manager.transport;
  */
 
 import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.DiscoveredAdapter;
+import org.sputnikdev.bluetooth.manager.DiscoveredDevice;
 
 import java.util.List;
 
@@ -57,13 +59,13 @@ public interface BluetoothObjectFactory {
      * Returns all discovered adapters by all registered transports.
      * @return all discovered adapters
      */
-    List<Adapter> getDiscoveredAdapters();
+    List<DiscoveredAdapter> getDiscoveredAdapters();
 
     /**
      * Returns all discovered devices by all registered transports.
      * @return all discovered devices
      */
-    List<Device> getDiscoveredDevices();
+    List<DiscoveredDevice> getDiscoveredDevices();
 
     /**
      * Returns transport protocol name

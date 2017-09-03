@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.DiscoveredAdapter;
+import org.sputnikdev.bluetooth.manager.DiscoveredDevice;
 import org.sputnikdev.bluetooth.manager.transport.Adapter;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObjectFactory;
 import org.sputnikdev.bluetooth.manager.transport.Device;
@@ -79,11 +81,14 @@ public class BluetoothObjectFactoryProvider {
      * Returns all discovered devices by all registered transports.
      * @return all discovered devices
      */
-    protected static List<Device> getAllDiscoveredDevices() {
+    protected static List<DiscoveredDevice> getAllDiscoveredDevices() {
         synchronized (factories) {
-            List<Device> devices = new ArrayList<>();
+            List<DiscoveredDevice> devices = new ArrayList<>();
             for (BluetoothObjectFactory bluetoothObjectFactory : factories.values()) {
-                devices.addAll(bluetoothObjectFactory.getDiscoveredDevices());
+                List<DiscoveredDevice> factoryDevices = bluetoothObjectFactory.getDiscoveredDevices();
+                if (factoryDevices != null) {
+                    devices.addAll(bluetoothObjectFactory.getDiscoveredDevices());
+                }
             }
             return devices;
         }
@@ -93,9 +98,9 @@ public class BluetoothObjectFactoryProvider {
      * Returns all discovered adapters by all registered transports.
      * @return all discovered adapters
      */
-    protected static List<Adapter> getAllDiscoveredAdapters() {
+    protected static List<DiscoveredAdapter> getAllDiscoveredAdapters() {
         synchronized (factories) {
-            List<Adapter> adapters = new ArrayList<>();
+            List<DiscoveredAdapter> adapters = new ArrayList<>();
             for (BluetoothObjectFactory bluetoothObjectFactory : factories.values()) {
                 adapters.addAll(bluetoothObjectFactory.getDiscoveredAdapters());
             }

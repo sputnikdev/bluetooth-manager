@@ -35,33 +35,38 @@ public class DiscoveredDevice implements DiscoveredObject {
     private final String alias;
     private short rssi;
     private int bluetoothClass;
+    private boolean bleEnabled;
 
     /**
      * Creates a new object.
      * @param url bluetooth object URL
      * @param name bluetooth object name
      * @param alias bluetooth object alias
+     * @param bleEnabled indicated if it is a BLE enabled device
      */
-    public DiscoveredDevice(URL url, String name, String alias) {
+    public DiscoveredDevice(URL url, String name, String alias, boolean bleEnabled) {
         this.url = url;
         this.name = name;
         this.alias = alias;
+        this.bleEnabled = bleEnabled;
     }
 
     /**
      * Creates a new object.
      * @param url bluetooth object URL
      * @param name bluetooth object name
-     * @param alias bluetooth object alis
+     * @param alias bluetooth object alias
      * @param rssi bluetooth object RSSI
      * @param bluetoothClass bluetooth object class
+     * @param bleEnabled indicated if it is a BLE enabled device
      */
-    public DiscoveredDevice(URL url, String name, String alias, short rssi, int bluetoothClass) {
+    public DiscoveredDevice(URL url, String name, String alias, short rssi, int bluetoothClass, boolean bleEnabled) {
         this.url = url;
         this.name = name;
         this.alias = alias;
         this.rssi = rssi;
         this.bluetoothClass = bluetoothClass;
+        this.bleEnabled = bleEnabled;
     }
 
     /**
@@ -105,6 +110,14 @@ public class DiscoveredDevice implements DiscoveredObject {
      */
     public int getBluetoothClass() {
         return bluetoothClass;
+    }
+
+    /**
+     * Indicates if this device is Bluetooth Low Energy enabled device
+     * @return true if Bluetooth Low Energy enabled device, false otherwise
+     */
+    public boolean isBleEnabled() {
+        return bleEnabled;
     }
 
     @Override

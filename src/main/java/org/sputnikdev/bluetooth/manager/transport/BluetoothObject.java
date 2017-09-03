@@ -30,4 +30,11 @@ public interface BluetoothObject {
 
     URL getURL();
 
+    /**
+     * Disposes a bluetooth object.
+     * An object normally get disposed when an exception happens while interacting with it.
+     * Native resources can be released by this method
+     */
+    void dispose();
+
 }

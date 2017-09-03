@@ -23,10 +23,7 @@ import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.*;
-import org.sputnikdev.bluetooth.manager.transport.BluetoothObjectFactory;
-import org.sputnikdev.bluetooth.manager.transport.Characteristic;
-import org.sputnikdev.bluetooth.manager.transport.Device;
-import org.sputnikdev.bluetooth.manager.transport.Service;
+import org.sputnikdev.bluetooth.manager.transport.*;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -322,13 +319,11 @@ public class DeviceGovernorImplTest {
 
     @Test
     public void testIsBleEnabled() throws Exception {
-        when(device.getBluetoothClass()).thenReturn(DeviceGovernorImpl.BLE_BLUETOOTH_CLASS);
+        when(device.isBleEnabled()).thenReturn(true).thenReturn(false);
         assertTrue(governor.isBleEnabled());
-        verify(device, times(1)).getBluetoothClass();
-
-        when(device.getBluetoothClass()).thenReturn(1);
+        verify(device, times(1)).isBleEnabled();
         assertFalse(governor.isBleEnabled());
-        verify(device, times(2)).getBluetoothClass();
+        verify(device, times(2)).isBleEnabled();
     }
 
     @Test
@@ -558,7 +553,8 @@ public class DeviceGovernorImplTest {
     @Test
     public void testToString() throws Exception {
         when(device.getAlias()).thenReturn(ALIAS).thenReturn(null);
-        assertEquals("[Device] " + URL + " [" + ALIAS + "]", governor.toString());
+        when(device.isBleEnabled()).thenReturn(true).thenReturn(false);
+        assertEquals("[Device] " + URL + " [" + ALIAS + "] [BLE]", governor.toString());
         assertEquals("[Device] " + URL + " [" + NAME + "]", governor.toString());
     }
 
