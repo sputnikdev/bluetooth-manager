@@ -20,10 +20,6 @@ package org.sputnikdev.bluetooth.manager.impl;
  * #L%
  */
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
@@ -31,6 +27,10 @@ import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
 import org.sputnikdev.bluetooth.manager.GovernorListener;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObject;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 
 /**
  * A root class for all governors in the system. Defines lifecycle and error handling/recovery processes for governors.
@@ -157,7 +157,7 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
             return;
         }
         try {
-            logger.info("Updating governor state: {}", url);
+            logger.debug("Updating governor state: {}", url);
             update(bluetoothObject);
             updateLastChanged();
             notifyLastChanged();

@@ -20,7 +20,9 @@ package org.sputnikdev.bluetooth.manager;
  * #L%
  */
 
-import java.util.List;
+import org.sputnikdev.bluetooth.manager.transport.CharacteristicAccessType;
+
+import java.util.Set;
 
 /**
  * Bluetooth characteristic governor ({@link BluetoothGovernor}).
@@ -29,18 +31,13 @@ import java.util.List;
  */
 public interface CharacteristicGovernor extends BluetoothGovernor {
 
-    String READ_FLAG = "read";
-    String NOTIFY_FLAG = "notify";
-    String INDICATE_FLAG = "indicate";
-    String WRITE_FLAG = "write";
-
     /**
-     * Returns modes (flags) supported by the characteristic.
+     * Returns access types (flags) supported by the characteristic.
      *
      * @return flags supported by the characteristic
      * @throws NotReadyException if the bluetooth object is not ready
      */
-    List<String> getFlags() throws NotReadyException;
+    Set<CharacteristicAccessType> getFlags() throws NotReadyException;
 
     /**
      * Checks whether the characteristic can be read.

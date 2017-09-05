@@ -20,13 +20,15 @@ package org.sputnikdev.bluetooth.manager.transport;
  * #L%
  */
 
+import java.util.Set;
+
 /**
  *
  * @author Vlad Kolotov
  */
 public interface Characteristic extends BluetoothObject {
 
-    String[] getFlags();
+    Set<CharacteristicAccessType> getFlags();
 
     boolean isNotifying();
 

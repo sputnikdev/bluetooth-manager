@@ -20,16 +20,15 @@ package org.sputnikdev.bluetooth.manager.impl;
  * #L%
  */
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.*;
 import org.sputnikdev.bluetooth.manager.transport.Characteristic;
+import org.sputnikdev.bluetooth.manager.transport.CharacteristicAccessType;
 import org.sputnikdev.bluetooth.manager.transport.Notification;
+
+import java.util.Set;
 
 /**
  *
@@ -74,24 +73,26 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic>
     }
 
     @Override
-    public List<String> getFlags() throws NotReadyException {
-        return getFlags(getBluetoothObject());
+    public Set<CharacteristicAccessType> getFlags() throws NotReadyException {
+        return getBluetoothObject().getFlags();
     }
 
     @Override
     public boolean isNotifiable() throws NotReadyException {
-        List<String> flgs = getFlags();
-        return flgs.contains(NOTIFY_FLAG) || flgs.contains(INDICATE_FLAG);
+        Set<CharacteristicAccessType> flgs = getFlags();
+        return flgs.contains(CharacteristicAccessType.NOTIFY) || flgs.contains(CharacteristicAccessType.INDICATE);
     }
 
     @Override
     public boolean isWritable() throws NotReadyException {
-        return getFlags().contains(WRITE_FLAG);
+        Set<CharacteristicAccessType> flgs = getFlags();
+        return flgs.contains(CharacteristicAccessType.WRITE) ||
+                flgs.contains(CharacteristicAccessType.WRITE_WITHOUT_RESPONSE);
     }
 
     @Override
     public boolean isReadable() throws NotReadyException {
-        return getFlags().contains(READ_FLAG);
+        return getFlags().contains(CharacteristicAccessType.READ);
     }
 
     @Override
@@ -132,24 +133,16 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic>
     }
 
     private void enableNotification(Characteristic characteristic) {
-        logger.info("Enable characteristic notifications: " + getURL());
-        this.valueNotification = new ValueNotification();
-        if (canNotify(characteristic) && !characteristic.isNotifying()) {
+        if (this.valueNotification == null && canNotify(characteristic) && !characteristic.isNotifying()) {
+            logger.info("Enable characteristic notifications: " + getURL());
+            this.valueNotification = new ValueNotification();
             characteristic.enableValueNotifications(valueNotification);
         }
     }
 
-    private static boolean canNotify(Characteristic characteristic) {
-        List<String> flgs = getFlags(characteristic);
-        return flgs.contains(NOTIFY_FLAG) || flgs.contains(INDICATE_FLAG);
-    }
-
-    private static List<String> getFlags(Characteristic characteristic) {
-        String[] flags = characteristic.getFlags();
-        if (flags != null && flags.length > 0) {
-            return Arrays.asList(flags);
-        }
-        return Collections.emptyList();
+    private boolean canNotify(Characteristic characteristic) {
+        Set<CharacteristicAccessType> flgs = characteristic.getFlags();
+        return flgs.contains(CharacteristicAccessType.NOTIFY) || flgs.contains(CharacteristicAccessType.INDICATE);
     }
 
     private class ValueNotification implements Notification<byte[]> {

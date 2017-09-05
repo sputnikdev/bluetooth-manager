@@ -21,6 +21,9 @@ package org.sputnikdev.bluetooth.manager;
  */
 
 import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.transport.CharacteristicAccessType;
+
+import java.util.Set;
 
 /**
  * A class to capture discovered GATT characteristics.
@@ -30,14 +33,14 @@ import org.sputnikdev.bluetooth.URL;
 public class GattCharacteristic {
 
     private final URL url;
-    private final String[] flags;
+    private final Set<CharacteristicAccessType> flags;
 
     /**
      * Creates a new object.
      * @param url characteristic URL
      * @param flags characteristic access flags
      */
-    public GattCharacteristic(URL url, String[] flags) {
+    public GattCharacteristic(URL url, Set<CharacteristicAccessType> flags) {
         this.url = url;
         this.flags = flags;
     }
@@ -54,7 +57,7 @@ public class GattCharacteristic {
      * Returns characteristic access flags.
      * @return characteristic access flags
      */
-    public String[] getFlags() {
+    public Set<CharacteristicAccessType> getFlags() {
         return flags;
     }
 }
