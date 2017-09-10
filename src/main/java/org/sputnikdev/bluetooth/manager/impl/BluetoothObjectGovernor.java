@@ -168,14 +168,18 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
     }
 
     final void reset() {
-        logger.info("Resetting governor: " + url);
-        if (this.bluetoothObject != null) {
-            reset(this.bluetoothObject);
-            notifyReady(false);
-            this.bluetoothObject.dispose();
+        logger.info("Resetting governor: {}", url);
+        try {
+            if (this.bluetoothObject != null) {
+                reset(this.bluetoothObject);
+                notifyReady(false);
+                this.bluetoothObject.dispose();
+            }
+        } catch (Exception ex) {
+            logger.debug("Could not reset governor: {}", url);
         }
         this.bluetoothObject = null;
-        logger.info("Governor has been reset: " + url);
+        logger.info("Governor has been reset: {}", url);
     }
 
     void updateLastChanged() {
@@ -210,8 +214,13 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
         if (bluetoothObject == null) {
             this.bluetoothObject = bluetoothManager.getBluetoothObject(url);
             if (this.bluetoothObject != null) {
-                init(this.bluetoothObject);
-                notifyReady(true);
+                try {
+                    init(this.bluetoothObject);
+                    notifyReady(true);
+                } catch (Exception ex) {
+                    logger.info("Could not init governor: {}", url);
+                    reset();
+                }
             }
         }
         return bluetoothObject;

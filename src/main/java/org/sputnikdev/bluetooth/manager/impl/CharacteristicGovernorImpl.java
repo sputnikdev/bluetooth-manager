@@ -58,8 +58,8 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic>
         logger.info("Disable characteristic notifications: " + getURL());
         if (characteristic.isNotifying()) {
             characteristic.disableValueNotifications();
-            valueNotification = null;
         }
+        valueNotification = null;
     }
 
     @Override
@@ -81,6 +81,11 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic>
     public boolean isNotifiable() throws NotReadyException {
         Set<CharacteristicAccessType> flgs = getFlags();
         return flgs.contains(CharacteristicAccessType.NOTIFY) || flgs.contains(CharacteristicAccessType.INDICATE);
+    }
+
+    @Override
+    public boolean isNotifying() throws NotReadyException {
+        return getBluetoothObject().isNotifying();
     }
 
     @Override

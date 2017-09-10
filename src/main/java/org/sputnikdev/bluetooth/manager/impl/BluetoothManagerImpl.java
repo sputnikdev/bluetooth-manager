@@ -186,12 +186,12 @@ class BluetoothManagerImpl implements BluetoothManager {
             if (!governors.containsKey(url)) {
                 BluetoothObjectGovernor governor = createGovernor(url);
 
-                update(governor);
-
                 governors.put(url, governor);
                 governorFutures.put(url,
                         scheduler.scheduleAtFixedRate((Runnable) () -> update(governor),
                                 5, refreshRate, TimeUnit.SECONDS));
+
+                update(governor);
 
                 return governor;
             }

@@ -63,6 +63,14 @@ public interface CharacteristicGovernor extends BluetoothGovernor {
      */
     boolean isNotifiable() throws NotReadyException;
 
+
+    /**
+     * Return true if notification is enabled, false otherwise.
+     * @return true if notification is enabled, false otherwise
+     * @throws NotReadyException
+     */
+    boolean isNotifying() throws NotReadyException;
+
     /**
      * Reads state from the characteristic.
      *
