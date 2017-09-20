@@ -4,7 +4,7 @@ notifications:
   slack: kolotov:69j2qLZ0paybeuQMcKfyN2gP
 before_deploy: git checkout master
 after_success:
-  - mvn clean cobertura:cobertura coveralls:report
+  - mvn jacoco:report coveralls:report
   - .travis/before-deploy.sh
   - .travis/deploy.sh
 env:
