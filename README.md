@@ -9,6 +9,8 @@ A library/framework for managing bluetooth adapters, bluetooth devices, GATT ser
 The Bluetooth Manager is a set of java APIs which is designed to streamline all the hard work of dealing with unstable 
 by its nature Bluetooth protocol. 
 
+## KPIs
+
 The following KPIs were kept in mind while designing and implementing the Bluetooth Manager:
 
 1. Flexibility in using different transports, e.g. serial port, dbus or any other (like tinyb).
@@ -16,13 +18,15 @@ The following KPIs were kept in mind while designing and implementing the Blueto
 3. Robustness. Due to the nature of the Bluetooth protocol the biggest challenge is making the API stable enough 
 so that end-users could use it.
 4. Comprehensive support for Bluetooth GATT specifications. This is a powerful feature which would allow users:
-* add any device which conforms GATT specification without developing any custom code
-* add custom made devices by only specifying a path to a custom defined GATT specification for a device
+    1. add any device which conforms GATT specification without developing any custom code
+    2. add custom made devices by only specifying a path to a custom defined GATT specification for a device
+ 
+## Implementation overview 
  
 The following diagram outlines some details of the Bluetooth Manager:
 ![Bluetooth Manager diagram](bluetooth-manager.png?raw=true "Bluetooth Manager diagram") 
  
-## Governors
+### Governors
 
 The central part of the BM architecture is "Governors" (examples and more info 
 [BluetoothGovernor](https://github.com/sputnikdev/bluetooth-manager/blob/master/src/main/java/org/sputnikdev/bluetooth/manager/BluetoothGovernor.java),  
@@ -36,7 +40,7 @@ the system more robust and enable the system to recover from unexpected situatio
 Apart from making the system stable, the Governors are designed in a such way that they can be used externally, 
 in other words it is another abstraction layer which hides some specifics/difficulties of the BT protocol behind user-friendly APIs.
  
-## Transport API
+### Transport API
 
 A specially designed abstraction layer (transport) is used to bring support 
 for various bluetooth adapters/dongles, operation systems and hardware architecture types.
