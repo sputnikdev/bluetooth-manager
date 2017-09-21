@@ -26,7 +26,7 @@ so that end-users could use it.
 The following diagram outlines some details of the Bluetooth Manager:
 ![Bluetooth Manager diagram](bluetooth-manager.png?raw=true "Bluetooth Manager diagram") 
  
-### Governors
+### Governors API
 
 The central part of the BM architecture is "Governors" (examples and more info 
 [BluetoothGovernor](https://github.com/sputnikdev/bluetooth-manager/blob/master/src/main/java/org/sputnikdev/bluetooth/manager/BluetoothGovernor.java),  
