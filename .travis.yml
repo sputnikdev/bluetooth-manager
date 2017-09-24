@@ -18,7 +18,3 @@ env:
   # GPG_PASSPHRASE
   - secure: "g3sOO7E3L/5t0OT7//qNFzEJ2Wyb6RqlWn4R4KUbd56ZD5DI6X3jm/ojjB/uRd7QSWpO8TpkJgf32I31KUV0aBc6uL4uoN24yq//EYM0LsaILk6ERkoJQzzVu73Ls+CsYFX2Slq1wiSZLgbdtXO/rmgC5dNPMep97UcmgfmfMFRj4IcBcj9OczMyCFtnAIB4TKT2/p5SESwBNLDyJb2nHdfLcrnMIayUQyfhv1XxcTgJzdxMBTHz65Ixjn9j06gp3O1AEFC2jBQLfOH9puQ88j4HANVffd8+5n/B2yDd9OCurZPUiMNpJXzaTyS8Ho1o+4paoQ2jizP3uhoR2l1uzsPtNpCn7Op/MJ0UfTDI7CxeN5dkqYHUuwmPC1Ei68cUAEONUtTapWcmvK2Loegtz8krqyJ/Esox8bnzkSQmdjlp0/ovgia5TumEFqwWd3LYN2Vg3ZMuY6HJdRvWX7gJ1K51qNhN1shIa8UpheEv6e7wsyvFYJ+SL0BrmAir7fI7kDJiZ2oBGu6IYEQ6GXAhmQJ2MLahclCj24qIBZlqdF1DJezPtybU/zlVqWrFtLiRNeqOEW7a9AetaJhF87L0escqPu7GB67Ad5CLJbaMijFOAitV3EAL+U6eA5yo+b2+94wulOcVExFwu32K24kHakm7C0+hkpB+WJVAINnoPNo="
 install: mvn install -P !build-extras -DskipTests=true -Dmaven.javadoc.skip=true -B -V
-
-cache:
-  directories:
-    - ~/.m2/repository
