@@ -63,8 +63,7 @@ There are two implementations of the BT Transport currently:
 ## Troubleshooting
 
 * Adapters are not getting discovered.
-  * Make sure your user has got permissions to access adapters in OS
-    - sudo adduser <usename> dialout
+  * Make sure your user has got permissions to access adapters in OS (e.g. `sudo adduser <username> dialout`)
 
 ---
 ## Contribution
