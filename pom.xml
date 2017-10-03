@@ -57,12 +57,20 @@
         </repository>
     </distributionManagement>
 
+    <repositories>
+        <repository>
+            <id>sonatype-snapshots</id>
+            <name>Sonatype Snapshots Maven Repository</name>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+        </repository>
+    </repositories>
+
     <profiles>
         <profile>
             <id>release-no-deploy</id>
             <activation>
                 <property>
-                    <name>!build-extras</name>
+                    <name>!travis</name>
                 </property>
             </activation>
             <build>
