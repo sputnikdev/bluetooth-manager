@@ -60,6 +60,12 @@ There are two implementations of the BT Transport currently:
      * Linux, Windows and OSX based operation systems.
      * A wide range of hardware architectures (including some ARM based devices, e.g. Raspberry PI etc).
 
+### Troubleshooting
+
+* Adapters are not getting discovered.
+  * Make sure your user has got permissions to access adapters in OS
+    - sudo adduser <usename> dialout
+
 ---
 ## Contribution
 
