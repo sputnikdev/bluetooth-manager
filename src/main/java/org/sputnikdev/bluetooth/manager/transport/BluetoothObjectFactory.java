@@ -68,7 +68,7 @@ public interface BluetoothObjectFactory {
     List<DiscoveredDevice> getDiscoveredDevices();
 
     /**
-     * Returns transport protocol name
+     * Returns transport protocol name.
      * @return transport protocol name
      */
     String getProtocolName();

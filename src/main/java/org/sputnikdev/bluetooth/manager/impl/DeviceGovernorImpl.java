@@ -418,7 +418,12 @@ class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements Devi
     private boolean updateConnected(Device device) {
         boolean connected = device.isConnected();
         if (connectionControl && !connected) {
-            connected = device.connect();
+            try {
+                connected = device.connect();
+            } catch (Exception ex) {
+                logger.debug("Could not connect: {}", ex.getMessage());
+                connected = false;
+            }
         } else if (!connectionControl && connected) {
             device.disconnect();
             resetCharacteristics();

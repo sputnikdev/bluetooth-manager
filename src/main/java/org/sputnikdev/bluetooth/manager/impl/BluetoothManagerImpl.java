@@ -188,8 +188,7 @@ class BluetoothManagerImpl implements BluetoothManager {
 
                 governors.put(url, governor);
                 governorFutures.put(url,
-                        scheduler.scheduleAtFixedRate((Runnable) () -> update(governor),
-                                5, refreshRate, TimeUnit.SECONDS));
+                        scheduler.scheduleWithFixedDelay(() -> update(governor),5, refreshRate, TimeUnit.SECONDS));
 
                 update(governor);
 
@@ -371,7 +370,7 @@ class BluetoothManagerImpl implements BluetoothManager {
         try {
             governor.update();
         } catch (Exception ex) {
-            logger.error("Could not update governor: " + governor, ex);
+            logger.warn("Could not update governor: " + governor, ex);
         }
     }
 
