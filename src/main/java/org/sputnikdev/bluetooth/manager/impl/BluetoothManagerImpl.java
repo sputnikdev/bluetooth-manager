@@ -247,12 +247,13 @@ class BluetoothManagerImpl implements BluetoothManager {
         BluetoothObjectFactory factory = findFactory(url);
         BluetoothObject bluetoothObject = null;
         if (factory != null) {
+            URL objectURL = url.copyWithProtocol(factory.getProtocolName());
             if (url.isAdapter()) {
-                bluetoothObject = factory.getAdapter(url);
+                bluetoothObject = factory.getAdapter(objectURL);
             } else if (url.isDevice()) {
-                bluetoothObject = factory.getDevice(url);
+                bluetoothObject = factory.getDevice(objectURL);
             } else if (url.isCharacteristic()) {
-                bluetoothObject = factory.getCharacteristic(url);
+                bluetoothObject = factory.getCharacteristic(objectURL);
             }
             if (bluetoothObject != null && !adapterToProtocolCache.containsKey(url.getAdapterAddress())) {
                 adapterToProtocolCache.put(url.getAdapterAddress(), factory.getProtocolName());

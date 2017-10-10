@@ -67,8 +67,8 @@ public class BluetoothManagerImplTest {
         when(BluetoothObjectFactoryProvider.getFactory(TINYB_PROTOCOL_NAME)).thenReturn(tinybObjectFactory);
         when(tinybObjectFactory.getProtocolName()).thenReturn(TINYB_PROTOCOL_NAME);
 
-        when(BluetoothObjectFactoryProvider.getFactory(DBUS_PROTOCOL_NAME)).thenReturn(tinybObjectFactory);
-        when(tinybObjectFactory.getProtocolName()).thenReturn(TINYB_PROTOCOL_NAME);
+        when(BluetoothObjectFactoryProvider.getFactory(DBUS_PROTOCOL_NAME)).thenReturn(dbusObjectFactory);
+        when(dbusObjectFactory.getProtocolName()).thenReturn(DBUS_PROTOCOL_NAME);
 
         when(tinybObjectFactory.getAdapter(TINYB_ADAPTER_URL)).thenReturn(tinyaAdapter);
         when(tinybObjectFactory.getAdapter(TINYB_ADAPTER_URL.copyWithProtocol(null))).thenReturn(tinyaAdapter);
@@ -78,12 +78,12 @@ public class BluetoothManagerImplTest {
         when(tinybObjectFactory.getCharacteristic(
                 TINYB_CHARACTERISTIC_URL.copyWithProtocol(null))).thenReturn(tinybCharacteristic);
 
-        when(tinybObjectFactory.getAdapter(DBUS_ADAPTER_URL)).thenReturn(dbusAdapter);
-        when(tinybObjectFactory.getAdapter(DBUS_ADAPTER_URL.copyWithProtocol(null))).thenReturn(dbusAdapter);
-        when(tinybObjectFactory.getDevice(DBUS_DEVICE_URL)).thenReturn(dbusDevice);
-        when(tinybObjectFactory.getDevice(DBUS_DEVICE_URL.copyWithProtocol(null))).thenReturn(dbusDevice);
-        when(tinybObjectFactory.getCharacteristic(DBUS_CHARACTERISTIC_URL)).thenReturn(dbusCharacteristic);
-        when(tinybObjectFactory.getCharacteristic(
+        when(dbusObjectFactory.getAdapter(DBUS_ADAPTER_URL)).thenReturn(dbusAdapter);
+        when(dbusObjectFactory.getAdapter(DBUS_ADAPTER_URL.copyWithProtocol(null))).thenReturn(dbusAdapter);
+        when(dbusObjectFactory.getDevice(DBUS_DEVICE_URL)).thenReturn(dbusDevice);
+        when(dbusObjectFactory.getDevice(DBUS_DEVICE_URL.copyWithProtocol(null))).thenReturn(dbusDevice);
+        when(dbusObjectFactory.getCharacteristic(DBUS_CHARACTERISTIC_URL)).thenReturn(dbusCharacteristic);
+        when(dbusObjectFactory.getCharacteristic(
                 DBUS_CHARACTERISTIC_URL.copyWithProtocol(null))).thenReturn(dbusCharacteristic);
 
         DiscoveredAdapter tinyBDiscoveredAdapter = mock(DiscoveredAdapter.class);
