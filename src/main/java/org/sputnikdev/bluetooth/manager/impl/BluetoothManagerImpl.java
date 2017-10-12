@@ -138,18 +138,31 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     @Override
-    public DeviceGovernor getDeviceGovernor(URL url) {
-        return (DeviceGovernorImpl) getGovernor(url.getDeviceURL());
-    }
-
-    @Override
     public AdapterGovernor getAdapterGovernor(URL url) {
         return (AdapterGovernorImpl) getGovernor(url.getAdapterURL());
     }
 
     @Override
+    public DeviceGovernor getDeviceGovernor(URL url) {
+        return (DeviceGovernorImpl) getGovernor(url.getDeviceURL());
+    }
+
+    @Override
+    public DeviceGovernor getDeviceGovernorAutoconnect(URL url) {
+        DeviceGovernor deviceGovernor = getDeviceGovernor(url);
+        deviceGovernor.setConnectionControl(true);
+        return deviceGovernor;
+    }
+
+    @Override
     public CharacteristicGovernor getCharacteristicGovernor(URL url) {
         return (CharacteristicGovernorImpl) getGovernor(url.getCharacteristicURL());
+    }
+
+    @Override
+    public CharacteristicGovernor getCharacteristicGovernorAutoconnect(URL url) {
+        getDeviceGovernor(url).setConnectionControl(true);
+        return getCharacteristicGovernor(url);
     }
 
     @Override
