@@ -206,38 +206,6 @@ public class DeviceGovernorImplTest {
     }
 
     @Test
-    public void testUpdateConnectedGenericDevice() throws Exception {
-        doReturn(false).when(governor).isBleEnabled();
-
-        governor.setBlockedControl(false);
-        when(device.isBlocked()).thenReturn(false);
-        when(device.isConnected()).thenReturn(false).thenReturn(true).thenReturn(false).thenReturn(true);
-        when(device.connect()).thenReturn(true);
-
-        governor.setConnectionControl(false);
-
-        governor.update(device);
-        verify(device, never()).connect();
-        verify(device, never()).disconnect();
-
-        governor.update(device);
-        verify(device, never()).connect();
-        verify(device, never()).disconnect();
-        verify(bluetoothManager, never()).resetDescendants(URL);
-
-        governor.setConnectionControl(true);
-
-        governor.update(device);
-        verify(device, never()).connect();
-        verify(device, never()).disconnect();
-        verify(bluetoothManager, never()).updateDescendants(URL);
-
-        governor.update(device);
-        verify(device, never()).connect();
-        verify(device, never()).disconnect();
-    }
-
-    @Test
     public void testUpdateAdapterIsNotPowered() throws Exception {
         AdapterGovernorImpl adapterGovernor = mock(AdapterGovernorImpl.class);
         when(adapterGovernor.isReady()).thenReturn(false);
