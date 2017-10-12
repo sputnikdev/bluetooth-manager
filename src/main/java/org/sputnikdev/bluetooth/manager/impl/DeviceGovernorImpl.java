@@ -70,7 +70,7 @@ class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements Devi
         AdapterGovernor adapterGovernor = bluetoothManager.getAdapterGovernor(getURL());
         if (adapterGovernor != null && adapterGovernor.isReady() && adapterGovernor.isPowered()) {
             updateBlocked(device);
-            if (!blockedControl && isBleEnabled()) {
+            if (!blockedControl) {
                 boolean connected = updateConnected(device);
                 if (connected) {
                     updateOnline(true);
