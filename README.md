@@ -60,6 +60,22 @@ There are two implementations of the BT Transport currently:
      * Linux, Windows and OSX based operation systems.
      * A wide range of hardware architectures (including some ARM based devices, e.g. Raspberry PI etc).
 
+#### Compatibility matrix
+
+|                                     |     TinyB     |   Bluegiga    | 
+|     :---                            |     :---:     |     :---:     |
+| Windows                             |       -       |       Y       |
+| Linux                               |       Y       |       Y       |
+| Mac                                 |       -       |       Y       |
+| X86 32bit                           |       Y       |       Y       |
+| X86 64bit                           |       Y       |       Y       |
+| ARM v6 (Raspberry PI)               |       Y       |       Y       |
+| Adapters autodiscovery              |       Y       |       Y       |
+| Adapter power management            |       Y       |       -       |
+| Adapter aliases                     |       Y       |       -       |
+| BLE devices discovery               |       Y       |       Y       |
+| BR/EDR devices discovery (legacy BT)|       Y       |       -       |
+
 ## Troubleshooting
 
 * Adapters are not getting discovered.
