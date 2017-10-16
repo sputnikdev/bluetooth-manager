@@ -83,6 +83,21 @@ There are two implementations of the BT Transport currently:
 
 ## Using Bluetooth Manager
 
+Start using it by specifying maven dependencies from the Maven Central repository:
+
+```xml
+<dependency>
+    <groupId>org.sputnikdev</groupId>
+    <artifactId>bluetooth-manager</artifactId>
+    <version>X.Y.Z</version>
+</dependency>
+<dependency>
+    <groupId>org.sputnikdev</groupId>
+    <artifactId>bluetooth-manager-tinyb</artifactId>
+    <version>X.Y.Z</version>
+</dependency>
+```
+
 The example below shows how to set up the Bluetooth Manager and read a characteristic value.
 
 ### Reading characteristic
