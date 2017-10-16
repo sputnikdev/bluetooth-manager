@@ -8,3 +8,7 @@ then
 else
     mvn deploy -Dtravis=true -P !build-extras --settings .travis/settings.xml
 fi
+rc=$?
+if [[ $rc -ne 0 ]] ; then
+  echo 'Could deploy artifact to snaphot/release repository!'; exit $rc
+fi
