@@ -20,17 +20,17 @@ package org.sputnikdev.bluetooth.manager.impl;
  * #L%
  */
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.DiscoveredAdapter;
 import org.sputnikdev.bluetooth.manager.DiscoveredDevice;
-import org.sputnikdev.bluetooth.manager.transport.Adapter;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObjectFactory;
-import org.sputnikdev.bluetooth.manager.transport.Device;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A root interface for all Bluetooth transport implementations.
@@ -39,20 +39,20 @@ import org.sputnikdev.bluetooth.manager.transport.Device;
  */
 public class BluetoothObjectFactoryProvider {
 
-    private static final Map<String, BluetoothObjectFactory> factories = new HashMap<>();
+    private static final Map<String, BluetoothObjectFactory> factories = new ConcurrentHashMap<>();
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(BluetoothObjectFactoryProvider.class);
 
     /**
-     * Registers a new Bluetooth Object factory
+     * Registers a new Bluetooth Object factory.
      * @param transport a new Bluetooth Object factory
      */
     public static void registerFactory(BluetoothObjectFactory transport) {
-        synchronized (factories) {
-            factories.put(transport.getProtocolName(), transport);
-        }
+        factories.put(transport.getProtocolName(), transport);
     }
 
     /**
-     * Un-registers a previously registered Bluetooth Object factory
+     * Un-registers a previously registered Bluetooth Object factory.
      * @param transport a Bluetooth Object factory
      */
     public static void unregisterFactory(BluetoothObjectFactory transport) {
@@ -69,12 +69,11 @@ public class BluetoothObjectFactoryProvider {
      * @return a Bluetooth Object factory
      */
     protected static BluetoothObjectFactory getFactory(String protocolName) {
-        synchronized (factories) {
-            if (!factories.containsKey(protocolName)) {
-                throw new IllegalStateException("Transport [" + protocolName + "] is not registered.");
-            }
-            return factories.get(protocolName);
+        BluetoothObjectFactory factory = factories.get(protocolName);
+        if (factory == null) {
+            LOGGER.debug("Transport [" + protocolName + "] is not registered.");
         }
+        return factory;
     }
 
     /**

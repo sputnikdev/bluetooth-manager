@@ -23,7 +23,11 @@ package org.sputnikdev.bluetooth.manager.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
-import org.sputnikdev.bluetooth.manager.*;
+import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
+import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
+import org.sputnikdev.bluetooth.manager.CharacteristicGovernor;
+import org.sputnikdev.bluetooth.manager.NotReadyException;
+import org.sputnikdev.bluetooth.manager.ValueListener;
 import org.sputnikdev.bluetooth.manager.transport.Characteristic;
 import org.sputnikdev.bluetooth.manager.transport.CharacteristicAccessType;
 import org.sputnikdev.bluetooth.manager.transport.Notification;
@@ -46,12 +50,17 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic>
     }
 
     @Override
-    void init(Characteristic characteristic) {
-        enableNotification(characteristic);
-    }
+    void init(Characteristic characteristic) { /* do nothing */ }
 
     @Override
-    void update(Characteristic characteristic) { }
+    void update(Characteristic characteristic) {
+        boolean notifying = characteristic.isNotifying();
+        if (valueListener != null && !notifying) {
+            enableNotification(characteristic);
+        } else if (valueListener == null && notifying) {
+            disableNotification(characteristic);
+        }
+    }
 
     @Override
     void reset(Characteristic characteristic) {
@@ -138,10 +147,18 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic>
     }
 
     private void enableNotification(Characteristic characteristic) {
-        if (this.valueNotification == null && canNotify(characteristic) && !characteristic.isNotifying()) {
+        if (valueNotification == null && canNotify(characteristic)) {
             logger.info("Enable characteristic notifications: " + getURL());
-            this.valueNotification = new ValueNotification();
+            valueNotification = new ValueNotification();
             characteristic.enableValueNotifications(valueNotification);
+        }
+    }
+
+    private void disableNotification(Characteristic characteristic) {
+        if (valueNotification != null && canNotify(characteristic)) {
+            logger.info("Disable characteristic notifications: " + getURL());
+            valueNotification = null;
+            characteristic.disableValueNotifications();
         }
     }
 
