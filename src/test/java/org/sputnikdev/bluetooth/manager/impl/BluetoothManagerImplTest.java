@@ -40,7 +40,7 @@ public class BluetoothManagerImplTest {
     private BluetoothObjectFactory dbusObjectFactory;
 
     @Mock
-    private Adapter tinyaAdapter;
+    private Adapter tinybAdapter;
     @Mock
     private Device tinybDevice;
     @Mock
@@ -70,8 +70,8 @@ public class BluetoothManagerImplTest {
         when(BluetoothObjectFactoryProvider.getFactory(DBUS_PROTOCOL_NAME)).thenReturn(dbusObjectFactory);
         when(dbusObjectFactory.getProtocolName()).thenReturn(DBUS_PROTOCOL_NAME);
 
-        when(tinybObjectFactory.getAdapter(TINYB_ADAPTER_URL)).thenReturn(tinyaAdapter);
-        when(tinybObjectFactory.getAdapter(TINYB_ADAPTER_URL.copyWithProtocol(null))).thenReturn(tinyaAdapter);
+        when(tinybObjectFactory.getAdapter(TINYB_ADAPTER_URL)).thenReturn(tinybAdapter);
+        when(tinybObjectFactory.getAdapter(TINYB_ADAPTER_URL.copyWithProtocol(null))).thenReturn(tinybAdapter);
         when(tinybObjectFactory.getDevice(TINYB_DEVICE_URL)).thenReturn(tinybDevice);
         when(tinybObjectFactory.getDevice(TINYB_DEVICE_URL.copyWithProtocol(null))).thenReturn(tinybDevice);
         when(tinybObjectFactory.getCharacteristic(TINYB_CHARACTERISTIC_URL)).thenReturn(tinybCharacteristic);
@@ -94,13 +94,17 @@ public class BluetoothManagerImplTest {
                 Arrays.asList(tinyBDiscoveredAdapter, dbusDiscoveredAdapter));
 
 
-        when(tinyaAdapter.getURL()).thenReturn(TINYB_ADAPTER_URL);
+        when(tinybAdapter.getURL()).thenReturn(TINYB_ADAPTER_URL);
         when(dbusAdapter.getURL()).thenReturn(DBUS_ADAPTER_URL);
+        when(tinybDevice.getURL()).thenReturn(TINYB_DEVICE_URL);
+        when(dbusDevice.getURL()).thenReturn(DBUS_DEVICE_URL);
+        when(tinybCharacteristic.getURL()).thenReturn(TINYB_CHARACTERISTIC_URL);
+        when(dbusCharacteristic.getURL()).thenReturn(DBUS_CHARACTERISTIC_URL);
     }
 
     @Test
     public void testGetAdapterNoProtocol() throws Exception {
-        assertGetBluetoothObjectNoProtocol(tinyaAdapter, TINYB_ADAPTER_URL);
+        assertGetBluetoothObjectNoProtocol(tinybAdapter, TINYB_ADAPTER_URL);
     }
 
     @Test
@@ -117,7 +121,7 @@ public class BluetoothManagerImplTest {
     public void testGetBluetoothObjectWithProtocol() throws Exception {
         // easy case when URL specifies protocol name
         BluetoothObject bluetoothObject = bluetoothManager.getBluetoothObject(TINYB_ADAPTER_URL);
-        assertEquals(tinyaAdapter, bluetoothObject);
+        assertEquals(tinybAdapter, bluetoothObject);
         bluetoothObject = bluetoothManager.getBluetoothObject(TINYB_DEVICE_URL);
         assertEquals(tinybDevice, bluetoothObject);
         bluetoothObject = bluetoothManager.getBluetoothObject(TINYB_CHARACTERISTIC_URL);
@@ -144,12 +148,12 @@ public class BluetoothManagerImplTest {
 
     @Test
     public void testResetDescendantsTinyb() {
-        assertResetGovernors(1, 0, new URL("tinyb://"));
+        assertResetGovernors(1, 1, new URL("tinyb://"));
     }
 
     @Test
     public void testResetDescendantsDbus() {
-        assertResetGovernors(0, 1, new URL("dbus://"));
+        assertResetGovernors(1, 1, new URL("dbus://"));
     }
 
     @Test
@@ -174,7 +178,7 @@ public class BluetoothManagerImplTest {
 
         bluetoothManager.resetDescendants(url);
 
-        verify(tinybAdapterGovernor, times(tinybExpectedInvocations)).reset(tinyaAdapter);
+        verify(tinybAdapterGovernor, times(tinybExpectedInvocations)).reset(tinybAdapter);
         verify(tinybDeviceGovernor, times(tinybExpectedInvocations)).reset(tinybDevice);
         verify(tinybCharacteristicGovernor, times(tinybExpectedInvocations)).reset(tinybCharacteristic);
 
@@ -212,8 +216,7 @@ public class BluetoothManagerImplTest {
         PowerMockito.verifyStatic(times(1));
         BluetoothObjectFactoryProvider.getAllDiscoveredAdapters();
 
-        // next time the "device to protocol cache" should be used to get protocol by bluetoothObject address
-        bluetoothObject = bluetoothManager.getBluetoothObject(url.copyWithProtocol(null));
+        bluetoothObject = bluetoothManager.getBluetoothObject(url);
         assertEquals(expected, bluetoothObject);
         // no more invocations should be made
         PowerMockito.verifyStatic(times(1));

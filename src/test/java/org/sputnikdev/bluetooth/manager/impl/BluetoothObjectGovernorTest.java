@@ -65,6 +65,7 @@ public class BluetoothObjectGovernorTest {
 
     @Before
     public void setUp() {
+        when(bluetoothObject.getURL()).thenReturn(URL.copyWithProtocol("tinyb"));
         when(bluetoothManager.getBluetoothObject(URL)).thenReturn(bluetoothObject);
     }
 

@@ -35,14 +35,15 @@ import java.util.List;
 /**
  * A root class for all governors in the system. Defines lifecycle and error handling/recovery processes for governors.
  *
- * The lifecycle is divided on the following stages:
- * <ul>
+ * <p>The lifecycle is divided on the following stages:
+ *
+ * <p><ul>
  *     <li>Native object acquisition</li>
  *     <li>Error handling and recovery</li>
  *     <li>Governing/maintaining state of the bluetooth object</li>
  * </ul>
  *
- * All the stages above are handled in {@link #update()} method. When invoked, this method tries to acquire
+ * <p>All the stages above are handled in {@link #update()} method. When invoked, this method tries to acquire
  * a native object for corresponding device first. When acquired, {@link #init(BluetoothObject)} method is called
  * to perform initialisation (setting initial state, subscribing to the object events), then all registered governor
  * listeners are notified that the governor is "ready" by triggering {@link GovernorListener#ready(boolean)} method.
@@ -52,23 +53,23 @@ import java.util.List;
  * the Error handling stage begins by triggering {@link #reset(BluetoothObject)} method, which must revert
  * internal state of the governor to the initial state - the Native object acquisition.
  *
- * In short this looks like that:
+ * <p>In short this looks like that:
  *
- * The update method is called outside of the governor (by a separate thread):
+ * <p>The update method is called outside of the governor (by a separate thread):
  * governor.update();
  *
- * then the following happens:
+ * <p>then the following happens:
  *
  * {@link #init(BluetoothObject)}
  * {@link GovernorListener#ready(boolean)} with argument - true
  * {@link #update(BluetoothObject)}
  *
- * if the {@link #update(BluetoothObject)} method throws any exception, then
+ * <p>if the {@link #update(BluetoothObject)} method throws any exception, then
  * {@link #reset(BluetoothObject)}
  * {@link GovernorListener#ready(boolean)} with argument - false
  * are invoked, which brings the governor to its initial state, where everything begins from the start.
  *
- * In order to help to release resources (native objects) {@link #reset(BluetoothObject)} method is used,
+ * <p>In order to help to release resources (native objects) {@link #reset(BluetoothObject)} method is used,
  * which must release any acquired resources, disconnect and unsubscribe from notifications.
  * It is recommended to call this method when, for example, a program exists or in any similar cases.
  *
@@ -81,6 +82,7 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
     protected final BluetoothManagerImpl bluetoothManager;
     protected final URL url;
     private T bluetoothObject;
+    private String transport;
     private Date lastActivity = new Date();
     private final List<GovernorListener> governorListeners = new ArrayList<>();
 
@@ -101,15 +103,15 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
 
     @Override
     public void addGovernorListener(GovernorListener listener) {
-        synchronized (this.governorListeners) {
-            this.governorListeners.add(listener);
+        synchronized (governorListeners) {
+            governorListeners.add(listener);
         }
     }
 
     @Override
     public void removeGovernorListener(GovernorListener listener) {
-        synchronized (this.governorListeners) {
-            this.governorListeners.remove(listener);
+        synchronized (governorListeners) {
+            governorListeners.remove(listener);
         }
     }
 
@@ -152,13 +154,13 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
     }
 
     final synchronized void update() {
-        T bluetoothObject = getOrFindBluetoothObject();
-        if (bluetoothObject == null) {
+        T object = getOrFindBluetoothObject();
+        if (object == null) {
             return;
         }
         try {
             logger.debug("Updating governor state: {}", url);
-            update(bluetoothObject);
+            update(object);
             updateLastChanged();
             notifyLastChanged();
         } catch (Exception ex) {
@@ -170,25 +172,25 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
     final void reset() {
         logger.info("Resetting governor: {}", url);
         try {
-            if (this.bluetoothObject != null) {
-                reset(this.bluetoothObject);
+            if (bluetoothObject != null) {
+                reset(bluetoothObject);
                 notifyReady(false);
-                this.bluetoothObject.dispose();
+                bluetoothObject.dispose();
             }
         } catch (Exception ex) {
-            logger.debug("Could not reset governor: {}", url);
+            logger.debug("Could not reset governor {}: {}", url, ex.getMessage());
         }
-        this.bluetoothObject = null;
+        bluetoothObject = null;
         logger.info("Governor has been reset: {}", url);
     }
 
     void updateLastChanged() {
-        this.lastActivity = new Date();
+        lastActivity = new Date();
     }
 
     void notifyReady(boolean ready) {
-        synchronized (this.governorListeners) {
-            for (GovernorListener listener : this.governorListeners) {
+        synchronized (governorListeners) {
+            for (GovernorListener listener : governorListeners) {
                 try {
                     listener.ready(ready);
                 } catch (Exception ex) {
@@ -199,10 +201,10 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
     }
 
     void notifyLastChanged() {
-        synchronized (this.governorListeners) {
-            for (GovernorListener listener : this.governorListeners) {
+        synchronized (governorListeners) {
+            for (GovernorListener listener : governorListeners) {
                 try {
-                    listener.lastUpdatedChanged(this.lastActivity);
+                    listener.lastUpdatedChanged(lastActivity);
                 } catch (Exception ex) {
                     logger.error("Execution error of a governor listener: last changed", ex);
                 }
@@ -210,15 +212,18 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
         }
     }
 
-    synchronized private T getOrFindBluetoothObject() {
+    private synchronized T getOrFindBluetoothObject() {
         if (bluetoothObject == null) {
-            this.bluetoothObject = bluetoothManager.getBluetoothObject(url);
-            if (this.bluetoothObject != null) {
+            bluetoothObject = bluetoothManager.getBluetoothObject(
+                transport != null ? url.copyWithProtocol(transport) : url);
+            if (bluetoothObject != null) {
+                // update internal cache so that next time acquiring "native" object will be faster
+                transport = bluetoothObject.getURL().getProtocol();
                 try {
-                    init(this.bluetoothObject);
+                    init(bluetoothObject);
                     notifyReady(true);
                 } catch (Exception ex) {
-                    logger.info("Could not init governor: {}", url);
+                    logger.info("Could not init governor {}: {}", url, ex.getMessage());
                     reset();
                 }
             }

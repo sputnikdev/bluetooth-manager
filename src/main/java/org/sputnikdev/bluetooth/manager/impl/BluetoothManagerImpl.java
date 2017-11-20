@@ -21,9 +21,7 @@ package org.sputnikdev.bluetooth.manager.impl;
  */
 
 import com.google.common.collect.Sets;
-
 import org.slf4j.Logger;
-
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.AdapterDiscoveryListener;
@@ -44,12 +42,16 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 
@@ -72,12 +74,10 @@ class BluetoothManagerImpl implements BluetoothManager {
     private final Map<URL, BluetoothObjectGovernor> governors = new ConcurrentHashMap<>();
 
     private ScheduledFuture discoveryFuture;
-    private final Map<URL, ScheduledFuture> governorFutures = new ConcurrentHashMap<>();
+    private final Map<URL, ScheduledFuture> governorFutures = new HashMap<>();
 
     private final Set<DiscoveredDevice> discoveredDevices = new CopyOnWriteArraySet<>();
     private final Set<DiscoveredAdapter> discoveredAdapters = new CopyOnWriteArraySet<>();
-
-    private final Map<String, String> adapterToProtocolCache = new HashMap<>();
 
     private boolean startDiscovering;
     private int discoveryRate = DISCOVERY_RATE_SEC;
@@ -127,14 +127,15 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     @Override
     public void disposeGovernor(URL url) {
-        if (governors.containsKey(url)) {
-            disposeGovernor(governors.get(url));
-        }
+        computeIfGovernorPresent(url, (protocolLess, governor) -> {
+            disposeGovernor(governor);
+            return null;
+        });
     }
 
     @Override
     public void disposeDescendantGovernors(URL url) {
-        governors.values().stream().filter(g -> g.getURL().isDescendant(url)).forEach(this::disposeGovernor);
+        computeForEachDescendatGovernorAndRemove(url, this::disposeGovernor);
     }
 
     @Override
@@ -197,25 +198,21 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     @Override
     public BluetoothGovernor getGovernor(URL url) {
-        synchronized (governors) {
-            if (!governors.containsKey(url)) {
-                BluetoothObjectGovernor governor = createGovernor(url);
+        return computeIfGovernorAbsent(url, protocolLess -> {
+            BluetoothObjectGovernor governor = createGovernor(protocolLess);
 
-                governors.put(url, governor);
-                governorFutures.put(url,
-                        scheduler.scheduleWithFixedDelay(() -> update(governor),5, refreshRate, TimeUnit.SECONDS));
+            governorFutures.put(protocolLess,
+                scheduler.scheduleWithFixedDelay(() -> update(governor),5, refreshRate, TimeUnit.SECONDS));
 
-                update(governor);
+            update(governor);
 
-                return governor;
-            }
-            return governors.get(url);
-        }
+            return governor;
+        });
     }
 
     @Override
-    public void setDiscoveryRate(int seconds) {
-        this.discoveryRate = seconds;
+    public void setDiscoveryRate(int discoveryRate) {
+        this.discoveryRate = discoveryRate;
     }
 
     @Override
@@ -234,23 +231,29 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     void updateDescendants(URL parent) {
-        governors.values().stream().filter(g -> g.getURL().isDescendant(parent)).forEach(this::update);
+        computeForEachDescendatGovernor(parent, this::update);
     }
 
     void resetDescendants(URL parent) {
-        governors.values().stream().filter(g -> g.getURL().isDescendant(parent)).forEach(this::reset);
+        computeForEachDescendatGovernor(parent, this::reset);
     }
 
+    /**
+     * This is a very centric method that returns a "native" objects. Mostly used by governors to acquire
+     * a corresponding native object.
+     * @param url bluetooth url
+     * @return a native object corresponding to the given url
+     */
     <T extends BluetoothObject> T getBluetoothObject(URL url) {
         BluetoothObjectFactory factory = findFactory(url);
         BluetoothObject bluetoothObject = null;
         if (factory != null) {
             URL objectURL = url.copyWithProtocol(factory.getProtocolName());
-            if (url.isAdapter()) {
+            if (objectURL.isAdapter()) {
                 bluetoothObject = factory.getAdapter(objectURL);
-            } else if (url.isDevice()) {
+            } else if (objectURL.isDevice()) {
                 bluetoothObject = factory.getDevice(objectURL);
-            } else if (url.isCharacteristic()) {
+            } else if (objectURL.isCharacteristic()) {
                 bluetoothObject = factory.getCharacteristic(objectURL);
             }
         }
@@ -271,15 +274,11 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     private void disposeGovernor(BluetoothObjectGovernor governor) {
-        URL url = governor.getURL();
+        governorFutures.computeIfPresent(governor.getURL(), (url, future) -> {
+            future.cancel(true);
+            return null;
+        });
         reset(governor);
-        synchronized (governorFutures) {
-            if (governorFutures.containsKey(url)) {
-                governorFutures.get(url).cancel(true);
-                governorFutures.remove(url);
-            }
-        }
-        governors.remove(url);
     }
 
     private BluetoothObjectFactory findFactory(URL url) {
@@ -287,12 +286,9 @@ class BluetoothManagerImpl implements BluetoothManager {
         String adapterAddress = url.getAdapterAddress();
         if (url.getProtocol() != null) {
             return BluetoothObjectFactoryProvider.getFactory(protocol);
-        } else if (adapterToProtocolCache.containsKey(adapterAddress)) {
-            return BluetoothObjectFactoryProvider.getFactory(adapterToProtocolCache.get(adapterAddress));
         } else {
             for (DiscoveredAdapter adapter : BluetoothObjectFactoryProvider.getAllDiscoveredAdapters()) {
                 if (adapter.getURL().getAdapterAddress().equals(adapterAddress)) {
-                    adapterToProtocolCache.put(url.getAdapterAddress(), adapter.getURL().getProtocol());
                     return BluetoothObjectFactoryProvider.getFactory(adapter.getURL().getProtocol());
                 }
             }
@@ -304,48 +300,25 @@ class BluetoothManagerImpl implements BluetoothManager {
         if (discoveredDevices.contains(device) && !rediscover) {
             return;
         }
-        deviceDiscoveryListeners.forEach(deviceDiscoveryListener -> {
-            try {
-                deviceDiscoveryListener.discovered(device);
-            } catch (Exception ex) {
-                logger.error("Discovery listener error (device)", ex);
-            }
-        });
+        wrapForEach(deviceDiscoveryListeners, deviceDiscoveryListener -> deviceDiscoveryListener.discovered(device));
     }
 
     private void notifyAdapterDiscovered(DiscoveredAdapter adapter) {
         if (discoveredAdapters.contains(adapter) && !rediscover) {
             return;
         }
-        adapterDiscoveryListeners.forEach(adapterDiscoveryListener -> {
-            try {
-                adapterDiscoveryListener.discovered(adapter);
-            } catch (Exception ex) {
-                logger.error("Discovery listener error (adapter)", ex);
-            }
-        });
+        wrapForEach(adapterDiscoveryListeners,
+            adapterDiscoveryListener -> adapterDiscoveryListener.discovered(adapter));
     }
 
     private void handleDeviceLost(URL url) {
         logger.info("Device has been lost: " + url);
-        deviceDiscoveryListeners.forEach(deviceDiscoveryListener -> {
-            try {
-                deviceDiscoveryListener.deviceLost(url);
-            } catch (Throwable ex) {
-                logger.error("Device listener error", ex);
-            }
-        });
+        wrapForEach(deviceDiscoveryListeners, deviceDiscoveryListener -> deviceDiscoveryListener.deviceLost(url));
     }
 
     private void handleAdapterLost(URL url) {
         logger.info("Adapter has been lost: " + url);
-        adapterDiscoveryListeners.forEach(adapterDiscoveryListener -> {
-            try {
-                adapterDiscoveryListener.adapterLost(url);
-            } catch (Throwable ex) {
-                logger.error("Adapter listener error", ex);
-            }
-        });
+        wrapForEach(adapterDiscoveryListeners, adapterDiscoveryListener -> adapterDiscoveryListener.adapterLost(url));
         reset((BluetoothObjectGovernor) getAdapterGovernor(url));
     }
 
@@ -425,6 +398,49 @@ class BluetoothManagerImpl implements BluetoothManager {
                 discoveredAdapters.addAll(newDiscovery);
             }
         }
+    }
+
+    private void addGovernor(BluetoothObjectGovernor bluetoothGovernor) {
+        governors.put(bluetoothGovernor.getURL().copyWithProtocol(null), bluetoothGovernor);
+    }
+
+    private boolean containsGovernor(URL url) {
+        return governors.containsKey(url.copyWithProtocol(null));
+    }
+
+    private BluetoothObjectGovernor computeIfGovernorPresent(URL url,
+                                          BiFunction<URL, BluetoothObjectGovernor, BluetoothObjectGovernor> function) {
+        return governors.computeIfPresent(url.copyWithProtocol(null), function);
+    }
+
+    private BluetoothObjectGovernor computeIfGovernorAbsent(URL url, Function<URL, BluetoothObjectGovernor> supplier) {
+        return governors.computeIfAbsent(url.copyWithProtocol(null), supplier);
+    }
+
+    private void computeForEachDescendatGovernorAndRemove(URL url,  Consumer<BluetoothObjectGovernor> consumer) {
+        URL protocolLess = url.copyWithProtocol(null);
+        governors.entrySet().removeIf(entry -> {
+            if (entry.getKey().isDescendant(protocolLess)) {
+                consumer.accept(entry.getValue());
+                return true;
+            }
+            return false;
+        });
+    }
+
+    private void computeForEachDescendatGovernor(URL url, Consumer<BluetoothObjectGovernor> consumer) {
+        URL protocolLess = url.copyWithProtocol(null);
+        governors.values().stream().filter(governor -> governor.getURL().isDescendant(protocolLess)).forEach(consumer);
+    }
+
+    private <T> void wrapForEach(Set<T> listeners, Consumer<T> func) {
+        listeners.forEach(deviceDiscoveryListener -> {
+            try {
+                func.accept(deviceDiscoveryListener);
+            } catch (Exception ex) {
+                logger.error("Discovery listener error", ex);
+            }
+        });
     }
 
 }
