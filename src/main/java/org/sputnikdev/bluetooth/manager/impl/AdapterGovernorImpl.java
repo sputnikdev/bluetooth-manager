@@ -20,15 +20,20 @@ package org.sputnikdev.bluetooth.manager.impl;
  * #L%
  */
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
-import org.sputnikdev.bluetooth.manager.*;
+import org.sputnikdev.bluetooth.manager.AdapterGovernor;
+import org.sputnikdev.bluetooth.manager.AdapterListener;
+import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
+import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
+import org.sputnikdev.bluetooth.manager.DeviceGovernor;
+import org.sputnikdev.bluetooth.manager.NotReadyException;
 import org.sputnikdev.bluetooth.manager.transport.Adapter;
 import org.sputnikdev.bluetooth.manager.transport.Notification;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  *
@@ -96,7 +101,7 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
 
     @Override
     public void setDiscoveringControl(boolean discovering) {
-        this.discoveringControl = discovering;
+        discoveringControl = discovering;
     }
 
     @Override
@@ -160,21 +165,21 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
 
     @Override
     public void addAdapterListener(AdapterListener adapterListener) {
-        synchronized (this.adapterListeners) {
-            this.adapterListeners.add(adapterListener);
+        synchronized (adapterListeners) {
+            adapterListeners.add(adapterListener);
         }
     }
 
     @Override
     public void removeAdapterListener(AdapterListener adapterListener) {
-        synchronized (this.adapterListeners) {
-            this.adapterListeners.remove(adapterListener);
+        synchronized (adapterListeners) {
+            adapterListeners.remove(adapterListener);
         }
     }
 
     void notifyPowered(boolean powered) {
-        synchronized (this.adapterListeners) {
-            for (AdapterListener listener : this.adapterListeners) {
+        synchronized (adapterListeners) {
+            for (AdapterListener listener : adapterListeners) {
                 try {
                     listener.powered(powered);
                 } catch (Exception ex) {
@@ -185,8 +190,8 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
     }
 
     void notifyDiscovering(boolean discovering) {
-        synchronized (this.adapterListeners) {
-            for (AdapterListener listener : this.adapterListeners) {
+        synchronized (adapterListeners) {
+            for (AdapterListener listener : adapterListeners) {
                 try {
                     listener.discovering(discovering);
                 } catch (Exception ex) {
@@ -197,8 +202,8 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
     }
 
     private void updatePowered(Adapter adapter) {
-        if (this.poweredControl != adapter.isPowered()) {
-            adapter.setPowered(this.poweredControl);
+        if (poweredControl != adapter.isPowered()) {
+            adapter.setPowered(poweredControl);
         }
     }
 
@@ -212,16 +217,16 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
     }
 
     private void enablePoweredNotifications(Adapter adapter) {
-        if (this.poweredNotification == null) {
-            this.poweredNotification = new PoweredNotification();
-            adapter.enablePoweredNotifications(this.poweredNotification);
+        if (poweredNotification == null) {
+            poweredNotification = new PoweredNotification();
+            adapter.enablePoweredNotifications(poweredNotification);
         }
     }
 
     private void enableDiscoveringNotifications(Adapter adapter) {
-        if (this.discoveringNotification == null) {
-            this.discoveringNotification = new DiscoveringNotification();
-            adapter.enableDiscoveringNotifications(this.discoveringNotification);
+        if (discoveringNotification == null) {
+            discoveringNotification = new DiscoveringNotification();
+            adapter.enableDiscoveringNotifications(discoveringNotification);
         }
     }
 

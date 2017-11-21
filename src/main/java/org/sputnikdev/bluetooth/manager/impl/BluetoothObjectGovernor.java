@@ -140,6 +140,10 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
         return result;
     }
 
+    public String getTransport() {
+        return transport;
+    }
+
     abstract void init(T object);
 
     abstract void update(T object);

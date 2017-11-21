@@ -22,7 +22,6 @@ package org.sputnikdev.bluetooth.manager.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.DiscoveredAdapter;
 import org.sputnikdev.bluetooth.manager.DiscoveredDevice;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObjectFactory;
@@ -49,6 +48,7 @@ public class BluetoothObjectFactoryProvider {
      */
     public static void registerFactory(BluetoothObjectFactory transport) {
         factories.put(transport.getProtocolName(), transport);
+        getBluetoothManager().handleObjectFactoryRegistered(transport);
     }
 
     /**
@@ -57,8 +57,7 @@ public class BluetoothObjectFactoryProvider {
      */
     public static void unregisterFactory(BluetoothObjectFactory transport) {
         synchronized (factories) {
-            ((BluetoothManagerImpl) BluetoothManagerFactory.getManager()).resetDescendants(
-                    new URL().copyWithProtocol(transport.getProtocolName()));
+            getBluetoothManager().handleObjectFactoryUnregistered(transport);
             factories.remove(transport.getProtocolName());
         }
     }
@@ -74,6 +73,14 @@ public class BluetoothObjectFactoryProvider {
             LOGGER.debug("Transport [" + protocolName + "] is not registered.");
         }
         return factory;
+    }
+
+    /**
+     * Returns registered Bluetooth Object factories.
+     * @return a Bluetooth Object factories
+     */
+    protected static List<BluetoothObjectFactory> getRegisteredFactories() {
+        return new ArrayList<>(factories.values());
     }
 
     /**
@@ -105,6 +112,10 @@ public class BluetoothObjectFactoryProvider {
             }
             return adapters;
         }
+    }
+
+    private static BluetoothManagerImpl getBluetoothManager() {
+        return (BluetoothManagerImpl) BluetoothManagerFactory.getManager();
     }
 
 }

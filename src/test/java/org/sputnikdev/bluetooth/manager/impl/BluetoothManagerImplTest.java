@@ -1,7 +1,5 @@
 package org.sputnikdev.bluetooth.manager.impl;
 
-import java.util.Arrays;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -10,13 +8,26 @@ import org.mockito.Mock;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
+import org.powermock.reflect.Whitebox;
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.DiscoveredAdapter;
-import org.sputnikdev.bluetooth.manager.transport.*;
+import org.sputnikdev.bluetooth.manager.transport.Adapter;
+import org.sputnikdev.bluetooth.manager.transport.BluetoothObject;
+import org.sputnikdev.bluetooth.manager.transport.BluetoothObjectFactory;
+import org.sputnikdev.bluetooth.manager.transport.Characteristic;
+import org.sputnikdev.bluetooth.manager.transport.Device;
+
+import java.util.Arrays;
+import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest(fullyQualifiedNames = {"org.sputnikdev.bluetooth.manager.impl.BluetoothObjectFactoryProvider"})
@@ -61,7 +72,7 @@ public class BluetoothManagerImplTest {
     };
 
     @Before
-    public void setUp() {
+    public void setUp() throws InterruptedException {
         PowerMockito.mockStatic(BluetoothObjectFactoryProvider.class);
 
         when(BluetoothObjectFactoryProvider.getFactory(TINYB_PROTOCOL_NAME)).thenReturn(tinybObjectFactory);
@@ -90,8 +101,12 @@ public class BluetoothManagerImplTest {
         when(tinyBDiscoveredAdapter.getURL()).thenReturn(TINYB_ADAPTER_URL);
         DiscoveredAdapter dbusDiscoveredAdapter = mock(DiscoveredAdapter.class);
         when(dbusDiscoveredAdapter.getURL()).thenReturn(DBUS_ADAPTER_URL);
-        when(BluetoothObjectFactoryProvider.getAllDiscoveredAdapters()).thenReturn(
-                Arrays.asList(tinyBDiscoveredAdapter, dbusDiscoveredAdapter));
+
+        when(tinybObjectFactory.getDiscoveredAdapters()).thenReturn(Arrays.asList(tinyBDiscoveredAdapter));
+        when(dbusObjectFactory.getDiscoveredAdapters()).thenReturn(Arrays.asList(dbusDiscoveredAdapter));
+
+        when(BluetoothObjectFactoryProvider.getRegisteredFactories()).thenReturn(
+                Arrays.asList(tinybObjectFactory, dbusObjectFactory));
 
 
         when(tinybAdapter.getURL()).thenReturn(TINYB_ADAPTER_URL);
@@ -100,6 +115,13 @@ public class BluetoothManagerImplTest {
         when(dbusDevice.getURL()).thenReturn(DBUS_DEVICE_URL);
         when(tinybCharacteristic.getURL()).thenReturn(TINYB_CHARACTERISTIC_URL);
         when(dbusCharacteristic.getURL()).thenReturn(DBUS_CHARACTERISTIC_URL);
+
+        bluetoothManager.start(true);
+
+        Set discoveredAdapters = Whitebox.getInternalState(bluetoothManager, "discoveredAdapters");
+        while (discoveredAdapters.size() != 2) {
+            Thread.sleep(10);
+        }
     }
 
     @Test
@@ -126,9 +148,6 @@ public class BluetoothManagerImplTest {
         assertEquals(tinybDevice, bluetoothObject);
         bluetoothObject = bluetoothManager.getBluetoothObject(TINYB_CHARACTERISTIC_URL);
         assertEquals(tinybCharacteristic, bluetoothObject);
-
-        PowerMockito.verifyStatic(times(0));
-        BluetoothObjectFactoryProvider.getAllDiscoveredAdapters();
     }
 
     @Test
@@ -148,12 +167,13 @@ public class BluetoothManagerImplTest {
 
     @Test
     public void testResetDescendantsTinyb() {
-        assertResetGovernors(1, 1, new URL("tinyb://"));
+        bluetoothManager.handleObjectFactoryUnregistered(tinybObjectFactory);
+        assertResetGovernors(1, 0, new URL("tinyb://"));
     }
 
     @Test
     public void testResetDescendantsDbus() {
-        assertResetGovernors(1, 1, new URL("dbus://"));
+        assertResetGovernors(0, 1, new URL("dbus://"));
     }
 
     @Test
@@ -176,6 +196,8 @@ public class BluetoothManagerImplTest {
         CharacteristicGovernorImpl dbusCharacteristicGovernor = (CharacteristicGovernorImpl)
                 bluetoothManager.getCharacteristicGovernor(DBUS_CHARACTERISTIC_URL);
 
+        bluetoothManager.updateDescendants(URL.ROOT);
+
         bluetoothManager.resetDescendants(url);
 
         verify(tinybAdapterGovernor, times(tinybExpectedInvocations)).reset(tinybAdapter);
@@ -194,33 +216,15 @@ public class BluetoothManagerImplTest {
         // easy case when URL specifies protocol name
         BluetoothObject bluetoothObject = bluetoothManager.getBluetoothObject(url);
         assertNull(bluetoothObject);
-        PowerMockito.verifyStatic(times(0));
-        BluetoothObjectFactoryProvider.getAllDiscoveredAdapters();
 
         bluetoothObject = bluetoothManager.getBluetoothObject(url.copyWithProtocol(null));
         assertNull(bluetoothObject);
-        PowerMockito.verifyStatic(times(1));
-        BluetoothObjectFactoryProvider.getAllDiscoveredAdapters();
-
-        // the previous steps should not affect cache
-        bluetoothObject = bluetoothManager.getBluetoothObject(url.copyWithProtocol(null));
-        assertNull(bluetoothObject);
-        PowerMockito.verifyStatic(times(2));
-        BluetoothObjectFactoryProvider.getAllDiscoveredAdapters();
     }
 
     private void assertGetBluetoothObjectNoProtocol(BluetoothObject expected, URL url) {
         // check if and bluetoothObject can be found even if bluetoothObject URL does not specify any protocol
         BluetoothObject bluetoothObject = bluetoothManager.getBluetoothObject(url.copyWithProtocol(null));
         assertEquals(expected, bluetoothObject);
-        PowerMockito.verifyStatic(times(1));
-        BluetoothObjectFactoryProvider.getAllDiscoveredAdapters();
-
-        bluetoothObject = bluetoothManager.getBluetoothObject(url);
-        assertEquals(expected, bluetoothObject);
-        // no more invocations should be made
-        PowerMockito.verifyStatic(times(1));
-        BluetoothObjectFactoryProvider.getAllDiscoveredAdapters();
     }
 
 }

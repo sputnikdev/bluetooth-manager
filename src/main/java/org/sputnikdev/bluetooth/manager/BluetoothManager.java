@@ -20,15 +20,15 @@ package org.sputnikdev.bluetooth.manager;
  * #L%
  */
 
-import java.util.Set;
-
 import org.sputnikdev.bluetooth.URL;
+
+import java.util.Set;
 
 /**
  * The core of the system. Provides various high level methods for accessing bluetooth object governors
  * ({@link BluetoothGovernor}) as well as subscribing for bluetooth object discovery events.
  *
- * Start using it by accessing a default implementation:
+ * <p>Start using it by accessing a default implementation:
  * <pre>
  * {@code
  * BluetoothManager manager = BluetoothManagerFactory.getManager();
@@ -44,14 +44,14 @@ public interface BluetoothManager {
     /**
      * Starts bluetooth manager background activities.
      *
-     * If true is provided for the argument, then bluetooth manager will activate bluetooth device discovery
+     * <p>If true is provided for the argument, then bluetooth manager will activate bluetooth device discovery
      * process for all available bluetooth adapters. Discovered bluetooth adapters and devices will be available:
      * <ul>
      *     <li>By executing {@link BluetoothManager#getDiscoveredDevices()}</li>
      *     <li>By listening to discovery events via {@link DeviceDiscoveryListener}</li>
      * </ul>
      *
-     * If false is provided for the argument, then bluetooth manager won't activate device discovery process.
+     * <p>If false is provided for the argument, then bluetooth manager won't activate device discovery process.
      * However, it is possible to activate device discovery process for a particular bluetooth adapter
      * if its MAC address is known:
      * <pre>
@@ -64,7 +64,6 @@ public interface BluetoothManager {
      * }
      * </pre>
      *
-     *
      * @param startDiscovering controls whether bluetooth manager should start bluetooth device discovery
      */
     void start(boolean startDiscovering);
@@ -73,6 +72,12 @@ public interface BluetoothManager {
      * Shuts down all bluetooth manager background activities.
      */
     void stop();
+
+    /**
+     * Checks whether the bluetooth manager has been started.
+     * @return true if stareted, false otherwise
+     */
+    boolean isStarted();
 
     /**
      * Register a new device discovery listener.

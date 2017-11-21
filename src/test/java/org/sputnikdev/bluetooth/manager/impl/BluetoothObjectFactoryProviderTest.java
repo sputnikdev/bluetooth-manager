@@ -7,7 +7,6 @@ import org.mockito.Mock;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
-import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObjectFactory;
 
 import static org.mockito.Mockito.times;
@@ -41,6 +40,6 @@ public class BluetoothObjectFactoryProviderTest {
     @Test
     public void testUnregisterFactory() throws Exception {
         BluetoothObjectFactoryProvider.unregisterFactory(objectFactory);
-        verify(bluetoothManager, times(1)).resetDescendants(new URL(PROTOCOL_NAME + "://"));
+        verify(bluetoothManager, times(1)).handleObjectFactoryUnregistered(objectFactory);
     }
 }
