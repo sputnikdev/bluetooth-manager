@@ -67,7 +67,7 @@ public class BluetoothObjectFactoryProvider {
      * @param protocolName protocol name
      * @return a Bluetooth Object factory
      */
-    protected static BluetoothObjectFactory getFactory(String protocolName) {
+    public static BluetoothObjectFactory getFactory(String protocolName) {
         BluetoothObjectFactory factory = factories.get(protocolName);
         if (factory == null) {
             LOGGER.debug("Transport [" + protocolName + "] is not registered.");
@@ -79,7 +79,7 @@ public class BluetoothObjectFactoryProvider {
      * Returns registered Bluetooth Object factories.
      * @return a Bluetooth Object factories
      */
-    protected static List<BluetoothObjectFactory> getRegisteredFactories() {
+    public static List<BluetoothObjectFactory> getRegisteredFactories() {
         return new ArrayList<>(factories.values());
     }
 

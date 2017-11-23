@@ -25,6 +25,7 @@ import org.sputnikdev.bluetooth.manager.DiscoveredAdapter;
 import org.sputnikdev.bluetooth.manager.DiscoveredDevice;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * A root interface for all Bluetooth transport implementations.
@@ -72,5 +73,11 @@ public interface BluetoothObjectFactory {
      * @return transport protocol name
      */
     String getProtocolName();
+
+    /**
+     * The bluetooth manager might call this method in order to pass some configuration variables.
+     * @param config configuration
+     */
+    void configure(Map<String, Object> config);
 
 }
