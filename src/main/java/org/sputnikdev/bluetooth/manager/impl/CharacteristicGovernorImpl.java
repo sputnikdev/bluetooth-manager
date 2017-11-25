@@ -172,6 +172,7 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic>
     private class ValueNotification implements Notification<byte[]> {
         @Override
         public void notify(byte[] data) {
+            updateLastChanged();
             try {
                 ValueListener listener = valueListener;
                 if (listener != null) {
