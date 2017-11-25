@@ -57,8 +57,8 @@ public class BluetoothObjectFactoryProvider {
      */
     public static void unregisterFactory(BluetoothObjectFactory transport) {
         synchronized (factories) {
-            getBluetoothManager().handleObjectFactoryUnregistered(transport);
             factories.remove(transport.getProtocolName());
+            getBluetoothManager().handleObjectFactoryUnregistered(transport);
         }
     }
 

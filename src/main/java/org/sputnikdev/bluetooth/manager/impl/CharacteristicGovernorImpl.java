@@ -65,10 +65,10 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic>
     @Override
     void reset(Characteristic characteristic) {
         logger.info("Disable characteristic notifications: " + getURL());
+        valueNotification = null;
         if (characteristic.isNotifying()) {
             characteristic.disableValueNotifications();
         }
-        valueNotification = null;
     }
 
     @Override
@@ -100,8 +100,8 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic>
     @Override
     public boolean isWritable() throws NotReadyException {
         Set<CharacteristicAccessType> flgs = getFlags();
-        return flgs.contains(CharacteristicAccessType.WRITE) ||
-                flgs.contains(CharacteristicAccessType.WRITE_WITHOUT_RESPONSE);
+        return flgs.contains(CharacteristicAccessType.WRITE)
+            || flgs.contains(CharacteristicAccessType.WRITE_WITHOUT_RESPONSE);
     }
 
     @Override
@@ -149,15 +149,17 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic>
     private void enableNotification(Characteristic characteristic) {
         if (valueNotification == null && canNotify(characteristic)) {
             logger.info("Enable characteristic notifications: " + getURL());
-            valueNotification = new ValueNotification();
-            characteristic.enableValueNotifications(valueNotification);
+            ValueNotification notification = new ValueNotification();
+            characteristic.enableValueNotifications(notification);
+            valueNotification = notification;
         }
     }
 
     private void disableNotification(Characteristic characteristic) {
-        if (valueNotification != null && canNotify(characteristic)) {
+        ValueNotification notification = valueNotification;
+        valueNotification = null;
+        if (notification != null && canNotify(characteristic)) {
             logger.info("Disable characteristic notifications: " + getURL());
-            valueNotification = null;
             characteristic.disableValueNotifications();
         }
     }

@@ -32,8 +32,8 @@ import org.sputnikdev.bluetooth.manager.NotReadyException;
 import org.sputnikdev.bluetooth.manager.transport.Adapter;
 import org.sputnikdev.bluetooth.manager.transport.Notification;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  *
@@ -43,7 +43,7 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
 
     private Logger logger = LoggerFactory.getLogger(AdapterGovernorImpl.class);
 
-    private final List<AdapterListener> adapterListeners = new ArrayList<>();
+    private final List<AdapterListener> adapterListeners = new CopyOnWriteArrayList<>();
 
     private PoweredNotification poweredNotification;
     private DiscoveringNotification discoveringNotification;
@@ -165,40 +165,32 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
 
     @Override
     public void addAdapterListener(AdapterListener adapterListener) {
-        synchronized (adapterListeners) {
-            adapterListeners.add(adapterListener);
-        }
+        adapterListeners.add(adapterListener);
     }
 
     @Override
     public void removeAdapterListener(AdapterListener adapterListener) {
-        synchronized (adapterListeners) {
-            adapterListeners.remove(adapterListener);
-        }
+        adapterListeners.remove(adapterListener);
     }
 
     void notifyPowered(boolean powered) {
-        synchronized (adapterListeners) {
-            for (AdapterListener listener : adapterListeners) {
-                try {
-                    listener.powered(powered);
-                } catch (Exception ex) {
-                    logger.error("Execution error of a powered listener: " + powered, ex);
-                }
+        adapterListeners.forEach(listener -> {
+            try {
+                listener.powered(powered);
+            } catch (Exception ex) {
+                logger.error("Execution error of a powered listener: " + powered, ex);
             }
-        }
+        });
     }
 
     void notifyDiscovering(boolean discovering) {
-        synchronized (adapterListeners) {
-            for (AdapterListener listener : adapterListeners) {
-                try {
-                    listener.discovering(discovering);
-                } catch (Exception ex) {
-                    logger.error("Execution error of a discovering listener: " + discovering, ex);
-                }
+        adapterListeners.forEach(listener -> {
+            try {
+                listener.discovering(discovering);
+            } catch (Exception ex) {
+                logger.error("Execution error of a discovering listener: " + discovering, ex);
             }
-        }
+        });
     }
 
     private void updatePowered(Adapter adapter) {

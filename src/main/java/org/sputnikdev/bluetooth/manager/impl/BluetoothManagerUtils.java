@@ -20,18 +20,19 @@ package org.sputnikdev.bluetooth.manager.impl;
  * #L%
  */
 
+import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.transport.BluetoothObject;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
-import org.sputnikdev.bluetooth.URL;
-import org.sputnikdev.bluetooth.manager.transport.BluetoothObject;
+import java.util.logging.Logger;
 
 /**
  *
  * @author Vlad Kolotov
  */
-class BluetoothManagerUtils {
+final class BluetoothManagerUtils {
 
     private BluetoothManagerUtils() { }
 

@@ -28,9 +28,9 @@ import org.sputnikdev.bluetooth.manager.GovernorListener;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObject;
 
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * A root class for all governors in the system. Defines lifecycle and error handling/recovery processes for governors.
@@ -84,7 +84,7 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
     private T bluetoothObject;
     private String transport;
     private Date lastActivity = new Date();
-    private final List<GovernorListener> governorListeners = new ArrayList<>();
+    private final List<GovernorListener> governorListeners = new CopyOnWriteArrayList<>();
 
     BluetoothObjectGovernor(BluetoothManagerImpl bluetoothManager, URL url) {
         this.bluetoothManager = bluetoothManager;
@@ -103,16 +103,12 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
 
     @Override
     public void addGovernorListener(GovernorListener listener) {
-        synchronized (governorListeners) {
-            governorListeners.add(listener);
-        }
+        governorListeners.add(listener);
     }
 
     @Override
     public void removeGovernorListener(GovernorListener listener) {
-        synchronized (governorListeners) {
-            governorListeners.remove(listener);
-        }
+        governorListeners.remove(listener);
     }
 
     @Override
@@ -157,7 +153,7 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
         return bluetoothObject;
     }
 
-    final synchronized void update() {
+    final void update() {
         T object = getOrFindBluetoothObject();
         if (object == null) {
             return;
@@ -193,30 +189,26 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
     }
 
     void notifyReady(boolean ready) {
-        synchronized (governorListeners) {
-            for (GovernorListener listener : governorListeners) {
-                try {
-                    listener.ready(ready);
-                } catch (Exception ex) {
-                    logger.error("Execution error of a governor listener: ready", ex);
-                }
+        governorListeners.forEach(listener -> {
+            try {
+                listener.ready(ready);
+            } catch (Exception ex) {
+                logger.error("Execution error of a governor listener: ready", ex);
             }
-        }
+        });
     }
 
     void notifyLastChanged() {
-        synchronized (governorListeners) {
-            for (GovernorListener listener : governorListeners) {
-                try {
-                    listener.lastUpdatedChanged(lastActivity);
-                } catch (Exception ex) {
-                    logger.error("Execution error of a governor listener: last changed", ex);
-                }
+        governorListeners.forEach(listener -> {
+            try {
+                listener.lastUpdatedChanged(lastActivity);
+            } catch (Exception ex) {
+                logger.error("Execution error of a governor listener: last changed", ex);
             }
-        }
+        });
     }
 
-    private synchronized T getOrFindBluetoothObject() {
+    private T getOrFindBluetoothObject() {
         if (bluetoothObject == null) {
             bluetoothObject = bluetoothManager.getBluetoothObject(
                 transport != null ? url.copyWithProtocol(transport) : url);
