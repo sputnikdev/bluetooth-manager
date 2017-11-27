@@ -173,13 +173,17 @@ public class DeviceGovernorImplTest {
     public void testUpdateConnectedBleDevice() throws Exception {
         doReturn(true).when(governor).isBleEnabled();
 
+        short rssi = -77;
+
         governor.setBlockedControl(false);
         when(device.isBlocked()).thenReturn(false);
         when(device.isConnected()).thenReturn(false).thenReturn(true).thenReturn(false).thenReturn(true);
         when(device.connect()).thenReturn(true);
-
+        when(device.getRSSI()).thenReturn(rssi);
 
         governor.setConnectionControl(false);
+
+        Date lastChanged = governor.getLastActivity();
 
         governor.update(device);
         verify(device, never()).connect();
@@ -189,17 +193,28 @@ public class DeviceGovernorImplTest {
         verify(device, never()).connect();
         verify(device, times(1)).disconnect();
         verify(bluetoothManager, times(1)).resetDescendants(URL);
+        verify(device, never()).getRSSI();
+        verify(genericDeviceListener, never()).rssiChanged(rssi);
+        assertEquals(lastChanged, governor.getLastActivity());
 
         governor.setConnectionControl(true);
 
         governor.update(device);
         verify(device, times(1)).connect();
         verify(device, times(1)).disconnect();
-        //verify(bluetoothManager, times(1)).updateDescendants(URL);
+        verify(device, times(1)).getRSSI();
+        verify(genericDeviceListener).rssiChanged(rssi);
+        assertTrue(lastChanged.before(governor.getLastActivity()));
+        lastChanged = governor.getLastActivity();
+
+        rssi = -87;
+        when(device.getRSSI()).thenReturn(rssi);
 
         governor.update(device);
         verify(device, times(1)).connect();
         verify(device, times(1)).disconnect();
+        verify(genericDeviceListener).rssiChanged(rssi);
+        assertTrue(lastChanged.before(governor.getLastActivity()));
 
         verify(device, atLeastOnce()).isBlocked();
         verify(device, atLeastOnce()).isConnected();

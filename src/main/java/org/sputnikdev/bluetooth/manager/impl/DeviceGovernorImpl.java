@@ -20,26 +20,36 @@ package org.sputnikdev.bluetooth.manager.impl;
  * #L%
  */
 
-import java.time.Instant;
-import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
-import org.sputnikdev.bluetooth.manager.*;
+import org.sputnikdev.bluetooth.manager.AdapterGovernor;
+import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
+import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
+import org.sputnikdev.bluetooth.manager.BluetoothSmartDeviceListener;
+import org.sputnikdev.bluetooth.manager.CharacteristicGovernor;
+import org.sputnikdev.bluetooth.manager.DeviceGovernor;
+import org.sputnikdev.bluetooth.manager.GattCharacteristic;
+import org.sputnikdev.bluetooth.manager.GattService;
+import org.sputnikdev.bluetooth.manager.GenericBluetoothDeviceListener;
+import org.sputnikdev.bluetooth.manager.NotReadyException;
 import org.sputnikdev.bluetooth.manager.transport.Characteristic;
 import org.sputnikdev.bluetooth.manager.transport.Device;
 import org.sputnikdev.bluetooth.manager.transport.Notification;
 import org.sputnikdev.bluetooth.manager.transport.Service;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  *
  * @author Vlad Kolotov
  */
 class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements DeviceGovernor {
-
-    public static final int BLE_BLUETOOTH_CLASS = 0;
 
     private Logger logger = LoggerFactory.getLogger(DeviceGovernorImpl.class);
 
@@ -74,9 +84,13 @@ class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements Devi
             if (!blockedControl) {
                 boolean connected = updateConnected(device);
                 if (connected) {
-                    updateOnline(true);
-                    //updateCharacteristics();
-                    return;
+                    // Note: BlueGiga and TinyB devices work in different way:
+                    // TinyB would have thrown an exception if the device is out of range (or turned off)
+                    // BlueGig would not thrown any exception by now
+                    // threfore we need to check if BlueGiga device is still alive by querying the device RSSI
+                    // Further note: TinyB device when connected sometimes constantly returns RSSI equals to 0
+                    notifyRSSIChanged(getRSSI());
+                    updateLastChanged();
                 }
             }
         }

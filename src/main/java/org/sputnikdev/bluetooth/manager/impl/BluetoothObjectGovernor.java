@@ -163,7 +163,7 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
             update(object);
             notifyLastChanged();
         } catch (Exception ex) {
-            logger.error("Could not update governor state.", ex);
+            logger.warn("Could not update governor state.", ex);
             reset();
         }
     }
