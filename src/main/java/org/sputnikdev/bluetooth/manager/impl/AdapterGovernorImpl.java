@@ -65,6 +65,7 @@ class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements Ad
         if (isPowered()) {
             updateDiscovering(adapter);
         }
+        updateLastChanged();
     }
 
     @Override

@@ -185,6 +185,7 @@ public class BluetoothObjectGovernorTest {
         InOrder inOrder = inOrder(governor, governorListener);
         // side effect of using spy
         inOrder.verify(governor, times(1)).addGovernorListener(governorListener);
+        inOrder.verify(governor).reset();
 
         // actual verification
         inOrder.verifyNoMoreInteractions();

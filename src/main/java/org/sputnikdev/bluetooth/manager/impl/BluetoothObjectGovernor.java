@@ -153,7 +153,7 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
         return bluetoothObject;
     }
 
-    final void update() {
+    void update() {
         T object = getOrFindBluetoothObject();
         if (object == null) {
             return;
@@ -168,7 +168,7 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
         }
     }
 
-    final void reset() {
+    void reset() {
         logger.info("Resetting governor: {}", url);
         try {
             if (bluetoothObject != null) {
@@ -198,9 +198,10 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
     }
 
     void notifyLastChanged() {
+        Date lastChanged = getLastActivity();
         governorListeners.forEach(listener -> {
             try {
-                listener.lastUpdatedChanged(lastActivity);
+                listener.lastUpdatedChanged(lastChanged);
             } catch (Exception ex) {
                 logger.error("Execution error of a governor listener: last changed", ex);
             }

@@ -201,6 +201,9 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     @Override
     public BluetoothGovernor getGovernor(URL url) {
+        if (url.isProtocol() || url.isRoot()) {
+            return null;
+        }
         return computeIfGovernorAbsent(url, protocolLess -> {
             BluetoothObjectGovernor governor = createGovernor(protocolLess);
 
