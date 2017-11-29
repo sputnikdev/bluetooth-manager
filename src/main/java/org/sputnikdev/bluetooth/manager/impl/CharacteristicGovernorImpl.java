@@ -30,6 +30,7 @@ import org.sputnikdev.bluetooth.manager.NotReadyException;
 import org.sputnikdev.bluetooth.manager.ValueListener;
 import org.sputnikdev.bluetooth.manager.transport.Characteristic;
 import org.sputnikdev.bluetooth.manager.transport.CharacteristicAccessType;
+import org.sputnikdev.bluetooth.manager.transport.Device;
 import org.sputnikdev.bluetooth.manager.transport.Notification;
 
 import java.util.Set;
@@ -66,7 +67,8 @@ class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic>
     void reset(Characteristic characteristic) {
         logger.info("Disable characteristic notifications: " + getURL());
         valueNotification = null;
-        if (characteristic.isNotifying()) {
+        Device device = bluetoothManager.getBluetoothObject(getURL().getDeviceURL());
+        if (device != null && device.isConnected() && characteristic.isNotifying()) {
             characteristic.disableValueNotifications();
         }
     }
