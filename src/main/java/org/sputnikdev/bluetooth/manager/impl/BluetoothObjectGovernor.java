@@ -83,7 +83,8 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
     protected final URL url;
     private T bluetoothObject;
     private String transport;
-    private Date lastActivity = new Date();
+    private Date lastActivity;
+    private Date lastActivityNotified;
     private final List<GovernorListener> governorListeners = new CopyOnWriteArrayList<>();
 
     BluetoothObjectGovernor(BluetoothManagerImpl bluetoothManager, URL url) {
@@ -198,14 +199,17 @@ abstract class BluetoothObjectGovernor<T extends BluetoothObject> implements Blu
     }
 
     void notifyLastChanged() {
-        Date lastChanged = getLastActivity();
-        governorListeners.forEach(listener -> {
-            try {
-                listener.lastUpdatedChanged(lastChanged);
-            } catch (Exception ex) {
-                logger.error("Execution error of a governor listener: last changed", ex);
-            }
-        });
+        Date lastChanged = lastActivity;
+        if (lastChanged != null && !lastChanged.equals(lastActivityNotified)) {
+            governorListeners.forEach(listener -> {
+                try {
+                    listener.lastUpdatedChanged(lastChanged);
+                } catch (Exception ex) {
+                    logger.error("Execution error of a governor listener: last changed", ex);
+                }
+            });
+            lastActivityNotified = lastChanged;
+        }
     }
 
     private T getOrFindBluetoothObject() {

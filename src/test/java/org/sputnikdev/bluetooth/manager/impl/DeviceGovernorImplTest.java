@@ -1,13 +1,5 @@
 package org.sputnikdev.bluetooth.manager.impl;
 
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -22,15 +14,37 @@ import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.sputnikdev.bluetooth.URL;
-import org.sputnikdev.bluetooth.manager.*;
-import org.sputnikdev.bluetooth.manager.transport.*;
+import org.sputnikdev.bluetooth.manager.AdapterGovernor;
+import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
+import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
+import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
+import org.sputnikdev.bluetooth.manager.BluetoothSmartDeviceListener;
+import org.sputnikdev.bluetooth.manager.CharacteristicGovernor;
+import org.sputnikdev.bluetooth.manager.DeviceGovernor;
+import org.sputnikdev.bluetooth.manager.GattCharacteristic;
+import org.sputnikdev.bluetooth.manager.GattService;
+import org.sputnikdev.bluetooth.manager.GenericBluetoothDeviceListener;
+import org.sputnikdev.bluetooth.manager.transport.BluetoothObjectFactory;
+import org.sputnikdev.bluetooth.manager.transport.Characteristic;
+import org.sputnikdev.bluetooth.manager.transport.Device;
+import org.sputnikdev.bluetooth.manager.transport.Notification;
+import org.sputnikdev.bluetooth.manager.transport.Service;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -68,6 +82,8 @@ public class DeviceGovernorImplTest {
     private BluetoothSmartDeviceListener bluetoothSmartDeviceListener;
     @Mock
     private BluetoothObjectFactory bluetoothObjectFactory;
+    @Mock
+    private AdapterGovernorImpl adapterGovernor;
 
     @Spy
     @InjectMocks
@@ -128,7 +144,7 @@ public class DeviceGovernorImplTest {
         charGovernors.add(mockCharacteristicGovernor(CHARACTERISTIC_2_URL));
         when(bluetoothManager.getGovernors(any())).thenReturn(charGovernors);
 
-        AdapterGovernorImpl adapterGovernor = mock(AdapterGovernorImpl.class);
+        adapterGovernor = mock(AdapterGovernorImpl.class);
         when(adapterGovernor.isReady()).thenReturn(true);
         when(adapterGovernor.isPowered()).thenReturn(true);
         when(bluetoothManager.getAdapterGovernor(URL)).thenReturn(adapterGovernor);
@@ -170,54 +186,114 @@ public class DeviceGovernorImplTest {
     }
 
     @Test
-    public void testUpdateConnectedBleDevice() throws Exception {
-        doReturn(true).when(governor).isBleEnabled();
+    public void testUpdateConnectedLastChanged() throws Exception {
+        // this test verifies if "lastChanged" gets updated
+
+        // fixed variables
+        governor.setBlockedControl(false);
+        when(device.isBlocked()).thenReturn(false);
+        when(device.connect()).thenReturn(true);
 
         short rssi = -77;
+        when(device.getRSSI()).thenReturn(rssi);
+
+        // not connected
+        when(device.isConnected()).thenReturn(false);
+        governor.setConnectionControl(false);
+        Date lastChanged = governor.getLastActivity();
+        assertNull(lastChanged);
+        governor.update(device);
+        // nothing should be changed
+        lastChanged = governor.getLastActivity();
+        assertNull(lastChanged);
+        verify(device, never()).getRSSI();
+        verify(genericDeviceListener, never()).rssiChanged(rssi);
+        assertNull(lastChanged);
+
+        // connected
+        when(device.isConnected()).thenReturn(true);
+        governor.setConnectionControl(true);
+        governor.update(device);
+        lastChanged = governor.getLastActivity();
+        assertNotNull(lastChanged);
+        // when connected, "lastChanged" should always be updated
+        verify(device, times(1)).getRSSI();
+        verify(genericDeviceListener, times(1)).rssiChanged(rssi);
+    }
+
+    @Test
+    public void testUpdateConnected() throws Exception {
+        //this test checks if native device gets updated in accordance with various combination of:
+        // connection control and the native device is connected
+        doReturn(true).when(governor).isBleEnabled();
 
         governor.setBlockedControl(false);
         when(device.isBlocked()).thenReturn(false);
-        when(device.isConnected()).thenReturn(false).thenReturn(true).thenReturn(false).thenReturn(true);
         when(device.connect()).thenReturn(true);
-        when(device.getRSSI()).thenReturn(rssi);
 
+        // not connected and control == false
+        when(device.isConnected()).thenReturn(false);
         governor.setConnectionControl(false);
-
-        Date lastChanged = governor.getLastActivity();
-
         governor.update(device);
         verify(device, never()).connect();
         verify(device, never()).disconnect();
 
+        // connected and control == true
+        when(device.isConnected()).thenReturn(true);
+        governor.setConnectionControl(true);
         governor.update(device);
         verify(device, never()).connect();
-        verify(device, times(1)).disconnect();
-        verify(bluetoothManager, times(1)).resetDescendants(URL);
-        verify(device, never()).getRSSI();
-        verify(genericDeviceListener, never()).rssiChanged(rssi);
-        assertEquals(lastChanged, governor.getLastActivity());
+        verify(device, never()).disconnect();
 
+        // connected and control == false
+        when(device.isConnected()).thenReturn(true);
+        governor.setConnectionControl(false);
+        governor.update(device);
+        verify(device, never()).connect();
+        verify(device).disconnect();
+
+        // not connected and control == true
+        when(device.isConnected()).thenReturn(false);
         governor.setConnectionControl(true);
-
         governor.update(device);
-        verify(device, times(1)).connect();
-        verify(device, times(1)).disconnect();
-        verify(device, times(1)).getRSSI();
-        verify(genericDeviceListener).rssiChanged(rssi);
-        assertTrue(lastChanged.before(governor.getLastActivity()));
-        lastChanged = governor.getLastActivity();
+        verify(device).connect();
+        verify(device).disconnect();
 
-        rssi = -87;
-        when(device.getRSSI()).thenReturn(rssi);
+    }
 
+    @Test
+    public void testUpdateConnectAndBlock() throws Exception {
+        doReturn(true).when(governor).isBleEnabled();
+
+        when(device.connect()).thenReturn(true);
+        governor.setBlockedControl(true);
+
+        when(device.isConnected()).thenReturn(false);
+        governor.setConnectionControl(true);
         governor.update(device);
-        verify(device, times(1)).connect();
-        verify(device, times(1)).disconnect();
-        verify(genericDeviceListener).rssiChanged(rssi);
-        assertTrue(lastChanged.before(governor.getLastActivity()));
+        verify(device, never()).connect();
+        verify(device, never()).disconnect();
 
-        verify(device, atLeastOnce()).isBlocked();
-        verify(device, atLeastOnce()).isConnected();
+        when(device.isConnected()).thenReturn(true);
+        governor.setConnectionControl(false);
+        governor.update(device);
+        verify(device, never()).connect();
+        verify(device, never()).disconnect();
+
+        governor.setBlockedControl(false);
+
+        when(device.isConnected()).thenReturn(true);
+        governor.setConnectionControl(false);
+        governor.update(device);
+        verify(device, never()).connect();
+        verify(device).disconnect();
+
+        when(device.isConnected()).thenReturn(false);
+        governor.setConnectionControl(true);
+        governor.update(device);
+        verify(device).connect();
+        verify(device).disconnect();
+
     }
 
     @Test
@@ -254,6 +330,8 @@ public class DeviceGovernorImplTest {
         verify(genericDeviceListener, times(0)).offline();
 
         Whitebox.setInternalState(governor, "lastActivity", Date.from(Instant.now().minusSeconds(onlineTimeout)));
+        governor.setBlockedControl(true);
+        when(device.isBlocked()).thenReturn(true);
 
         governor.update(device);
         verify(genericDeviceListener, times(1)).offline();

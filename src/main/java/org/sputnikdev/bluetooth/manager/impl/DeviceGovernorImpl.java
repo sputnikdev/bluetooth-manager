@@ -40,6 +40,7 @@ import org.sputnikdev.bluetooth.manager.transport.Service;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -82,13 +83,13 @@ class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements Devi
         if (adapterGovernor != null && adapterGovernor.isReady() && adapterGovernor.isPowered()) {
             updateBlocked(device);
             if (!blockedControl) {
+                // Note: BlueGiga and TinyB devices work in different way:
+                // TinyB would have thrown an exception if the device was out of range (or turned off)
+                // BlueGiga would not thrown any exception by now
+                // threfore we need to check if BlueGiga device is still alive by querying the device RSSI
+                // Further note: TinyB device when connected constantly returns the very last known RSSI
                 boolean connected = updateConnected(device);
                 if (connected) {
-                    // Note: BlueGiga and TinyB devices work in different way:
-                    // TinyB would have thrown an exception if the device is out of range (or turned off)
-                    // BlueGig would not thrown any exception by now
-                    // threfore we need to check if BlueGiga device is still alive by querying the device RSSI
-                    // Further note: TinyB device when connected sometimes constantly returns RSSI equals to 0
                     notifyRSSIChanged(getRSSI());
                     updateLastChanged();
                 }
@@ -181,7 +182,9 @@ class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements Devi
 
     @Override
     public boolean isOnline() {
-        return Instant.now().minusSeconds(this.onlineTimeout).isBefore(this.getLastActivity().toInstant());
+        Date lastActivity = getLastActivity();
+        return lastActivity != null && Instant.now().minusSeconds(onlineTimeout)
+            .isBefore(getLastActivity().toInstant());
     }
 
     @Override

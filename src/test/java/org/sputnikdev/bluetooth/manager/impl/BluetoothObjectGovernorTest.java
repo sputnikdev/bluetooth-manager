@@ -20,12 +20,14 @@ import org.sputnikdev.bluetooth.manager.transport.BluetoothObject;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -103,16 +105,19 @@ public class BluetoothObjectGovernorTest {
         Whitebox.setInternalState(governor, "bluetoothObject", null);
         governor.addGovernorListener(governorListener);
 
-        // invocation
         governor.update();
 
-        // check interactions
         InOrder inOrder = inOrder(governor, governorListener, bluetoothManager);
-        inOrder.verify(bluetoothManager, times(1)).getBluetoothObject(URL);
-        inOrder.verify(governor, times(1)).init(bluetoothObject);
-        inOrder.verify(governorListener, times(1)).ready(true);
-        inOrder.verify(governor, times(1)).update(bluetoothObject);
-        inOrder.verify(governorListener, times(1)).lastUpdatedChanged(any());
+        inOrder.verify(bluetoothManager).getBluetoothObject(URL);
+        inOrder.verify(governor).init(bluetoothObject);
+        inOrder.verify(governorListener).ready(true);
+        inOrder.verify(governor).update(bluetoothObject);
+        inOrder.verify(governorListener, never()).lastUpdatedChanged(any());
+
+        governor.updateLastChanged();
+        governor.update();
+        inOrder.verify(governorListener).lastUpdatedChanged(any());
+
         inOrder.verifyNoMoreInteractions();
     }
 
@@ -161,17 +166,18 @@ public class BluetoothObjectGovernorTest {
         governor.addGovernorListener(governorListener);
 
         Date lastChanged = governor.getLastActivity();
+        assertNull(lastChanged);
+
         Thread.sleep(1);
         governor.updateLastChanged();
 
-        InOrder inOrder = inOrder(governor, governorListener);
-        assertTrue(lastChanged.before(governor.getLastActivity()));
-        inOrder.verify(governor, times(1)).addGovernorListener(governorListener);
-        inOrder.verify(governor, times(1)).getLastActivity();
-        inOrder.verify(governor, times(1)).updateLastChanged();
-        inOrder.verify(governor, times(1)).getLastActivity();
+        lastChanged = governor.getLastActivity();
+        assertNotNull(lastChanged);
 
-        verifyNoMoreInteractions(governor);
+        Thread.sleep(1);
+        governor.updateLastChanged();
+
+        assertTrue(lastChanged.before(governor.getLastActivity()));
     }
 
     @Test
