@@ -22,6 +22,8 @@ package org.sputnikdev.bluetooth.manager.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.sputnikdev.bluetooth.Filter;
+import org.sputnikdev.bluetooth.RssiKalmanFilter;
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.AdapterGovernor;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
@@ -45,6 +47,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  *
@@ -64,6 +68,12 @@ class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements Devi
     private boolean blockedControl;
     private boolean online;
     private int onlineTimeout = 20;
+
+    private final Lock rssiUpdateLock = new ReentrantLock();
+    private Filter<Short> rssiFilter = new RssiKalmanFilter();
+    private boolean rssiFilteringEnabled = true;
+    private long rssiReportingRate = 1000;
+    private Date rssiLastNotified = new Date();
 
     DeviceGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
         super(bluetoothManager, url);
@@ -203,31 +213,53 @@ class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements Devi
     }
 
     @Override
+    public void setRssiFilter(Filter<Short> filter) {
+        rssiFilter = filter;
+    }
+
+    @Override
+    public Filter<Short> getRssiFilter() {
+        return rssiFilter;
+    }
+
+    @Override
+    public boolean isRssiFilteringEnabled() {
+        return rssiFilteringEnabled;
+    }
+
+    @Override
+    public void setRssiFilteringEnabled(boolean rssiFilteringEnabled) {
+        this.rssiFilteringEnabled = rssiFilteringEnabled;
+    }
+
+    @Override
+    public long getRssiReportingRate() {
+        return rssiReportingRate;
+    }
+
+    @Override
+    public void setRssiReportingRate(long rssiReportingRate) {
+        this.rssiReportingRate = rssiReportingRate;
+    }
+
+    @Override
     public void addBluetoothSmartDeviceListener(BluetoothSmartDeviceListener bluetoothSmartDeviceListener) {
-        synchronized (bluetoothSmartDeviceListeners) {
-            bluetoothSmartDeviceListeners.add(bluetoothSmartDeviceListener);
-        }
+        bluetoothSmartDeviceListeners.add(bluetoothSmartDeviceListener);
     }
 
     @Override
     public void removeBluetoothSmartDeviceListener(BluetoothSmartDeviceListener bluetoothSmartDeviceListener) {
-        synchronized (bluetoothSmartDeviceListeners) {
-            bluetoothSmartDeviceListeners.remove(bluetoothSmartDeviceListener);
-        }
+        bluetoothSmartDeviceListeners.remove(bluetoothSmartDeviceListener);
     }
 
     @Override
     public void addGenericBluetoothDeviceListener(GenericBluetoothDeviceListener genericBluetoothDeviceListener) {
-        synchronized (genericBluetoothDeviceListeners) {
-            genericBluetoothDeviceListeners.add(genericBluetoothDeviceListener);
-        }
+        genericBluetoothDeviceListeners.add(genericBluetoothDeviceListener);
     }
 
     @Override
     public void removeGenericBluetoothDeviceListener(GenericBluetoothDeviceListener listener) {
-        synchronized (genericBluetoothDeviceListeners) {
-            genericBluetoothDeviceListeners.remove(listener);
-        }
+        genericBluetoothDeviceListeners.remove(listener);
     }
 
     @Override
@@ -313,14 +345,34 @@ class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements Devi
         });
     }
 
-    void notifyRSSIChanged(Short rssi) {
-        genericBluetoothDeviceListeners.forEach(listener -> {
+    void updateRSSI(short next) {
+        Filter<Short> filter = rssiFilter;
+        if (rssiUpdateLock.tryLock()) {
             try {
-                listener.rssiChanged(rssi != null ? rssi : 0);
-            } catch (Exception ex) {
-                logger.error("Execution error of a RSSI listener", ex);
+                if (filter != null && rssiFilteringEnabled) {
+                    // devices can report RSSI too fast that we can't handle it, so we skip some readings
+                    notifyRSSIChanged(filter.next(next));
+                } else {
+                    notifyRSSIChanged(next);
+                }
+            } finally {
+                rssiUpdateLock.unlock();
             }
-        });
+        }
+    }
+
+    void notifyRSSIChanged(short next) {
+        if (rssiReportingRate == 0
+            || System.currentTimeMillis() - rssiLastNotified.getTime() > rssiReportingRate) {
+            genericBluetoothDeviceListeners.forEach(listener -> {
+                try {
+                    listener.rssiChanged(next);
+                } catch (Exception ex) {
+                    logger.error("Execution error of a RSSI listener", ex);
+                }
+            });
+            rssiLastNotified = new Date();
+        }
     }
 
     void notifyOnline(boolean online) {
@@ -473,7 +525,7 @@ class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements Devi
     private class RSSINotification implements Notification<Short> {
         @Override
         public void notify(Short rssi) {
-            notifyRSSIChanged(rssi);
+            updateRSSI(rssi);
             updateLastChanged();
         }
     }

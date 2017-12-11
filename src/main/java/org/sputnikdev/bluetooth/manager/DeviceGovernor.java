@@ -20,10 +20,11 @@ package org.sputnikdev.bluetooth.manager;
  * #L%
  */
 
+import org.sputnikdev.bluetooth.Filter;
+import org.sputnikdev.bluetooth.URL;
+
 import java.util.List;
 import java.util.Map;
-
-import org.sputnikdev.bluetooth.URL;
 
 
 /**
@@ -137,20 +138,58 @@ public interface DeviceGovernor extends BluetoothGovernor {
     void setOnlineTimeout(int onlineTimeout);
 
     /**
-     * Returns device RSSI
+     * Returns device RSSI.
      * @return device RSSI
      * @throws NotReadyException if the device object is not ready
      */
     short getRSSI() throws NotReadyException;
 
     /**
-     * Register a new Bluetooth Smart device listener
+     * Enables/disables RSSI filtering.
+     * Default implementation is Kalman filter
+     * @param enabled if the filter is null, filtering disabled
+     */
+    void setRssiFilter(Filter<Short> filter);
+
+    /**
+     * Returns RSSI filter.
+     * @return RSSI filter
+     */
+    Filter<Short> getRssiFilter();
+
+    /**
+     * Checks whether RSSI filtering is enabled.
+     * @return true if enabled, false oherwise
+     */
+    boolean isRssiFilteringEnabled();
+
+    /**
+     * Enables/disables RSSI filtering (a filter must be set before).
+     * @param enabled if true, disabled otherwise
+     */
+    void setRssiFilteringEnabled(boolean enabled);
+
+    /**
+     * Sets RSSI reporting rate (in milliseconds). RSSI is not reported more often than this value.
+     * If is set to 0, then RSSI is reported unconditionally.
+     * @param rate RSSI reporting rate
+     */
+    void setRssiReportingRate(long rate);
+
+    /**
+     * Returns RSSI reporting rate (in mlliseconds). If RSSI equals to 0, then RSSI is reported unconditionally.
+     * @param rate RSSI reporting rate
+     */
+    long getRssiReportingRate();
+
+    /**
+     * Register a new Bluetooth Smart device listener.
      * @param listener a new Bluetooth Smart device listener
      */
     void addBluetoothSmartDeviceListener(BluetoothSmartDeviceListener listener);
 
     /**
-     * Unregister a Bluetooth Smart device listener
+     * Unregister a Bluetooth Smart device listener.
      * @param listener a previously registered listener
      */
     void removeBluetoothSmartDeviceListener(BluetoothSmartDeviceListener listener);
@@ -162,7 +201,7 @@ public interface DeviceGovernor extends BluetoothGovernor {
     void addGenericBluetoothDeviceListener(GenericBluetoothDeviceListener listener);
 
     /**
-     * Unregisters a Generic Bluetooth device listener
+     * Unregisters a Generic Bluetooth device listener.
      * @param listener a previously registered listener
      */
     void removeGenericBluetoothDeviceListener(GenericBluetoothDeviceListener listener);

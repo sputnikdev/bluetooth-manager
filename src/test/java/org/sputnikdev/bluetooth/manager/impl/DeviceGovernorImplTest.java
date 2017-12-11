@@ -13,6 +13,7 @@ import org.mockito.internal.util.reflection.Whitebox;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
+import org.sputnikdev.bluetooth.Filter;
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.AdapterGovernor;
 import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
@@ -84,6 +85,8 @@ public class DeviceGovernorImplTest {
     private BluetoothObjectFactory bluetoothObjectFactory;
     @Mock
     private AdapterGovernorImpl adapterGovernor;
+    @Mock
+    private Filter<Short> rssiFilter;
 
     @Spy
     @InjectMocks
@@ -148,6 +151,9 @@ public class DeviceGovernorImplTest {
         when(adapterGovernor.isReady()).thenReturn(true);
         when(adapterGovernor.isPowered()).thenReturn(true);
         when(bluetoothManager.getAdapterGovernor(URL)).thenReturn(adapterGovernor);
+
+        governor.setRssiFilter(null);
+        governor.setRssiReportingRate(0);
     }
 
     @Test
@@ -550,7 +556,7 @@ public class DeviceGovernorImplTest {
         governor.addGenericBluetoothDeviceListener(listener);
 
         governor.notifyBlocked(true);
-        governor.notifyRSSIChanged((short) -45);
+        governor.updateRSSI((short) -45);
         governor.notifyOnline(false);
         verify(listener, times(1)).blocked(true);
         verify(listener, times(1)).rssiChanged((short) -45);
@@ -558,7 +564,7 @@ public class DeviceGovernorImplTest {
         verify(listener, never()).online();
 
         governor.notifyBlocked(false);
-        governor.notifyRSSIChanged((short) -84);
+        governor.updateRSSI((short) -84);
         governor.notifyOnline(true);
         verify(listener, times(1)).blocked(false);
         verify(listener, times(1)).rssiChanged((short) -84);
@@ -567,7 +573,7 @@ public class DeviceGovernorImplTest {
 
         governor.removeGenericBluetoothDeviceListener(listener);
         governor.notifyBlocked(true);
-        governor.notifyRSSIChanged((short) -64);
+        governor.updateRSSI((short) -64);
         governor.notifyOnline(false);
         verifyNoMoreInteractions(listener);
     }
@@ -713,13 +719,13 @@ public class DeviceGovernorImplTest {
     }
 
     @Test
-    public void testNotifyRSSIChanged() {
+    public void testNotifyRSSIChangedNoFilter() {
         GenericBluetoothDeviceListener listener1 = mock(GenericBluetoothDeviceListener.class);
         GenericBluetoothDeviceListener listener2 = mock(GenericBluetoothDeviceListener.class);
         governor.addGenericBluetoothDeviceListener(listener1);
         governor.addGenericBluetoothDeviceListener(listener2);
 
-        governor.notifyRSSIChanged(RSSI);
+        governor.updateRSSI(RSSI);
 
         InOrder inOrder = inOrder(listener1, listener2);
 
@@ -729,11 +735,59 @@ public class DeviceGovernorImplTest {
         // this should be ignored by governor, a log message must be issued
         doThrow(Exception.class).when(listener1).rssiChanged(RSSI);
 
-        governor.notifyRSSIChanged(RSSI);
+        governor.updateRSSI(RSSI);
         inOrder.verify(listener1, times(1)).rssiChanged(RSSI);
         inOrder.verify(listener2, times(1)).rssiChanged(RSSI);
 
         inOrder.verifyNoMoreInteractions();
+    }
+
+    @Test
+    public void testNotifyRSSIChangedWithFilter() {
+        GenericBluetoothDeviceListener listener = mock(GenericBluetoothDeviceListener.class);
+        governor.addGenericBluetoothDeviceListener(listener);
+
+        short filteredRssi = -60;
+
+        when(rssiFilter.next(RSSI)).thenReturn(filteredRssi);
+        governor.setRssiFilter(rssiFilter);
+        assertTrue(governor.isRssiFilteringEnabled());
+        assertEquals(rssiFilter, governor.getRssiFilter());
+
+        governor.updateRSSI(RSSI);
+
+        verify(rssiFilter, times(1)).next(RSSI);
+        verify(listener, times(1)).rssiChanged(filteredRssi);
+
+        governor.setRssiReportingRate(0);
+        governor.setRssiFilteringEnabled(false);
+
+        governor.updateRSSI(RSSI);
+        verify(rssiFilter, times(1)).next(RSSI);
+        verify(listener, times(1)).rssiChanged(RSSI);
+    }
+
+    @Test
+    public void testNotifyRSSIReportingRate() {
+        GenericBluetoothDeviceListener listener = mock(GenericBluetoothDeviceListener.class);
+        governor.addGenericBluetoothDeviceListener(listener);
+
+        governor.setRssiReportingRate(0);
+        assertEquals(0, governor.getRssiReportingRate());
+
+        governor.updateRSSI(RSSI);
+        governor.updateRSSI(RSSI);
+
+        verify(listener, times(2)).rssiChanged(RSSI);
+
+        governor.setRssiReportingRate(5000);
+        assertEquals(5000, governor.getRssiReportingRate());
+
+        // these ones should be skipped
+        governor.updateRSSI(RSSI);
+        governor.updateRSSI(RSSI);
+
+        verify(listener, times(2)).rssiChanged(RSSI);
     }
 
     @Test
@@ -883,7 +937,7 @@ public class DeviceGovernorImplTest {
         notificationCaptor.getValue().notify(RSSI);
 
         verify(genericDeviceListener, times(1)).rssiChanged(RSSI);
-        verify(governor, times(1)).notifyRSSIChanged(RSSI);
+        verify(governor, times(1)).updateRSSI(RSSI);
         verify(governor, times(1)).updateLastChanged();
     }
 
@@ -910,6 +964,8 @@ public class DeviceGovernorImplTest {
         verify(governor, times(1)).notifyBlocked(false);
         verify(governor, times(2)).updateLastChanged();
     }
+
+
 
     private CharacteristicGovernor mockCharacteristicGovernor(URL url) {
         CharacteristicGovernor governor = mock(CharacteristicGovernor.class);
