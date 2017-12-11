@@ -20,6 +20,7 @@ package org.sputnikdev.bluetooth.manager.impl;
  * #L%
  */
 
+import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
@@ -34,8 +35,8 @@ import org.sputnikdev.bluetooth.manager.DiscoveredAdapter;
 import org.sputnikdev.bluetooth.manager.DiscoveredDevice;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObject;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObjectFactory;
-import com.google.common.collect.Sets;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -66,9 +67,9 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     private final ScheduledExecutorService discoveryScheduller = Executors.newScheduledThreadPool(6);
     private final ScheduledExecutorService governorScheduler = Executors.newScheduledThreadPool(5);
-    private final Map<String, ScheduledFuture> adapterDiscoveryFutures = new ConcurrentHashMap<>();
-    private final Map<String, ScheduledFuture> deviceDiscoveryFutures = new ConcurrentHashMap<>();
-    private final Map<URL, ScheduledFuture> governorFutures = new HashMap<>();
+    private final Map<String, ScheduledFuture<?>> adapterDiscoveryFutures = new ConcurrentHashMap<>();
+    private final Map<String, ScheduledFuture<?>> deviceDiscoveryFutures = new ConcurrentHashMap<>();
+    private final Map<URL, ScheduledFuture<?>> governorFutures = new HashMap<>();
 
     private final Set<DeviceDiscoveryListener> deviceDiscoveryListeners = new CopyOnWriteArraySet<>();
     private final Set<AdapterDiscoveryListener> adapterDiscoveryListeners = new CopyOnWriteArraySet<>();
@@ -82,6 +83,7 @@ class BluetoothManagerImpl implements BluetoothManager {
     private int refreshRate = REFRESH_RATE_SEC;
     private boolean rediscover;
     private boolean started;
+    private boolean sharedMode = true;
 
     @Override
     public void start(boolean startDiscovering) {
@@ -191,12 +193,29 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     @Override
     public Set<DiscoveredDevice> getDiscoveredDevices() {
-        return Collections.unmodifiableSet(discoveredDevices);
+        if (sharedMode) {
+            Map<URL, List<DiscoveredDevice>> groupedByDeviceAddress =
+                discoveredDevices.stream().collect(
+                    Collectors.groupingBy(t -> t.getURL().copyWithAdapter("XX:XX:XX:XX:XX")));
+            return groupedByDeviceAddress.entrySet().stream().map(entry -> {
+                DiscoveredDevice discoveredDevice = entry.getValue().get(0);
+                return new DiscoveredDevice(entry.getKey(), discoveredDevice.getName(), discoveredDevice.getAlias(),
+                    discoveredDevice.isBleEnabled());
+            }).collect(Collectors.toSet());
+        } else {
+            return Collections.unmodifiableSet(discoveredDevices);
+        }
     }
 
     @Override
     public Set<DiscoveredAdapter> getDiscoveredAdapters() {
-        return Collections.unmodifiableSet(discoveredAdapters);
+        if (sharedMode) {
+            return discoveredAdapters.stream().map(adapter -> {
+                return new DiscoveredAdapter(new URL("/XX:XX:XX:XX:XX:XX"), adapter.getName(), adapter.getAlias());
+            }).collect(Collectors.toSet());
+        } else {
+            return Collections.unmodifiableSet(discoveredAdapters);
+        }
     }
 
     @Override
@@ -230,6 +249,16 @@ class BluetoothManagerImpl implements BluetoothManager {
         this.refreshRate = refreshRate;
     }
 
+    @Override
+    public boolean isSharedMode() {
+        return sharedMode;
+    }
+
+    @Override
+    public void setSharedMode(boolean sharedMode) {
+        this.sharedMode = sharedMode;
+    }
+
     List<BluetoothGovernor> getGovernors(List<? extends BluetoothObject> objects) {
         return Collections.unmodifiableList(objects.stream()
             .map(o -> getGovernor(o.getURL())).collect(Collectors.toList()));
@@ -242,7 +271,9 @@ class BluetoothManagerImpl implements BluetoothManager {
     void resetDescendants(URL parent) {
         if (parent.isProtocol()) {
             // reset all governors that belongs to the transport specified in the argument
-            governors.values().stream().filter(governor -> parent.getProtocol().equals(governor.getTransport()))
+            governors.values().stream().filter(governor -> governor instanceof AbstractBluetoothObjectGovernor)
+                .map(governor -> (AbstractBluetoothObjectGovernor) governor)
+                .filter(governor -> parent.getProtocol().equals(governor.getTransport()))
                 .forEach(this::reset);
         } else {
             computeForEachDescendatGovernor(parent, this::reset);
@@ -273,11 +304,20 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     BluetoothObjectGovernor createGovernor(URL url) {
         if (url.isAdapter()) {
-            AdapterGovernorImpl adapterGovernor = new AdapterGovernorImpl(this, url);
+            AdapterGovernor adapterGovernor;
+            if ("XX:XX:XX:XX:XX:XX".equals(url.getAdapterAddress())) {
+                adapterGovernor = new SharedAdapterGovernorImpl(this, url);
+            } else {
+                adapterGovernor = new AdapterGovernorImpl(this, url);
+            }
             adapterGovernor.setDiscoveringControl(startDiscovering);
-            return adapterGovernor;
+            return (BluetoothObjectGovernor) adapterGovernor;
         } else if (url.isDevice()) {
-            return new DeviceGovernorImpl(this, url);
+            if ("XX:XX:XX:XX:XX:XX".equals(url.getAdapterAddress())) {
+                return new SharedDeviceGovernorImpl(this, url);
+            } else {
+                return new DeviceGovernorImpl(this, url);
+            }
         } else if (url.isCharacteristic()) {
             return new CharacteristicGovernorImpl(this, url);
         }
@@ -295,6 +335,10 @@ class BluetoothManagerImpl implements BluetoothManager {
             cancelFutures(deviceDiscoveryFutures, protocol);
         }
         resetDescendants(new URL().copyWithProtocol(protocol));
+    }
+
+    Set<URL> getRegisteredGovernors() {
+        return governors.keySet();
     }
 
     private void disposeGovernor(BluetoothObjectGovernor governor) {
@@ -324,17 +368,28 @@ class BluetoothManagerImpl implements BluetoothManager {
         if (discoveredDevices.contains(device) && !rediscover) {
             return;
         }
-        wrapForEach(deviceDiscoveryListeners, deviceDiscoveryListener -> deviceDiscoveryListener.discovered(device),
-            "Error in device discovery listener");
+        wrapForEach(deviceDiscoveryListeners, listener -> {
+            if (!sharedMode || listener instanceof SharedDeviceGovernorImpl) {
+                listener.discovered(device);
+            } else {
+                listener.discovered(new DiscoveredDevice(device.getURL().copyWithAdapter("XX:XX:XX:XX:XX:XX"),
+                    device.getName(), device.getAlias(), device.isBleEnabled()));
+            }
+        },"Error in device discovery listener");
     }
 
     private void notifyAdapterDiscovered(DiscoveredAdapter adapter) {
         if (discoveredAdapters.contains(adapter) && !rediscover) {
             return;
         }
-        wrapForEach(adapterDiscoveryListeners,
-            adapterDiscoveryListener -> adapterDiscoveryListener.discovered(adapter),
-            "Error in adapter discovery listener");
+        wrapForEach(adapterDiscoveryListeners, listener -> {
+            if (!sharedMode || listener instanceof SharedAdapterGovernorImpl) {
+                listener.discovered(adapter);
+            } else {
+                listener.discovered(new DiscoveredAdapter(new URL("/XX:XX:XX:XX:XX:XX"),
+                    "Shared Bluetooth Adapter", null));
+            }
+        },"Error in adapter discovery listener");
     }
 
     private void handleDeviceLost(URL url) {
@@ -505,7 +560,7 @@ class BluetoothManagerImpl implements BluetoothManager {
         }
     }
 
-    private static void cancelFutures(Map<String, ScheduledFuture> futures, String transport) {
+    private static void cancelFutures(Map<String, ScheduledFuture<?>> futures, String transport) {
         futures.entrySet().removeIf(entry -> {
             if (entry.getKey().equals(transport)) {
                 entry.getValue().cancel(true);

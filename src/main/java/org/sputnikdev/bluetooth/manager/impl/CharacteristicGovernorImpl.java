@@ -39,7 +39,8 @@ import java.util.Set;
  *
  * @author Vlad Kolotov
  */
-class CharacteristicGovernorImpl extends BluetoothObjectGovernor<Characteristic> implements CharacteristicGovernor {
+class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Characteristic>
+    implements CharacteristicGovernor {
 
     private Logger logger = LoggerFactory.getLogger(CharacteristicGovernorImpl.class);
 

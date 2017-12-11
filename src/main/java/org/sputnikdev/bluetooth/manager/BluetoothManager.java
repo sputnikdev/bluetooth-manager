@@ -203,4 +203,17 @@ public interface BluetoothManager {
      */
     void setRefreshRate(int refreshRate);
 
+    /**
+     * In the shared mode the bluetooth manager groups adapters and devices into a single adapter/device so that all
+     * adapters/devices can be controlled as a single unit.
+     * @param sharedMode if true, shared mode is enabled, otherwise disabled
+     */
+    void setSharedMode(boolean sharedMode);
+
+    /**
+     * Checks whether the bluetooth manager is in shared mode {@link #setSharedMode(boolean)}.
+     * @return true if the shared mode is enabled, false otherwise
+     */
+    boolean isSharedMode();
+
 }

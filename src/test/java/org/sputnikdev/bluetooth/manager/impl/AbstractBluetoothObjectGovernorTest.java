@@ -34,7 +34,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @RunWith(MockitoJUnitRunner.class)
-public class BluetoothObjectGovernorTest {
+public class AbstractBluetoothObjectGovernorTest {
 
     private static final URL URL= new URL("/11:22:33:44:55:66");
 
@@ -46,7 +46,7 @@ public class BluetoothObjectGovernorTest {
 
     @InjectMocks
     @Spy
-    private BluetoothObjectGovernor governor = new BluetoothObjectGovernor(bluetoothManager, URL) {
+    private AbstractBluetoothObjectGovernor governor = new AbstractBluetoothObjectGovernor(bluetoothManager, URL) {
 
         @Override void reset(BluetoothObject object) {
         }

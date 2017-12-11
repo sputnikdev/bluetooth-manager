@@ -24,12 +24,15 @@ import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObject;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 /**
- *
+ * Utility class.
  * @author Vlad Kolotov
  */
 final class BluetoothManagerUtils {
@@ -42,6 +45,51 @@ final class BluetoothManagerUtils {
             urls.add(object.getURL());
         }
         return Collections.unmodifiableList(urls);
+    }
+
+    static <T> void safeForEachError(Collection<T> listeners, Consumer<T> func, org.slf4j.Logger logger, String error) {
+        safeForEach(listeners, func, ex -> {
+            logger.warn(error, ex);
+        });
+    }
+
+    static <T> void safeForEachInfo(Collection<T> listeners, Consumer<T> func, org.slf4j.Logger logger, String info) {
+        safeForEach(listeners, func, ex -> {
+            logger.warn(info, ex);
+        });
+    }
+
+    static <T> void safeForEachWarn(Collection<T> listeners, Consumer<T> func, org.slf4j.Logger logger, String warn) {
+        safeForEach(listeners, func, ex -> {
+            logger.warn(warn, ex);
+        });
+    }
+
+
+    static <T> void safeForEach(Collection<T> objects, Consumer<T> func, Consumer<Exception> errorHandler) {
+        objects.forEach(deviceDiscoveryListener -> {
+            try {
+                func.accept(deviceDiscoveryListener);
+            } catch (Exception ex) {
+                errorHandler.accept(ex);
+            }
+        });
+    }
+
+    static void setState(AtomicLong state, int index, boolean newState, Runnable changed) {
+        setState(state, index, newState, changed, null);
+    }
+
+    static void setState(AtomicLong state, int index, boolean newState, Runnable changed, Runnable notChanged) {
+        state.getAndUpdate(current -> {
+            long updated = newState ? current | (1 << index) : current & ~(1 << index);
+            if (updated == 0 && current > 0 || updated != 0 && current == 0) {
+                changed.run();
+            } else if (notChanged != null) {
+                notChanged.run();
+            }
+            return updated;
+        });
     }
 
 }

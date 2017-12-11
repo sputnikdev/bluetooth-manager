@@ -39,7 +39,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *
  * @author Vlad Kolotov
  */
-class AdapterGovernorImpl extends BluetoothObjectGovernor<Adapter> implements AdapterGovernor {
+class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> implements AdapterGovernor {
 
     private Logger logger = LoggerFactory.getLogger(AdapterGovernorImpl.class);
 

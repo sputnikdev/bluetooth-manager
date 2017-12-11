@@ -54,7 +54,7 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * @author Vlad Kolotov
  */
-class DeviceGovernorImpl extends BluetoothObjectGovernor<Device> implements DeviceGovernor {
+class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> implements DeviceGovernor {
 
     private Logger logger = LoggerFactory.getLogger(DeviceGovernorImpl.class);
 
