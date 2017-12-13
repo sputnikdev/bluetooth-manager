@@ -58,6 +58,9 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     private Logger logger = LoggerFactory.getLogger(DeviceGovernorImpl.class);
 
+    static final short DEFAULT_TX_POWER = -55;
+    static final double DEAFULT_SIGNAL_PROPAGATION_EXPONENT = 4.0; // indoor
+
     private final List<GenericBluetoothDeviceListener> genericBluetoothDeviceListeners = new CopyOnWriteArrayList<>();
     private final List<BluetoothSmartDeviceListener> bluetoothSmartDeviceListeners = new CopyOnWriteArrayList<>();
     private ConnectionNotification connectionNotification;
@@ -74,6 +77,8 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     private boolean rssiFilteringEnabled = true;
     private long rssiReportingRate = 1000;
     private Date rssiLastNotified = new Date();
+    private short measuredTxPower;
+    private double signalPropagationExponent = DEAFULT_SIGNAL_PROPAGATION_EXPONENT;
 
     DeviceGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
         super(bluetoothManager, url);
@@ -235,6 +240,53 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     @Override
     public long getRssiReportingRate() {
         return rssiReportingRate;
+    }
+
+    @Override
+    public short getTxPower() {
+        return getBluetoothObject().getTxPower();
+    }
+
+    @Override
+    public short getMeasuredTxPower() {
+        return measuredTxPower;
+    }
+
+    @Override
+    public void setMeasuredTxPower(short txPower) {
+        measuredTxPower = txPower;
+    }
+
+    @Override
+    public double getSignalPropagationExponent() {
+        return signalPropagationExponent;
+    }
+
+    @Override
+    public void setSignalPropagationExponent(double signalPropagationExponent) {
+        this.signalPropagationExponent = signalPropagationExponent;
+    }
+
+    @Override
+    public double getEstimatedDistance() {
+        short rssi = 0;
+        if (rssiFilteringEnabled && rssiFilter != null) {
+            rssi = rssiFilter.current();
+        }
+        if (rssi == 0 && isReady()) {
+            rssi = getRSSI();
+        }
+        if (rssi == 0) {
+            return 0;
+        }
+        short txPower = getMeasuredTxPower();
+        if (txPower == 0 && isReady()) {
+            txPower = getTxPower();
+        }
+        if (txPower == 0) {
+            txPower = DEFAULT_TX_POWER;
+        }
+        return Math.pow(10d, ((double) txPower - rssi) / (10 * signalPropagationExponent));
     }
 
     @Override

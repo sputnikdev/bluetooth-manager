@@ -52,6 +52,8 @@ public interface Device extends BluetoothObject {
 
     short getRSSI();
 
+    short getTxPower();
+
     void enableRSSINotifications(Notification<Short> notification);
 
     void disableRSSINotifications();

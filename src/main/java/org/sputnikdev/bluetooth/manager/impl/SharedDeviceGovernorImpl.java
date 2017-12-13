@@ -55,6 +55,8 @@ class SharedDeviceGovernorImpl implements DeviceGovernor, BluetoothObjectGoverno
     private short rssi;
     private boolean rssiFilteringEnabled = true;
     private long rssiReportingRate = 1000;
+    private short measuredTxPower;
+    private double signalPropagationExponent = DeviceGovernorImpl.DEAFULT_SIGNAL_PROPAGATION_EXPONENT;
     private Date lastChanged;
 
     private boolean connectionControl;
@@ -158,6 +160,40 @@ class SharedDeviceGovernorImpl implements DeviceGovernor, BluetoothObjectGoverno
     @Override
     public short getRSSI() throws NotReadyException {
         return rssi;
+    }
+
+    @Override
+    public short getTxPower() {
+        return 0;
+    }
+
+    @Override
+    public short getMeasuredTxPower() {
+        return measuredTxPower;
+    }
+
+    @Override
+    public void setMeasuredTxPower(short txPower) {
+        measuredTxPower = txPower;
+        governors.values().forEach(
+            deviceGovernorHandler -> deviceGovernorHandler.deviceGovernor.setMeasuredTxPower(txPower));
+    }
+
+    @Override
+    public double getSignalPropagationExponent() {
+        return signalPropagationExponent;
+    }
+
+    @Override
+    public void setSignalPropagationExponent(double exponent) {
+        signalPropagationExponent = exponent;
+        governors.values().forEach(
+            deviceGovernorHandler -> deviceGovernorHandler.deviceGovernor.setSignalPropagationExponent(exponent));
+    }
+
+    @Override
+    public double getEstimatedDistance() {
+        return 0;
     }
 
     @Override
@@ -343,6 +379,8 @@ class SharedDeviceGovernorImpl implements DeviceGovernor, BluetoothObjectGoverno
             deviceGovernor.setBlockedControl(blockedControl);
             deviceGovernor.setRssiFilteringEnabled(rssiFilteringEnabled);
             deviceGovernor.setRssiReportingRate(rssiReportingRate);
+            deviceGovernor.setSignalPropagationExponent(signalPropagationExponent);
+            deviceGovernor.setMeasuredTxPower(measuredTxPower);
 
             Date lastActivity = deviceGovernor.getLastActivity();
             if (lastActivity != null) {

@@ -965,6 +965,118 @@ public class DeviceGovernorImplTest {
         verify(governor, times(2)).updateLastChanged();
     }
 
+    @Test
+    public void testEstimatedDistanceRssiFilter() {
+        // The calculation is based on the logarithmetic function: d = 10 ^ ((TxPower - RSSI) / 10n)
+        // where n ranges from 2 to 4 (environemnt specific factor, e.g. 2 outdoors -> 4 indoors)
+
+        governor.setSignalPropagationExponent(2.0);
+        assertEquals(2.0, governor.getSignalPropagationExponent(), 0.1);
+        governor.setRssiFilteringEnabled(true);
+        governor.setRssiFilter(rssiFilter);
+        governor.setMeasuredTxPower((short) -60);
+        assertEquals(-60, governor.getMeasuredTxPower());
+        when(rssiFilter.current()).thenReturn((short) -60);
+
+        // Tx Power is not reported by device and measured Tx Power is not set, then a default Tx Power is used (-60),
+        // this means that Tx Power equals to RSSI, therefore estimated distance should be 1m
+        assertEquals(1.0, governor.getEstimatedDistance(), 0.01);
+
+        // outdoor, same distance, signal is stronger, compensated by propagation exponent
+        governor.setSignalPropagationExponent(2.0);
+        when(rssiFilter.current()).thenReturn((short) -65);
+        assertEquals(1.778, governor.getEstimatedDistance(), 0.001);
+        // indoor, same distance, signal is weaker, compensated by propagation exponent
+        governor.setSignalPropagationExponent(4.0);
+        when(rssiFilter.current()).thenReturn((short) -70);
+        assertEquals(1.778, governor.getEstimatedDistance(), 0.001);
+
+        governor.setSignalPropagationExponent(2.0);
+        when(rssiFilter.current()).thenReturn((short) -55);
+        assertEquals(0.562, governor.getEstimatedDistance(), 0.001);
+
+        governor.setSignalPropagationExponent(4.0);
+        when(rssiFilter.current()).thenReturn((short) -65);
+        assertEquals(1.333, governor.getEstimatedDistance(), 0.001);
+
+        governor.setSignalPropagationExponent(4.0);
+        when(rssiFilter.current()).thenReturn((short) -55);
+        assertEquals(0.749, governor.getEstimatedDistance(), 0.001);
+
+        // checking if Tx Power makes any difference
+        governor.setMeasuredTxPower((short) -65);
+        when(rssiFilter.current()).thenReturn((short) -65);
+        assertEquals(1.0, governor.getEstimatedDistance(), 0.001);
+
+    }
+
+    @Test
+    public void testEstimatedDistanceDisabledRssiFilter() {
+        // The calculation is based on the logarithmetic function: d = 10 ^ ((TxPower - RSSI) / 10n)
+        // where n ranges from 2 to 4 (environemnt specific factor, e.g. 2 outdoors -> 4 indoors)
+
+        governor.setSignalPropagationExponent(2.0);
+        assertEquals(2.0, governor.getSignalPropagationExponent(), 0.1);
+        governor.setMeasuredTxPower((short) -60);
+        assertEquals(-60, governor.getMeasuredTxPower());
+        when(device.getRSSI()).thenReturn((short) -60);
+
+        // device is not ready
+        Whitebox.setInternalState(governor, "bluetoothObject", null);
+        assertEquals(0.0, governor.getEstimatedDistance(), 0.01);
+
+        // now it has become ready
+        Whitebox.setInternalState(governor, "bluetoothObject", device);
+
+        // Tx Power is not reported by device and measured Tx Power is not set, then a default Tx Power is used (-60),
+        // this means that Tx Power equals to RSSI, therefore estimated distance should be 1m
+        assertEquals(1.0, governor.getEstimatedDistance(), 0.01);
+
+        // outdoor, same distance, signal is stronger, compensated by propagation exponent
+        governor.setSignalPropagationExponent(2.0);
+        when(device.getRSSI()).thenReturn((short) -65);
+        assertEquals(1.778, governor.getEstimatedDistance(), 0.001);
+        // indoor, same distance, signal is weaker, compensated by propagation exponent
+        governor.setSignalPropagationExponent(4.0);
+        when(device.getRSSI()).thenReturn((short) -70);
+        assertEquals(1.778, governor.getEstimatedDistance(), 0.001);
+
+        governor.setSignalPropagationExponent(2.0);
+        when(device.getRSSI()).thenReturn((short) -55);
+        assertEquals(0.562, governor.getEstimatedDistance(), 0.001);
+
+        governor.setSignalPropagationExponent(4.0);
+        when(device.getRSSI()).thenReturn((short) -65);
+        assertEquals(1.333, governor.getEstimatedDistance(), 0.001);
+
+        governor.setSignalPropagationExponent(4.0);
+        when(device.getRSSI()).thenReturn((short) -55);
+        assertEquals(0.749, governor.getEstimatedDistance(), 0.001);
+    }
+
+    @Test
+    public void testEstimatedDistanceTxPower() {
+        // The calculation is based on the logarithmetic function: d = 10 ^ ((TxPower - RSSI) / 10n)
+        // where n ranges from 2 to 4 (environemnt specific factor, e.g. 2 outdoors -> 4 indoors)
+
+        governor.setSignalPropagationExponent(2.0);
+        assertEquals(2.0, governor.getSignalPropagationExponent(), 0.1);
+        governor.setRssiFilteringEnabled(true);
+        governor.setRssiFilter(rssiFilter);
+
+        // the default Tx Power is -55
+        when(rssiFilter.current()).thenReturn((short) -55);
+        assertEquals(1.0, governor.getEstimatedDistance(), 0.001);
+
+        when(device.getTxPower()).thenReturn((short) -60);
+        governor.setMeasuredTxPower((short) 0);
+        assertEquals(0.562, governor.getEstimatedDistance(), 0.001);
+
+        // measured Tx Power should get precedence
+        when(device.getTxPower()).thenReturn((short) -60);
+        governor.setMeasuredTxPower((short) -65);
+        assertEquals(0.316, governor.getEstimatedDistance(), 0.001);
+    }
 
 
     private CharacteristicGovernor mockCharacteristicGovernor(URL url) {

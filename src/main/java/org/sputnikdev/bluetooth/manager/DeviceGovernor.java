@@ -183,6 +183,58 @@ public interface DeviceGovernor extends BluetoothGovernor {
     long getRssiReportingRate();
 
     /**
+     * Returns actual (manufacturer defined) TX power of the device. Some bluetooth devices do not adverise
+     * its TX power, in this case the returning value is 0.
+     * <br/>TX power is used in distance calculation ({@link #getEstimatedDistance()}).
+     * @return actual TX power
+     */
+    short getTxPower();
+
+    /**
+     * Returns measured/estimated (user defined) TX power of the device that is measured 1 meter away from the adapter.
+     * <br/>TX power is used in distance calculation ({@link #getEstimatedDistance()}).
+     * @return measured TX power
+     */
+    short getMeasuredTxPower();
+
+    /**
+     * Sets measured/estimated (user defined) TX power of the device that is measured 1 meter away from the adapter.
+     * TX power is used in distance calculation ({@link #getEstimatedDistance()}).
+     * <br/>To measure TX power, step 1 meter away from the adapter and take note of RSSI value (this will be TX Power).
+     * @param txPower TX power
+     */
+    void setMeasuredTxPower(short txPower);
+
+    /**
+     * Returns currently set the estimated (used defined) signal propagation exponent. It is used in distance
+     * calculation ({@link #getEstimatedDistance()}). This factor is specific to the environment, i.e. how good or bad
+     * the signal can penetrate through obsticles. Normally it ranges from 2.0 (outdoors, no obsticles)
+     * to 4.0 (indoors, walls and furniture).
+     * @return the signal propagation exponent
+     */
+    double getSignalPropagationExponent();
+
+    /**
+     * Sets the estimated (used defined) signal propagation exponent. It is used in distance
+     * calculation ({@link #getEstimatedDistance()}). This factor is specific to the environment, i.e. how efficient
+     * the signal passes through obsticles. Normally it ranges from 2.0 (outdoors, no obsticles)
+     * to 4.0 (indoors, walls and furniture).
+     * @param exponent the signal propagation exponent
+     */
+    void setSignalPropagationExponent(double exponent);
+
+    /**
+     * Returns estimated distance between this device and the adapter.
+     * Either measured ({@link #setMeasuredTxPower(short)}) or actual ({@link #getTxPower()}) TX power must be
+     * available for the estimation, otherwise the resulting value equals 0.
+     * The calculation is based on the logarithmetic function: d = 10 ^ ((TxPower - RSSI) / 10n)
+     * where n ({@link #getSignalPropagationExponent()}) is the signal propagation exponent
+     * that ranges from 2 to 4 (environemnt specific factor, e.g. 2 outdoors -> 4 indoors)
+     * @return estimated distance
+     */
+    double getEstimatedDistance();
+
+    /**
      * Register a new Bluetooth Smart device listener.
      * @param listener a new Bluetooth Smart device listener
      */
@@ -195,7 +247,7 @@ public interface DeviceGovernor extends BluetoothGovernor {
     void removeBluetoothSmartDeviceListener(BluetoothSmartDeviceListener listener);
 
     /**
-     * Registers a new Generic Bluetooth device listener
+     * Registers a new Generic Bluetooth device listener.
      * @param listener a new Generic Bluetooth device listener
      */
     void addGenericBluetoothDeviceListener(GenericBluetoothDeviceListener listener);
