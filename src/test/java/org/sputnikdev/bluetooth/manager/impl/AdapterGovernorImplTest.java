@@ -121,14 +121,17 @@ public class AdapterGovernorImplTest {
                 .thenReturn(false)
                 .thenReturn(false)
                 .thenReturn(true);
-        when(adapter.isPowered())
-                .thenReturn(false).thenReturn(false)
-                .thenReturn(false).thenReturn(true)
-                .thenReturn(true).thenReturn(true);
+
+//        when(adapter.isPowered())
+//                .thenReturn(false).thenReturn(false)
+//                .thenReturn(false).thenReturn(true)
+//                .thenReturn(true).thenReturn(true);
 
         governor.setPoweredControl(false);
         governor.setDiscoveringControl(false);
 
+
+        when(adapter.isPowered()).thenReturn(false);
         governor.update(adapter);
 
         // first case
@@ -140,17 +143,19 @@ public class AdapterGovernorImplTest {
         inOrder.verify(adapter, never()).stopDiscovery();
 
         // second case
+        when(adapter.isPowered()).thenReturn(false).thenReturn(true);
         governor.setPoweredControl(true);
         governor.setDiscoveringControl(false);
         governor.update(adapter);
         inOrder.verify(adapter).isPowered();
         inOrder.verify(adapter).setPowered(true);
-        inOrder.verify(adapter).isPowered();
+        inOrder.verify(adapter, times(2)).isPowered();
         inOrder.verify(adapter).isDiscovering();
         inOrder.verify(adapter, never()).startDiscovery();
         inOrder.verify(adapter, never()).stopDiscovery();
 
         // third case
+        when(adapter.isPowered()).thenReturn(true);
         governor.setPoweredControl(true);
         governor.setDiscoveringControl(true);
         governor.update(adapter);
@@ -161,6 +166,7 @@ public class AdapterGovernorImplTest {
         inOrder.verify(adapter, never()).stopDiscovery();
 
         // forth case
+        when(adapter.isPowered()).thenReturn(true);
         governor.setPoweredControl(true);
         governor.setDiscoveringControl(false);
         governor.update(adapter);

@@ -116,6 +116,9 @@ public class BluetoothManagerImplTest {
         when(tinybCharacteristic.getURL()).thenReturn(TINYB_CHARACTERISTIC_URL);
         when(dbusCharacteristic.getURL()).thenReturn(DBUS_CHARACTERISTIC_URL);
 
+        when(tinybAdapter.isPowered()).thenReturn(true);
+        when(dbusAdapter.isPowered()).thenReturn(true);
+
         bluetoothManager.start(true);
 
         Set discoveredAdapters = Whitebox.getInternalState(bluetoothManager, "discoveredAdapters");
