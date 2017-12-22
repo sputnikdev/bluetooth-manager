@@ -424,7 +424,6 @@ class BluetoothManagerImpl implements BluetoothManager {
     private final class DeviceDiscoveryJob implements Runnable {
 
         private final BluetoothObjectFactory factory;
-        private final Set<DiscoveredDevice> devices = new CopyOnWriteArraySet<>();
 
         private DeviceDiscoveryJob(BluetoothObjectFactory factory) {
             this.factory = factory;
@@ -445,21 +444,21 @@ class BluetoothManagerImpl implements BluetoothManager {
 
             discovered.forEach(BluetoothManagerImpl.this::notifyDeviceDiscovered);
 
-            Set<DiscoveredDevice> lostDevices = Sets.difference(devices, discovered);
+            Set<DiscoveredDevice> factoryDevices = discoveredDevices.stream()
+                    .filter(device -> factory.getProtocolName().equals(device.getURL().getProtocol()))
+                    .collect(Collectors.toSet());
+
+            Set<DiscoveredDevice> lostDevices = Sets.difference(factoryDevices, discovered);
             lostDevices.forEach(lost -> handleDeviceLost(lost.getURL()));
 
             discoveredDevices.removeAll(lostDevices);
             discoveredDevices.addAll(discovered);
-
-            devices.clear();
-            devices.addAll(discovered);
         }
     }
 
     private final class AdapterDiscoveryJob implements Runnable {
 
         private final BluetoothObjectFactory factory;
-        private final Set<DiscoveredAdapter> adapters = new CopyOnWriteArraySet<>();
 
         private AdapterDiscoveryJob(BluetoothObjectFactory factory) {
             this.factory = factory;
@@ -486,14 +485,15 @@ class BluetoothManagerImpl implements BluetoothManager {
                 }
             });
 
-            Set<DiscoveredAdapter> lostAdapters = Sets.difference(adapters, discovered);
+            Set<DiscoveredAdapter> factoryAdapters = discoveredAdapters.stream()
+                    .filter(device -> factory.getProtocolName().equals(device.getURL().getProtocol()))
+                    .collect(Collectors.toSet());
+
+            Set<DiscoveredAdapter> lostAdapters = Sets.difference(factoryAdapters, discovered);
             lostAdapters.forEach(lost -> handleAdapterLost(lost.getURL()));
 
             discoveredAdapters.removeAll(lostAdapters);
             discoveredAdapters.addAll(discovered);
-
-            adapters.clear();
-            adapters.addAll(discovered);
         }
     }
 

@@ -1,6 +1,5 @@
 package org.sputnikdev.bluetooth.manager.impl;
 
-import com.google.common.collect.EvictingQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.Filter;
@@ -17,16 +16,15 @@ import org.sputnikdev.bluetooth.manager.GenericBluetoothDeviceListener;
 import org.sputnikdev.bluetooth.manager.GovernorListener;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
 
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 class SharedDeviceGovernorImpl implements DeviceGovernor, BluetoothObjectGovernor, DeviceDiscoveryListener {
 
@@ -44,6 +42,7 @@ class SharedDeviceGovernorImpl implements DeviceGovernor, BluetoothObjectGoverno
     private final AtomicLong blocked = new AtomicLong();
     private final AtomicLong connected = new AtomicLong();
     private final AtomicLong servicesResolved = new AtomicLong();
+    private DeviceGovernor closest;
 
     private final AtomicInteger governorsCount = new AtomicInteger();
 
@@ -193,7 +192,14 @@ class SharedDeviceGovernorImpl implements DeviceGovernor, BluetoothObjectGoverno
 
     @Override
     public double getEstimatedDistance() {
-        return 0;
+        DeviceGovernor governor = closest;
+        return governor != null ? governor.getEstimatedDistance() : 0.0;
+    }
+
+    @Override
+    public URL getLocation() {
+        DeviceGovernor governor = closest;
+        return governor != null ? governor.getURL().getAdapterURL() : null;
     }
 
     @Override
@@ -275,7 +281,19 @@ class SharedDeviceGovernorImpl implements DeviceGovernor, BluetoothObjectGoverno
     public void deviceLost(URL url) { /* do nothing */ }
 
     @Override
-    public void update() { /* do nothing */ }
+    public void update() {
+        DeviceGovernor newClosest = governors.values().stream()
+            .collect(Collectors.toMap(handler -> handler.deviceGovernor,
+                handler -> handler.deviceGovernor.getEstimatedDistance()))
+            .entrySet().stream()
+            .max(Comparator.comparingDouble(Map.Entry::getValue))
+            .map(Map.Entry::getKey).orElse(null);
+
+        if (newClosest != closest) {
+            closest = newClosest;
+            //TODO notify
+        }
+    }
 
     @Override
     public void reset() { /* do nothing */ }
@@ -321,7 +339,8 @@ class SharedDeviceGovernorImpl implements DeviceGovernor, BluetoothObjectGoverno
         if (url.isDevice() && this.url.getDeviceAddress().equals(url.getDeviceAddress())) {
             governors.computeIfAbsent(url, newUrl -> {
                 DeviceGovernor deviceGovernor = BluetoothManagerFactory.getManager().getDeviceGovernor(url);
-                return new DeviceGovernorHandler(deviceGovernor, governorsCount.getAndIncrement());
+                int index = governorsCount.getAndIncrement();
+                return new DeviceGovernorHandler(deviceGovernor, index);
             });
         }
     }
@@ -347,10 +366,6 @@ class SharedDeviceGovernorImpl implements DeviceGovernor, BluetoothObjectGoverno
 
         private final DeviceGovernor deviceGovernor;
         private final int index;
-
-        Lock rssiUpdateLock = new ReentrantLock();
-        private Queue<Short> rssi = EvictingQueue.create(10);
-        private short rssiAverage;
 
         private DeviceGovernorHandler(DeviceGovernor deviceGovernor, int index) {
             this.deviceGovernor = deviceGovernor;
@@ -440,18 +455,8 @@ class SharedDeviceGovernorImpl implements DeviceGovernor, BluetoothObjectGoverno
 
         @Override
         public void rssiChanged(short newRssi) {
-            if (rssiUpdateLock.tryLock()) {
-                try {
-                    // the device reports RSSI too fast that we can't handle it, so we skip some readings
-                    rssi.add(newRssi);
-                    short average = (short) rssi.stream().mapToInt(Short::intValue).average().orElse(0);
-                    if (rssiAverage != average) {
-                        updateRssi(average);
-                    }
-                    rssiAverage = average;
-                } finally {
-                    rssiUpdateLock.unlock();
-                }
+            if (deviceGovernor == closest) {
+                notifyRSSIChanged(newRssi);
             }
         }
 
@@ -505,6 +510,12 @@ class SharedDeviceGovernorImpl implements DeviceGovernor, BluetoothObjectGoverno
             BluetoothManagerUtils.safeForEachError(bluetoothSmartDeviceListeners,
                 BluetoothSmartDeviceListener::servicesUnresolved,
                 logger, "Execution error of a service resolved listener");
+        }
+
+        private void notifyRSSIChanged(short rssi) {
+            BluetoothManagerUtils.safeForEachError(genericBluetoothDeviceListeners, listener -> {
+                listener.rssiChanged(rssi);
+            }, logger, "Execution error of a RSSI listener");
         }
     }
 

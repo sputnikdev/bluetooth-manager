@@ -235,6 +235,13 @@ public interface DeviceGovernor extends BluetoothGovernor {
     double getEstimatedDistance();
 
     /**
+     * Returns location of the device (closest adapter URL). If the governor represets a group of devices,
+     * then the result depends on distance to closest adapter ({@link #getEstimatedDistance()}).
+     * @return location of the device
+     */
+    URL getLocation();
+
+    /**
      * Register a new Bluetooth Smart device listener.
      * @param listener a new Bluetooth Smart device listener
      */

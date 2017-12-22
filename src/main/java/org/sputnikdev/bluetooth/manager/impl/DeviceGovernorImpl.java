@@ -290,6 +290,11 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     }
 
     @Override
+    public URL getLocation() {
+        return url.getAdapterURL();
+    }
+
+    @Override
     public void setRssiReportingRate(long rssiReportingRate) {
         this.rssiReportingRate = rssiReportingRate;
     }

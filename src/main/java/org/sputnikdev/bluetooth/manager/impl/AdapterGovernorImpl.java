@@ -197,6 +197,9 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
     private void updatePowered(Adapter adapter) {
         if (poweredControl != adapter.isPowered()) {
             adapter.setPowered(poweredControl);
+            if (!adapter.isPowered()) {
+                throw new NotReadyException("Could not power adapter");
+            }
         }
     }
 
