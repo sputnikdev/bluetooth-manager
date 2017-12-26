@@ -36,6 +36,7 @@ public class SharedAdapterGovernorImpl implements AdapterGovernor, BluetoothObje
 
     private boolean poweredControl = true;
     private boolean discoveringControl = true;
+    private double signalPropagationExponent;
 
     private final AtomicLong ready = new AtomicLong();
     private final AtomicLong powered = new AtomicLong();
@@ -104,6 +105,18 @@ public class SharedAdapterGovernorImpl implements AdapterGovernor, BluetoothObje
         discoveringControl = discovering;
         governors.values().forEach(
             adapterGovernorHandler -> adapterGovernorHandler.adapterGovernor.setDiscoveringControl(discovering));
+    }
+
+    @Override
+    public double getSignalPropagationExponent() {
+        return signalPropagationExponent;
+    }
+
+    @Override
+    public void setSignalPropagationExponent(double exponent) {
+        signalPropagationExponent = exponent;
+        governors.values().forEach(adapterGovernorHandler -> adapterGovernorHandler.adapterGovernor
+                .setSignalPropagationExponent(exponent));
     }
 
     @Override
@@ -208,6 +221,7 @@ public class SharedAdapterGovernorImpl implements AdapterGovernor, BluetoothObje
             this.adapterGovernor.addGovernorListener(this);
             this.adapterGovernor.setPoweredControl(poweredControl);
             this.adapterGovernor.setDiscoveringControl(discoveringControl);
+            this.adapterGovernor.setSignalPropagationExponent(signalPropagationExponent);
             ready(true);
         }
 

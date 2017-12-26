@@ -50,6 +50,7 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
 
     private boolean poweredControl = true;
     private boolean discoveringControl = true;
+    private double signalPropagationExponent;
 
     AdapterGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
         super(bluetoothManager, url);
@@ -130,6 +131,16 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
     public String getDisplayName() throws NotReadyException {
         String alias = getAlias();
         return alias != null ? alias : getName();
+    }
+
+    @Override
+    public double getSignalPropagationExponent() {
+        return signalPropagationExponent;
+    }
+
+    @Override
+    public void setSignalPropagationExponent(double signalPropagationExponent) {
+        this.signalPropagationExponent = signalPropagationExponent;
     }
 
     @Override

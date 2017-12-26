@@ -78,7 +78,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     private long rssiReportingRate = 1000;
     private Date rssiLastNotified = new Date();
     private short measuredTxPower;
-    private double signalPropagationExponent = DEAFULT_SIGNAL_PROPAGATION_EXPONENT;
+    private double signalPropagationExponent;
 
     DeviceGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
         super(bluetoothManager, url);
@@ -279,14 +279,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         if (rssi == 0) {
             return 0;
         }
-        short txPower = getMeasuredTxPower();
-        if (txPower == 0 && isReady()) {
-            txPower = getTxPower();
-        }
-        if (txPower == 0) {
-            txPower = DEFAULT_TX_POWER;
-        }
-        return Math.pow(10d, ((double) txPower - rssi) / (10 * signalPropagationExponent));
+        return Math.pow(10d, ((double) getTxPowerInternal() - rssi) / (10 * getPropagationExponentInternal()));
     }
 
     @Override
@@ -542,6 +535,31 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
             connected = false;
         }
         return connected;
+    }
+
+    private short getTxPowerInternal() {
+        short txPower = measuredTxPower;
+        if (txPower == 0 && isReady()) {
+            try {
+                txPower = getTxPower();
+            } catch (NotReadyException ignore) { /* do nothing */ }
+        }
+        if (txPower == 0) {
+            txPower = DEFAULT_TX_POWER;
+        }
+        return txPower;
+    }
+
+    private double getPropagationExponentInternal() {
+        double propagationExponent = signalPropagationExponent;
+        if (propagationExponent == 0) {
+            AdapterGovernor adapterGovernor = bluetoothManager.getAdapterGovernor(getURL());
+            propagationExponent = adapterGovernor.getSignalPropagationExponent();
+        }
+        if (propagationExponent == 0) {
+            propagationExponent = DEAFULT_SIGNAL_PROPAGATION_EXPONENT;
+        }
+        return propagationExponent;
     }
 
     private class ConnectionNotification implements Notification<Boolean> {
