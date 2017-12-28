@@ -204,16 +204,30 @@ public interface BluetoothManager {
     void setRefreshRate(int refreshRate);
 
     /**
-     * In the shared mode the bluetooth manager groups adapters and devices into a single adapter/device so that all
-     * adapters/devices can be controlled as a single unit.
-     * @param sharedMode if true, shared mode is enabled, otherwise disabled
+     * If set to true all discovered adapters are combined into a single adapter and therefore can be controlled as
+     * a single unit.
+     * @param combineAdapters if true, all discovered adapters are combined into a single adapter
      */
-    void setSharedMode(boolean sharedMode);
+    void enableCombinedAdapters(boolean combineAdapters);
 
     /**
-     * Checks whether the bluetooth manager is in shared mode {@link #setSharedMode(boolean)}.
-     * @return true if the shared mode is enabled, false otherwise
+     * Checks whether the bluetooth manager is in the "combine adapters" mode
+     * ({@link #enableCombinedAdapters(boolean)}}).
+     * @return true if the "combined adapters" mode is enabled
      */
-    boolean isSharedMode();
+    boolean isCombinedAdaptersEnabled();
+
+    /**
+     * If set to true all discovered devices with the same address (but discovered through different adapters)
+     * are combined into a single device and therefore can be controlled as a single unit.
+     * @param combineDevices if true, all discovered devices with the same address are combined into a single device
+     */
+    void enableCombinedDevices(boolean combineDevices);
+
+    /**
+     * Checks whether the bluetooth manager is in the "combine devices" mode ({@link #enableCombinedDevices(boolean)}}).
+     * @return true if the "combined devices" mode is enabled
+     */
+    boolean isCombinedDevicesEnabled();
 
 }

@@ -83,7 +83,8 @@ class BluetoothManagerImpl implements BluetoothManager {
     private int refreshRate = REFRESH_RATE_SEC;
     private boolean rediscover;
     private boolean started;
-    private boolean sharedMode = true;
+    private boolean combinedAdapters;
+    private boolean combinedDevices = true;
 
     @Override
     public void start(boolean startDiscovering) {
@@ -193,7 +194,7 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     @Override
     public Set<DiscoveredDevice> getDiscoveredDevices() {
-        if (sharedMode) {
+        if (combinedDevices) {
             Map<URL, List<DiscoveredDevice>> groupedByDeviceAddress =
                 discoveredDevices.stream().collect(
                     Collectors.groupingBy(t -> t.getURL().copyWithAdapter("XX:XX:XX:XX:XX")));
@@ -209,7 +210,7 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     @Override
     public Set<DiscoveredAdapter> getDiscoveredAdapters() {
-        if (sharedMode) {
+        if (combinedAdapters) {
             return discoveredAdapters.stream().map(adapter -> {
                 return new DiscoveredAdapter(new URL("/XX:XX:XX:XX:XX:XX"), adapter.getName(), adapter.getAlias());
             }).collect(Collectors.toSet());
@@ -250,13 +251,23 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     @Override
-    public boolean isSharedMode() {
-        return sharedMode;
+    public void enableCombinedAdapters(boolean combineAdapters) {
+        combinedAdapters = combineAdapters;
     }
 
     @Override
-    public void setSharedMode(boolean sharedMode) {
-        this.sharedMode = sharedMode;
+    public void enableCombinedDevices(boolean combineDevices) {
+        combinedDevices = combineDevices;
+    }
+
+    @Override
+    public boolean isCombinedAdaptersEnabled() {
+        return combinedAdapters;
+    }
+
+    @Override
+    public boolean isCombinedDevicesEnabled() {
+        return combinedDevices;
     }
 
     List<BluetoothGovernor> getGovernors(List<? extends BluetoothObject> objects) {
@@ -369,7 +380,7 @@ class BluetoothManagerImpl implements BluetoothManager {
             return;
         }
         wrapForEach(deviceDiscoveryListeners, listener -> {
-            if (!sharedMode || listener instanceof SharedDeviceGovernorImpl) {
+            if (!combinedDevices || listener instanceof SharedDeviceGovernorImpl) {
                 listener.discovered(device);
             } else {
                 listener.discovered(new DiscoveredDevice(device.getURL().copyWithAdapter("XX:XX:XX:XX:XX:XX"),
@@ -383,7 +394,7 @@ class BluetoothManagerImpl implements BluetoothManager {
             return;
         }
         wrapForEach(adapterDiscoveryListeners, listener -> {
-            if (!sharedMode || listener instanceof SharedAdapterGovernorImpl) {
+            if (!combinedAdapters || listener instanceof SharedAdapterGovernorImpl) {
                 listener.discovered(adapter);
             } else {
                 listener.discovered(new DiscoveredAdapter(new URL("/XX:XX:XX:XX:XX:XX"),
