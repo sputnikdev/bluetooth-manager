@@ -170,7 +170,6 @@ public class BluetoothManagerImplTest {
 
     @Test
     public void testResetDescendantsTinyb() {
-        bluetoothManager.handleObjectFactoryUnregistered(tinybObjectFactory);
         assertResetGovernors(1, 0, new URL("tinyb://"));
     }
 

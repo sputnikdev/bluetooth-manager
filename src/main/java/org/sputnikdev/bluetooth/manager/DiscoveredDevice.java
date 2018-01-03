@@ -29,6 +29,8 @@ import org.sputnikdev.bluetooth.URL;
  * @author Vlad Kolotov
  */
 public class DiscoveredDevice implements DiscoveredObject {
+
+    private static final String COMBINED_DEVICE_ADDRESS = CombinedGovernor.COMBINED_ADDRESS;
     
     private final URL url;
     private final String name;
@@ -70,7 +72,7 @@ public class DiscoveredDevice implements DiscoveredObject {
     }
 
     /**
-     * Returns bluetooth object URL
+     * Returns bluetooth object URL.
      * @return bluetooth object URL
      */
     @Override
@@ -79,7 +81,7 @@ public class DiscoveredDevice implements DiscoveredObject {
     }
 
     /**
-     * Returns bluetooth object name
+     * Returns bluetooth object name.
      * @return bluetooth object name
      */
     @Override
@@ -88,7 +90,7 @@ public class DiscoveredDevice implements DiscoveredObject {
     }
 
     /**
-     * Returns bluetooth object alias
+     * Returns bluetooth object alias.
      * @return bluetooth object alias
      */
     @Override
@@ -97,7 +99,7 @@ public class DiscoveredDevice implements DiscoveredObject {
     }
 
     /**
-     * Returns bluetooth object RSSI
+     * Returns bluetooth object RSSI.
      * @return bluetooth object RSSI
      */
     public short getRSSI() {
@@ -105,7 +107,7 @@ public class DiscoveredDevice implements DiscoveredObject {
     }
 
     /**
-     * Returns bluetooth object class
+     * Returns bluetooth object class.
      * @return bluetooth object class
      */
     public int getBluetoothClass() {
@@ -113,11 +115,16 @@ public class DiscoveredDevice implements DiscoveredObject {
     }
 
     /**
-     * Indicates if this device is Bluetooth Low Energy enabled device
+     * Indicates if this device is Bluetooth Low Energy enabled device.
      * @return true if Bluetooth Low Energy enabled device, false otherwise
      */
     public boolean isBleEnabled() {
         return bleEnabled;
+    }
+
+    @Override
+    public boolean isCombined() {
+        return COMBINED_DEVICE_ADDRESS.equalsIgnoreCase(url.getAdapterAddress());
     }
 
     @Override

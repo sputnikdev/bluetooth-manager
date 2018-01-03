@@ -1,5 +1,25 @@
 package org.sputnikdev.bluetooth.manager.impl;
 
+/*-
+ * #%L
+ * org.sputnikdev:bluetooth-manager
+ * %%
+ * Copyright (C) 2017 Sputnik Dev
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.Filter;
@@ -8,32 +28,33 @@ import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
 import org.sputnikdev.bluetooth.manager.BluetoothSmartDeviceListener;
 import org.sputnikdev.bluetooth.manager.CharacteristicGovernor;
+import org.sputnikdev.bluetooth.manager.CombinedGovernor;
 import org.sputnikdev.bluetooth.manager.DeviceDiscoveryListener;
 import org.sputnikdev.bluetooth.manager.DeviceGovernor;
 import org.sputnikdev.bluetooth.manager.DiscoveredDevice;
+import org.sputnikdev.bluetooth.manager.GattCharacteristic;
 import org.sputnikdev.bluetooth.manager.GattService;
 import org.sputnikdev.bluetooth.manager.GenericBluetoothDeviceListener;
 import org.sputnikdev.bluetooth.manager.GovernorListener;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
 
-class SharedDeviceGovernorImpl implements DeviceGovernor, BluetoothObjectGovernor, DeviceDiscoveryListener {
+class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedGovernor,
+        BluetoothObjectGovernor, DeviceDiscoveryListener {
 
     private Logger logger = LoggerFactory.getLogger(DeviceGovernorImpl.class);
 
@@ -56,6 +77,7 @@ class SharedDeviceGovernorImpl implements DeviceGovernor, BluetoothObjectGoverno
     private final ReentrantLock rssiLock = new ReentrantLock();
 
     private final AtomicInteger governorsCount = new AtomicInteger();
+    private final AtomicReference<DeviceGovernor> connectedGovernor = new AtomicReference<>();
 
     private int bluetoothClass;
     private boolean bleEnabled;
@@ -72,15 +94,9 @@ class SharedDeviceGovernorImpl implements DeviceGovernor, BluetoothObjectGoverno
     private boolean connectionControl;
     private boolean blockedControl;
 
-    SharedDeviceGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
+    CombinedDeviceGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
         this.bluetoothManager = bluetoothManager;
         this.url = url;
-        this.bluetoothManager.addDeviceDiscoveryListener(this);
-//        CompletableFuture.runAsync(() -> {
-//            this.bluetoothManager.getRegisteredGovernors().forEach(this::registerGovernor);
-//            this.bluetoothManager.getDiscoveredDevices().stream().map(DiscoveredDevice::getURL)
-//                    .forEach(this::registerGovernor);
-//        });
     }
 
     @Override
@@ -131,8 +147,15 @@ class SharedDeviceGovernorImpl implements DeviceGovernor, BluetoothObjectGoverno
     @Override
     public void setConnectionControl(boolean connected) {
         connectionControl = connected;
-        governors.values().forEach(
-            deviceGovernorHandler -> deviceGovernorHandler.deviceGovernor.setConnectionControl(connected));
+        if (connected) {
+            DeviceGovernor nearest = this.nearest;
+            if (nearest != null) {
+                nearest.setConnectionControl(true);
+            }
+        } else {
+            governors.values().forEach(deviceGovernorHandler -> deviceGovernorHandler
+                    .deviceGovernor.setConnectionControl(false));
+        }
     }
 
     @Override
@@ -294,10 +317,27 @@ class SharedDeviceGovernorImpl implements DeviceGovernor, BluetoothObjectGoverno
     public void deviceLost(URL url) { /* do nothing */ }
 
     @Override
+    public void init() {
+        bluetoothManager.addDeviceDiscoveryListener(this);
+        bluetoothManager.getRegisteredGovernors().forEach(this::registerGovernor);
+        bluetoothManager.getDiscoveredDevices().stream().map(DiscoveredDevice::getURL).forEach(this::registerGovernor);
+    }
+
+    @Override
     public void update() { /* do nothing */ }
 
     @Override
     public void reset() { /* do nothing */ }
+
+    @Override
+    public void dispose() {
+        bluetoothManager.removeDeviceDiscoveryListener(this);
+        governors.clear();
+        governorListeners.clear();
+        genericBluetoothDeviceListeners.clear();
+        bluetoothSmartDeviceListeners.clear();
+        sortedByDistanceGovernors.clear();
+    }
 
     @Override
     public void setRssiFilter(Filter<Short> filter) {
@@ -521,8 +561,23 @@ class SharedDeviceGovernorImpl implements DeviceGovernor, BluetoothObjectGoverno
         }
 
         private void notifyServicesResolved(List<GattService> services) {
+            List<GattService> combinedServices = new ArrayList<>(services.size());
+            services.forEach(service -> {
+                List<GattCharacteristic> combinedCharacteristics =
+                        new ArrayList<>(service.getCharacteristics().size());
+
+                service.getCharacteristics().forEach(characteristic -> {
+                    GattCharacteristic combinedCharacteristic = new GattCharacteristic(
+                            characteristic.getURL().copyWithAdapter(COMBINED_ADDRESS), characteristic.getFlags());
+                    combinedCharacteristics.add(combinedCharacteristic);
+                });
+
+                GattService combinedService = new GattService(
+                        service.getURL().copyWithAdapter(COMBINED_ADDRESS), combinedCharacteristics);
+                combinedServices.add(combinedService);
+            });
             BluetoothManagerUtils.safeForEachError(bluetoothSmartDeviceListeners, listener -> {
-                listener.servicesResolved(services);
+                listener.servicesResolved(combinedServices);
             }, logger, "Execution error of a service resolved listener");
         }
 

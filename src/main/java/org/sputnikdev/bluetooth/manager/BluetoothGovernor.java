@@ -38,8 +38,7 @@ import org.sputnikdev.bluetooth.manager.transport.Device;
  * a corresponding bluetooth object. Once the state of a corresponding bluetooth object is recovered,
  * bluetooth governor changes its status to "ready" ({@link BluetoothGovernor#isReady()}) and fires
  * {@link GovernorListener#ready(boolean)} listener.
- *
- * Bluetooth governors provide access to some attributes/properties of their corresponding Bluetooth objects
+ * <br/>Bluetooth governors provide access to some attributes/properties of their corresponding Bluetooth objects
  * through their getter and setter methods. There are two types of getter and setter methods:
  * <ul>
  * <li>Online methods. These are methods that provide direct access to the bluetooth objects. They expect that
@@ -51,16 +50,14 @@ import org.sputnikdev.bluetooth.manager.transport.Device;
  * the Bluetooth Manager will insure that the corresponding adapter is always in "discovering" state.
  * The naming convention for this type of methods is setXxxControl and getXxxControl.</li>
  * </ul>
- *
- * Normally an attribute of a bluetooth object would have three methods:
+ * <br/>Normally an attribute of a bluetooth object would have three methods:
  * <ul>
  * <li>an online method (direct access method) to get a status/value of the attribute</li>
  * <li>an offline method to set "control state" of the attribute which will be automatically controlled
  * (kept in its state) by the Bluetooth Manager</li>
  * <li>an offline method to get "control state" of the attribute</li>
  * </ul>
- *
- * See also org.sputnikdev.bluetooth.manager.impl.BluetoothObjectGovernor for more info about
+ * <br/>See also org.sputnikdev.bluetooth.manager.impl.BluetoothObjectGovernor for more info about
  * internal implementation
  *
  * @author Vlad Kolotov
@@ -75,19 +72,19 @@ public interface BluetoothGovernor {
 
     /**
      * Checks whether the governor is in state when its corresponding bluetooth object is acquired
-     * and ready for manipulations
+     * and ready for manipulations.
      * @return true if the corresponding bluetooth object is acquired and ready for manipulations
      */
     boolean isReady();
 
     /**
-     * Returns type of the corresponding Bluetooth object
+     * Returns type of the corresponding Bluetooth object.
      * @return type of the corresponding Bluetooth object
      */
     BluetoothObjectType getType();
 
     /**
-     * Returns the last known date of the bluetooth object activity
+     * Returns the last known date of the bluetooth object activity.
      * @return the last known date of the bluetooth object activity
      */
     Date getLastActivity();

@@ -1,5 +1,25 @@
 package org.sputnikdev.bluetooth.manager.impl;
 
+/*-
+ * #%L
+ * org.sputnikdev:bluetooth-manager
+ * %%
+ * Copyright (C) 2017 Sputnik Dev
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
@@ -8,6 +28,7 @@ import org.sputnikdev.bluetooth.manager.AdapterGovernor;
 import org.sputnikdev.bluetooth.manager.AdapterListener;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
+import org.sputnikdev.bluetooth.manager.CombinedGovernor;
 import org.sputnikdev.bluetooth.manager.DeviceGovernor;
 import org.sputnikdev.bluetooth.manager.DiscoveredAdapter;
 import org.sputnikdev.bluetooth.manager.GovernorListener;
@@ -21,9 +42,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class SharedAdapterGovernorImpl implements AdapterGovernor, BluetoothObjectGovernor, AdapterDiscoveryListener {
+class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
+        BluetoothObjectGovernor, AdapterDiscoveryListener {
 
-    private Logger logger = LoggerFactory.getLogger(SharedAdapterGovernorImpl.class);
+    private Logger logger = LoggerFactory.getLogger(CombinedAdapterGovernorImpl.class);
 
     private final Map<URL, AdapterGovernorHandler> governors = new ConcurrentHashMap<>();
     private final BluetoothManagerImpl bluetoothManager;
@@ -44,18 +66,14 @@ public class SharedAdapterGovernorImpl implements AdapterGovernor, BluetoothObje
 
     private final AtomicInteger governorsCount = new AtomicInteger();
 
-    SharedAdapterGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
+    CombinedAdapterGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
         this.bluetoothManager = bluetoothManager;
         this.url = url;
-        this.bluetoothManager.addAdapterDiscoveryListener(this);
-        this.bluetoothManager.getRegisteredGovernors().forEach(this::registerGovernor);
-        this.bluetoothManager.getDiscoveredAdapters().stream().map(DiscoveredAdapter::getURL)
-            .forEach(this::registerGovernor);
     }
 
     @Override
     public String getName() throws NotReadyException {
-        return "Shared Bluetooth Adapter";
+        return "Combined Bluetooth Adapter";
     }
 
     @Override
@@ -130,10 +148,26 @@ public class SharedAdapterGovernorImpl implements AdapterGovernor, BluetoothObje
     }
 
     @Override
-    public void update() { /* do nothing */}
+    public void init() {
+        bluetoothManager.addAdapterDiscoveryListener(this);
+        bluetoothManager.getRegisteredGovernors().forEach(this::registerGovernor);
+        bluetoothManager.getDiscoveredAdapters().stream().map(DiscoveredAdapter::getURL)
+                .forEach(this::registerGovernor);
+    }
 
     @Override
-    public void reset() { /* do nothing */}
+    public void update() { /* do nothing */ }
+
+    @Override
+    public void reset() { /* do nothing */ }
+
+    @Override
+    public void dispose() {
+        bluetoothManager.removeAdapterDiscoveryListener(this);
+        governors.clear();
+        governorListeners.clear();
+        adapterListeners.clear();
+    }
 
     @Override
     public URL getURL() {

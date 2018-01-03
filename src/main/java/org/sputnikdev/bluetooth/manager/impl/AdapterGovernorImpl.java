@@ -81,6 +81,12 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
     }
 
     @Override
+    public void dispose() {
+        super.dispose();
+        adapterListeners.clear();
+    }
+
+    @Override
     public boolean getPoweredControl() {
         return poweredControl;
     }

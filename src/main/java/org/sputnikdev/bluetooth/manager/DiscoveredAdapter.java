@@ -29,6 +29,8 @@ import org.sputnikdev.bluetooth.URL;
  */
 public class DiscoveredAdapter implements DiscoveredObject {
 
+    private static final String COMBINED_ADAPTER_ADDRESS = CombinedGovernor.COMBINED_ADDRESS;
+
     private final URL url;
     private final String name;
     private final String alias;
@@ -46,7 +48,7 @@ public class DiscoveredAdapter implements DiscoveredObject {
     }
 
     /**
-     * Returns bluetooth object URL
+     * Returns bluetooth object URL.
      * @return bluetooth object URL
      */
     @Override
@@ -55,7 +57,7 @@ public class DiscoveredAdapter implements DiscoveredObject {
     }
 
     /**
-     * Returns bluetooth object name
+     * Returns bluetooth object name.
      * @return bluetooth object name
      */
     @Override
@@ -64,7 +66,7 @@ public class DiscoveredAdapter implements DiscoveredObject {
     }
 
     /**
-     * Returns bluetooth object alias
+     * Returns bluetooth object alias.
      * @return bluetooth object alias
      */
     @Override
@@ -73,15 +75,20 @@ public class DiscoveredAdapter implements DiscoveredObject {
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
+    public boolean isCombined() {
+        return COMBINED_ADAPTER_ADDRESS.equalsIgnoreCase(url.getAdapterAddress());
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if (object == null || getClass() != object.getClass()) {
             return false;
         }
 
-        DiscoveredAdapter that = (DiscoveredAdapter) o;
+        DiscoveredAdapter that = (DiscoveredAdapter) object;
         return url.equals(that.url);
 
     }

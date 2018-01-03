@@ -230,4 +230,16 @@ public interface BluetoothManager {
      */
     boolean isCombinedDevicesEnabled();
 
+    /**
+     * Adds a new bluetooth manager listener.
+     * @param listener a manager listener
+     */
+    void addManagerListener(ManagerListener listener);
+
+    /**
+     * Removes an existing bluetooth manager listener.
+     * @param listener an existing bluetooth manager listner
+     */
+    void removeManagerListener(ManagerListener listener);
+
 }

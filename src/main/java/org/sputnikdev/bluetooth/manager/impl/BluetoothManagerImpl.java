@@ -29,14 +29,15 @@ import org.sputnikdev.bluetooth.manager.AdapterGovernor;
 import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
 import org.sputnikdev.bluetooth.manager.BluetoothManager;
 import org.sputnikdev.bluetooth.manager.CharacteristicGovernor;
+import org.sputnikdev.bluetooth.manager.CombinedGovernor;
 import org.sputnikdev.bluetooth.manager.DeviceDiscoveryListener;
 import org.sputnikdev.bluetooth.manager.DeviceGovernor;
 import org.sputnikdev.bluetooth.manager.DiscoveredAdapter;
 import org.sputnikdev.bluetooth.manager.DiscoveredDevice;
+import org.sputnikdev.bluetooth.manager.ManagerListener;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObject;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObjectFactory;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -73,6 +74,7 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     private final Set<DeviceDiscoveryListener> deviceDiscoveryListeners = new CopyOnWriteArraySet<>();
     private final Set<AdapterDiscoveryListener> adapterDiscoveryListeners = new CopyOnWriteArraySet<>();
+    private final Set<ManagerListener> managerListeners = new CopyOnWriteArraySet<>();
 
     private final Map<URL, BluetoothObjectGovernor> governors = new ConcurrentHashMap<>();
     private final Set<DiscoveredDevice> discoveredDevices = new CopyOnWriteArraySet<>();
@@ -165,7 +167,7 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     @Override
     public CharacteristicGovernor getCharacteristicGovernor(URL url) {
-        return (CharacteristicGovernorImpl) getGovernor(url.getCharacteristicURL());
+        return (CharacteristicGovernor) getGovernor(url.getCharacteristicURL());
     }
 
     @Override
@@ -197,7 +199,7 @@ class BluetoothManagerImpl implements BluetoothManager {
         if (combinedDevices) {
             Map<URL, List<DiscoveredDevice>> groupedByDeviceAddress =
                 discoveredDevices.stream().collect(
-                    Collectors.groupingBy(t -> t.getURL().copyWithAdapter("XX:XX:XX:XX:XX")));
+                    Collectors.groupingBy(t -> t.getURL().copyWithAdapter(CombinedGovernor.COMBINED_ADDRESS)));
             return groupedByDeviceAddress.entrySet().stream().map(entry -> {
                 DiscoveredDevice discoveredDevice = entry.getValue().get(0);
                 return new DiscoveredDevice(entry.getKey(), discoveredDevice.getName(), discoveredDevice.getAlias(),
@@ -212,7 +214,8 @@ class BluetoothManagerImpl implements BluetoothManager {
     public Set<DiscoveredAdapter> getDiscoveredAdapters() {
         if (combinedAdapters) {
             return discoveredAdapters.stream().map(adapter -> {
-                return new DiscoveredAdapter(new URL("/XX:XX:XX:XX:XX:XX"), adapter.getName(), adapter.getAlias());
+                return new DiscoveredAdapter(new URL("/" + CombinedGovernor.COMBINED_ADDRESS),
+                        adapter.getName(), adapter.getAlias());
             }).collect(Collectors.toSet());
         } else {
             return Collections.unmodifiableSet(discoveredAdapters);
@@ -229,7 +232,9 @@ class BluetoothManagerImpl implements BluetoothManager {
 
             schedulleGovernor(governor);
 
-            update(governor);
+            governorScheduler.submit(() -> {
+                init(governor);
+            });
 
             return governor;
         });
@@ -268,6 +273,21 @@ class BluetoothManagerImpl implements BluetoothManager {
     @Override
     public boolean isCombinedDevicesEnabled() {
         return combinedDevices;
+    }
+
+    @Override
+    public void addManagerListener(ManagerListener listener) {
+        managerListeners.add(listener);
+    }
+
+    @Override
+    public void removeManagerListener(ManagerListener listener) {
+        managerListeners.remove(listener);
+    }
+
+    protected void notifyGovernorReady(BluetoothGovernor governor, boolean ready) {
+        BluetoothManagerUtils.safeForEachError(managerListeners, listener -> listener.ready(governor, ready), logger,
+                "Error in manager listener: ready");
     }
 
     List<BluetoothGovernor> getGovernors(List<? extends BluetoothObject> objects) {
@@ -314,21 +334,33 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     BluetoothObjectGovernor createGovernor(URL url) {
+        if (CombinedGovernor.COMBINED_ADDRESS.equals(url.getAdapterAddress())) {
+            return createCombinedGovernor(url);
+        } else {
+            return createBasicGovernor(url);
+        }
+    }
+
+    private BluetoothObjectGovernor createCombinedGovernor(URL url) {
         if (url.isAdapter()) {
-            AdapterGovernor adapterGovernor;
-            if ("XX:XX:XX:XX:XX:XX".equals(url.getAdapterAddress())) {
-                adapterGovernor = new SharedAdapterGovernorImpl(this, url);
-            } else {
-                adapterGovernor = new AdapterGovernorImpl(this, url);
-            }
+            AdapterGovernor adapterGovernor = new CombinedAdapterGovernorImpl(this, url);
             adapterGovernor.setDiscoveringControl(startDiscovering);
             return (BluetoothObjectGovernor) adapterGovernor;
         } else if (url.isDevice()) {
-            if ("XX:XX:XX:XX:XX:XX".equals(url.getAdapterAddress())) {
-                return new SharedDeviceGovernorImpl(this, url);
-            } else {
-                return new DeviceGovernorImpl(this, url);
-            }
+            return new CombinedDeviceGovernorImpl(this, url);
+        } else if (url.isCharacteristic()) {
+            return new CombinedCharacteristicGovernorImpl(this, url);
+        }
+        throw new IllegalStateException("Unknown url");
+    }
+
+    private BluetoothObjectGovernor createBasicGovernor(URL url) {
+        if (url.isAdapter()) {
+            AdapterGovernor adapterGovernor = new AdapterGovernorImpl(this, url);
+            adapterGovernor.setDiscoveringControl(startDiscovering);
+            return (BluetoothObjectGovernor) adapterGovernor;
+        } else if (url.isDevice()) {
+            return new DeviceGovernorImpl(this, url);
         } else if (url.isCharacteristic()) {
             return new CharacteristicGovernorImpl(this, url);
         }
@@ -357,7 +389,7 @@ class BluetoothManagerImpl implements BluetoothManager {
             future.cancel(true);
             return null;
         });
-        reset(governor);
+        dispose(governor);
     }
 
     private BluetoothObjectFactory findFactory(URL url) {
@@ -380,11 +412,12 @@ class BluetoothManagerImpl implements BluetoothManager {
             return;
         }
         wrapForEach(deviceDiscoveryListeners, listener -> {
-            if (!combinedDevices || listener instanceof SharedDeviceGovernorImpl) {
+            if (!combinedDevices || listener instanceof CombinedDeviceGovernorImpl) {
                 listener.discovered(device);
             } else {
-                listener.discovered(new DiscoveredDevice(device.getURL().copyWithAdapter("XX:XX:XX:XX:XX:XX"),
-                    device.getName(), device.getAlias(), device.isBleEnabled()));
+                listener.discovered(new DiscoveredDevice(
+                        device.getURL().copyWithAdapter(CombinedGovernor.COMBINED_ADDRESS),
+                        device.getName(), device.getAlias(), device.isBleEnabled()));
             }
         },"Error in device discovery listener");
     }
@@ -394,11 +427,11 @@ class BluetoothManagerImpl implements BluetoothManager {
             return;
         }
         wrapForEach(adapterDiscoveryListeners, listener -> {
-            if (!combinedAdapters || listener instanceof SharedAdapterGovernorImpl) {
+            if (!combinedAdapters || listener instanceof CombinedAdapterGovernorImpl) {
                 listener.discovered(adapter);
             } else {
-                listener.discovered(new DiscoveredAdapter(new URL("/XX:XX:XX:XX:XX:XX"),
-                    "Shared Bluetooth Adapter", null));
+                listener.discovered(new DiscoveredAdapter(new URL("/" + CombinedGovernor.COMBINED_ADDRESS),
+                    "Combined Bluetooth Adapter", null));
             }
         },"Error in adapter discovery listener");
     }
@@ -424,11 +457,27 @@ class BluetoothManagerImpl implements BluetoothManager {
         }
     }
 
+    private void dispose(BluetoothObjectGovernor governor) {
+        try {
+            governor.dispose();
+        } catch (Exception ex) {
+            logger.error("Could not dispose governor: " + governor, ex);
+        }
+    }
+
     private void update(BluetoothObjectGovernor governor) {
         try {
             governor.update();
         } catch (Exception ex) {
             logger.warn("Could not update governor: " + governor, ex);
+        }
+    }
+
+    private void init(BluetoothObjectGovernor governor) {
+        try {
+            governor.init();
+        } catch (Exception ex) {
+            logger.warn("Could not init governor: " + governor, ex);
         }
     }
 

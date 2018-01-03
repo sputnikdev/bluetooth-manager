@@ -145,6 +145,12 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
         return bluetoothObject;
     }
 
+    @Override
+    public void init() {
+        update();
+    }
+
+    @Override
     public void update() {
         T object = getOrFindBluetoothObject();
         if (object == null) {
@@ -175,6 +181,12 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
         logger.info("Governor has been reset: {}", url);
     }
 
+    @Override
+    public void dispose() {
+        reset();
+        governorListeners.clear();
+    }
+
     abstract void init(T object);
 
     abstract void update(T object);
@@ -186,25 +198,17 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
     }
 
     void notifyReady(boolean ready) {
-        governorListeners.forEach(listener -> {
-            try {
-                listener.ready(ready);
-            } catch (Exception ex) {
-                logger.error("Execution error of a governor listener: ready", ex);
-            }
-        });
+        BluetoothManagerUtils.safeForEachError(governorListeners, listener -> listener.ready(ready), logger,
+                "Execution error of a governor listener: ready");
+        bluetoothManager.notifyGovernorReady(this, ready);
     }
 
     void notifyLastChanged() {
         Date lastChanged = lastActivity;
         if (lastChanged != null && !lastChanged.equals(lastActivityNotified)) {
-            governorListeners.forEach(listener -> {
-                try {
-                    listener.lastUpdatedChanged(lastChanged);
-                } catch (Exception ex) {
-                    logger.error("Execution error of a governor listener: last changed", ex);
-                }
-            });
+            BluetoothManagerUtils.safeForEachError(governorListeners, listener -> listener
+                            .lastUpdatedChanged(lastChanged), logger,
+                    "Execution error of a governor listener: last changed");
             lastActivityNotified = lastChanged;
         }
     }
@@ -212,7 +216,7 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
     private T getOrFindBluetoothObject() {
         if (bluetoothObject == null) {
             bluetoothObject = bluetoothManager.getBluetoothObject(
-                transport != null ? url.copyWithProtocol(transport) : url);
+                    transport != null ? url.copyWithProtocol(transport) : url);
             if (bluetoothObject != null) {
                 // update internal cache so that next time acquiring "native" object will be faster
                 transport = bluetoothObject.getURL().getProtocol();

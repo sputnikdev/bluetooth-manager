@@ -136,6 +136,13 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     }
 
     @Override
+    public void dispose() {
+        super.dispose();
+        genericBluetoothDeviceListeners.clear();
+        bluetoothSmartDeviceListeners.clear();
+    }
+
+    @Override
     public int getBluetoothClass() throws NotReadyException {
         return getBluetoothObject().getBluetoothClass();
     }

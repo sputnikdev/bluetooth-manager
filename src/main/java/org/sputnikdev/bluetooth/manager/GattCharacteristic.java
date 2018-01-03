@@ -23,6 +23,7 @@ package org.sputnikdev.bluetooth.manager;
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.transport.CharacteristicAccessType;
 
+import java.util.Collections;
 import java.util.Set;
 
 /**
@@ -58,6 +59,6 @@ public class GattCharacteristic {
      * @return characteristic access flags
      */
     public Set<CharacteristicAccessType> getFlags() {
-        return flags;
+        return Collections.unmodifiableSet(flags);
     }
 }

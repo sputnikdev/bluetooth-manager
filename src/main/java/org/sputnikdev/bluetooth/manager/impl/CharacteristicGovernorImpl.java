@@ -33,7 +33,9 @@ import org.sputnikdev.bluetooth.manager.transport.CharacteristicAccessType;
 import org.sputnikdev.bluetooth.manager.transport.Device;
 import org.sputnikdev.bluetooth.manager.transport.Notification;
 
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  *
@@ -44,7 +46,7 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
 
     private Logger logger = LoggerFactory.getLogger(CharacteristicGovernorImpl.class);
 
-    private ValueListener valueListener;
+    private List<ValueListener> valueListeners = new CopyOnWriteArrayList<>();
     private ValueNotification valueNotification;
 
     CharacteristicGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
@@ -57,9 +59,9 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
     @Override
     void update(Characteristic characteristic) {
         boolean notifying = characteristic.isNotifying();
-        if (valueListener != null && !notifying) {
+        if (!valueListeners.isEmpty() && !notifying) {
             enableNotification(characteristic);
-        } else if (valueListener == null && notifying) {
+        } else if (valueListeners.isEmpty() && notifying) {
             disableNotification(characteristic);
         }
     }
@@ -75,13 +77,19 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
     }
 
     @Override
+    public void dispose() {
+        super.dispose();
+        valueListeners.clear();
+    }
+
+    @Override
     public void addValueListener(ValueListener valueListener) {
-        this.valueListener = valueListener;
+        valueListeners.add(valueListener);
     }
 
     @Override
     public void removeValueListener(ValueListener valueListener) {
-        this.valueListener = null;
+        valueListeners.remove(valueListener);
     }
 
     @Override
@@ -176,14 +184,8 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
         @Override
         public void notify(byte[] data) {
             updateLastChanged();
-            try {
-                ValueListener listener = valueListener;
-                if (listener != null) {
-                    listener.changed(data);
-                }
-            } catch (Exception ex) {
-                logger.error("Execution error of a characteristic listener", ex);
-            }
+            BluetoothManagerUtils.safeForEachError(valueListeners, listener -> listener.changed(data), logger,
+                    "Execution error of a characteristic listener");
         }
     }
 
