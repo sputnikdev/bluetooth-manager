@@ -375,9 +375,10 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedGovernor,
 
     private void registerGovernor(URL url) {
         if (governorsCount.get() > 63) {
-            throw new IllegalStateException("Shared Device Governor can only span upto 63 device governors.");
+            throw new IllegalStateException("Combined Device Governor can only span upto 63 device governors.");
         }
-        if (url.isDevice() && this.url.getDeviceAddress().equals(url.getDeviceAddress())) {
+        if (url.isDevice() && this.url.getDeviceAddress().equals(url.getDeviceAddress())
+                && !COMBINED_ADDRESS.equals(url.getAdapterAddress())) {
             governors.computeIfAbsent(url, newUrl -> {
                 DeviceGovernor deviceGovernor = BluetoothManagerFactory.getManager().getDeviceGovernor(url);
                 int index = governorsCount.getAndIncrement();

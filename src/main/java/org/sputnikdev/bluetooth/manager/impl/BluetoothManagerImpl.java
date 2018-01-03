@@ -150,12 +150,12 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     @Override
     public AdapterGovernor getAdapterGovernor(URL url) {
-        return (AdapterGovernorImpl) getGovernor(url.getAdapterURL());
+        return (AdapterGovernor) getGovernor(url.getAdapterURL());
     }
 
     @Override
     public DeviceGovernor getDeviceGovernor(URL url) {
-        return (DeviceGovernorImpl) getGovernor(url.getDeviceURL());
+        return (DeviceGovernor) getGovernor(url.getDeviceURL());
     }
 
     @Override
