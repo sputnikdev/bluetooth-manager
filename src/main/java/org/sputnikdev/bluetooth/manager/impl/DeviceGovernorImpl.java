@@ -58,8 +58,10 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     private Logger logger = LoggerFactory.getLogger(DeviceGovernorImpl.class);
 
+    static final int DEFAULT_RSSI_REPORTING_RATE = 1000;
+    static final int DEFAULT_ONLINE_TIMEOUT = 20;
     static final short DEFAULT_TX_POWER = -55;
-    static final double DEAFULT_SIGNAL_PROPAGATION_EXPONENT = 4.0; // indoor
+    static final double DEFAULT_SIGNAL_PROPAGATION_EXPONENT = 4.0; // indoors
 
     private final List<GenericBluetoothDeviceListener> genericBluetoothDeviceListeners = new CopyOnWriteArrayList<>();
     private final List<BluetoothSmartDeviceListener> bluetoothSmartDeviceListeners = new CopyOnWriteArrayList<>();
@@ -70,12 +72,12 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     private boolean connectionControl;
     private boolean blockedControl;
     private boolean online;
-    private int onlineTimeout = 20;
+    private int onlineTimeout = DEFAULT_ONLINE_TIMEOUT;
 
     private final Lock rssiUpdateLock = new ReentrantLock();
     private Filter<Short> rssiFilter = new RssiKalmanFilter();
     private boolean rssiFilteringEnabled = true;
-    private long rssiReportingRate = 1000;
+    private long rssiReportingRate = DEFAULT_RSSI_REPORTING_RATE;
     private Date rssiLastNotified = new Date();
     private short measuredTxPower;
     private double signalPropagationExponent;
@@ -574,7 +576,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
             propagationExponent = adapterGovernor.getSignalPropagationExponent();
         }
         if (propagationExponent == 0) {
-            propagationExponent = DEAFULT_SIGNAL_PROPAGATION_EXPONENT;
+            propagationExponent = DEFAULT_SIGNAL_PROPAGATION_EXPONENT;
         }
         return propagationExponent;
     }

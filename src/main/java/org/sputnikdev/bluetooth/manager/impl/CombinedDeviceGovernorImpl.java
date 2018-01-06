@@ -55,6 +55,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
+/**
+ *
+ * @author Vlad Kolotov
+ */
 class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovernor,
         BluetoothObjectGovernor, DeviceDiscoveryListener {
 
@@ -83,13 +87,13 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     private boolean bleEnabled;
     private String name;
     private String alias;
-    private int onlineTimeout;
+    private int onlineTimeout = DeviceGovernorImpl.DEFAULT_ONLINE_TIMEOUT;
     private short rssi;
     private KalmanFilterProxy rssiFilter = new KalmanFilterProxy();
     private boolean rssiFilteringEnabled = true;
-    private long rssiReportingRate = 1000;
+    private long rssiReportingRate = DeviceGovernorImpl.DEFAULT_RSSI_REPORTING_RATE;
     private short measuredTxPower;
-    private double signalPropagationExponent = DeviceGovernorImpl.DEAFULT_SIGNAL_PROPAGATION_EXPONENT;
+    private double signalPropagationExponent = DeviceGovernorImpl.DEFAULT_SIGNAL_PROPAGATION_EXPONENT;
     private Date lastChanged;
 
     // some specifics for the nearest adapter detection
@@ -377,10 +381,10 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     @Override
     public void init() {
         CompletableFuture.runAsync(() -> {
+            bluetoothManager.addDeviceDiscoveryListener(this);
             bluetoothManager.getRegisteredGovernors().forEach(this::registerGovernor);
             bluetoothManager.getDiscoveredDevices().stream().map(DiscoveredDevice::getURL)
                     .forEach(this::registerGovernor);
-            bluetoothManager.addDeviceDiscoveryListener(this);
         });
     }
 
@@ -528,6 +532,8 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
             deviceGovernor.addGenericBluetoothDeviceListener(this);
             deviceGovernor.addGovernorListener(this);
 
+            notifyIfChangedOnline(deviceGovernor.isOnline());
+
             if (!(deviceGovernor.getRssiFilter() instanceof RssiKalmanFilter)) {
                 deviceGovernor.setRssiFilter(RssiKalmanFilter.class);
             }
@@ -542,8 +548,6 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
             if (lastActivity != null) {
                 updateLastUpdated(lastActivity);
             }
-
-            notifyIfChangedOnline(deviceGovernor.isOnline());
         }
 
         private void initUnsafe() {
@@ -647,7 +651,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
                     }
                 }
             } catch (InterruptedException ignore) {
-                logger.warn("Could not aquire a lock to update RSSI");
+                logger.warn("Could not acquire a lock to update RSSI");
             }
         }
 
