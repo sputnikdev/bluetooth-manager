@@ -145,11 +145,11 @@ public interface DeviceGovernor extends BluetoothGovernor {
     short getRSSI() throws NotReadyException;
 
     /**
-     * Enables/disables RSSI filtering.
+     * Sets RSSI filter class. A new instnce is created by using reflection and a default constructior.
      * Default implementation is Kalman filter
      * @param enabled if the filter is null, filtering disabled
      */
-    void setRssiFilter(Filter<Short> filter);
+    void setRssiFilter(Class<? extends Filter<Short>> filter);
 
     /**
      * Returns RSSI filter.
@@ -264,6 +264,18 @@ public interface DeviceGovernor extends BluetoothGovernor {
      * @param listener a previously registered listener
      */
     void removeGenericBluetoothDeviceListener(GenericBluetoothDeviceListener listener);
+
+    /**
+     * Checks whether services have been resolved.
+     * @return true if services are resolved, false otherwise
+     */
+    boolean isServicesResolved();
+
+    /**
+     * Retunrs a list of resolved services. Null is returned if services are not resulved yet.
+     * @return a list of resolved services
+     */
+    List<GattService> getResolvedServices() throws NotReadyException;
 
     /**
      * Returns a map of services to their characteristics.

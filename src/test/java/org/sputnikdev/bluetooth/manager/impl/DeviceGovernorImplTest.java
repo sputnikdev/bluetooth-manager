@@ -14,6 +14,7 @@ import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.sputnikdev.bluetooth.Filter;
+import org.sputnikdev.bluetooth.RssiKalmanFilter;
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.AdapterGovernor;
 import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
@@ -154,6 +155,8 @@ public class DeviceGovernorImplTest {
 
         governor.setRssiFilter(null);
         governor.setRssiReportingRate(0);
+
+        PowerMockito.when(governor, "createFilter", any(Class.class)).thenReturn(rssiFilter);
     }
 
     @Test
@@ -750,7 +753,7 @@ public class DeviceGovernorImplTest {
         short filteredRssi = -60;
 
         when(rssiFilter.next(RSSI)).thenReturn(filteredRssi);
-        governor.setRssiFilter(rssiFilter);
+        governor.setRssiFilter(/* does not matter */ RssiKalmanFilter.class);
         assertTrue(governor.isRssiFilteringEnabled());
         assertEquals(rssiFilter, governor.getRssiFilter());
 
@@ -973,7 +976,7 @@ public class DeviceGovernorImplTest {
         governor.setSignalPropagationExponent(2.0);
         assertEquals(2.0, governor.getSignalPropagationExponent(), 0.1);
         governor.setRssiFilteringEnabled(true);
-        governor.setRssiFilter(rssiFilter);
+        governor.setRssiFilter(/* does not matter */ RssiKalmanFilter.class);
         governor.setMeasuredTxPower((short) -60);
         assertEquals(-60, governor.getMeasuredTxPower());
         when(rssiFilter.current()).thenReturn((short) -60);
@@ -1062,7 +1065,7 @@ public class DeviceGovernorImplTest {
         governor.setSignalPropagationExponent(2.0);
         assertEquals(2.0, governor.getSignalPropagationExponent(), 0.1);
         governor.setRssiFilteringEnabled(true);
-        governor.setRssiFilter(rssiFilter);
+        governor.setRssiFilter(/* does not matter */ RssiKalmanFilter.class);
 
         // the default Tx Power is -55
         when(rssiFilter.current()).thenReturn((short) -55);

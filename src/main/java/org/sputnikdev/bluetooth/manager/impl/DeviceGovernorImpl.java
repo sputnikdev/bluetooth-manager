@@ -225,8 +225,8 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     }
 
     @Override
-    public void setRssiFilter(Filter<Short> filter) {
-        rssiFilter = filter;
+    public void setRssiFilter(Class<? extends Filter<Short>> filter) {
+        rssiFilter = createFilter(filter);
     }
 
     @Override
@@ -320,6 +320,29 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     }
 
     @Override
+    public boolean isServicesResolved() throws NotReadyException {
+        try {
+            return getBluetoothObject().isServicesResolved();
+        } catch (NotReadyException ignore) {
+            return false;
+        }
+    }
+
+    @Override
+    public List<GattService> getResolvedServices() throws NotReadyException {
+        List<GattService> services = new ArrayList<>();
+        Device device = getBluetoothObject();
+        for (Service service : device.getServices()) {
+            List<GattCharacteristic> characteristics = new ArrayList<>();
+            for (Characteristic characteristic : service.getCharacteristics()) {
+                characteristics.add(convert(characteristic));
+            }
+            services.add(new GattService(service.getURL(), characteristics));
+        }
+        return services;
+    }
+
+    @Override
     public Map<URL, List<CharacteristicGovernor>> getServicesToCharacteristicsMap() throws NotReadyException {
         Map<URL, List<CharacteristicGovernor>> services = new HashMap<>();
         for (Service service : getBluetoothObject().getServices()) {
@@ -389,6 +412,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     }
 
     void notifyServicesResolved(boolean resolved) {
+        logger.info("Services resolved {}: {}", resolved, getURL());
         bluetoothSmartDeviceListeners.forEach(listener -> {
             try {
                 if (resolved) {
@@ -490,20 +514,6 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
             rssiNotification = new RSSINotification();
             bluetoothDevice.enableRSSINotifications(rssiNotification);
         }
-    }
-
-    private List<GattService> getResolvedServices() {
-        logger.info("Services resolved: " + getURL());
-        List<GattService> services = new ArrayList<>();
-        Device device = getBluetoothObject();
-        for (Service service : device.getServices()) {
-            List<GattCharacteristic> characteristics = new ArrayList<>();
-            for (Characteristic characteristic : service.getCharacteristics()) {
-                characteristics.add(convert(characteristic));
-            }
-            services.add(new GattService(service.getURL(), characteristics));
-        }
-        return services;
     }
 
     private void updateCharacteristics() {
@@ -609,6 +619,14 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         public void notify(Short rssi) {
             updateRSSI(rssi);
             updateLastChanged();
+        }
+    }
+
+    protected Filter<Short> createFilter(Class<? extends Filter<Short>> filter) {
+        try {
+            return filter != null ? filter.newInstance() : null;
+        }  catch (InstantiationException | IllegalAccessException e) {
+            throw new IllegalStateException(e);
         }
     }
 
