@@ -30,7 +30,6 @@ import org.sputnikdev.bluetooth.manager.NotReadyException;
 import org.sputnikdev.bluetooth.manager.ValueListener;
 import org.sputnikdev.bluetooth.manager.transport.Characteristic;
 import org.sputnikdev.bluetooth.manager.transport.CharacteristicAccessType;
-import org.sputnikdev.bluetooth.manager.transport.Device;
 import org.sputnikdev.bluetooth.manager.transport.Notification;
 
 import java.util.List;
@@ -58,11 +57,13 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
 
     @Override
     void update(Characteristic characteristic) {
-        boolean notifying = characteristic.isNotifying();
-        if (!valueListeners.isEmpty() && !notifying) {
-            enableNotification(characteristic);
-        } else if (valueListeners.isEmpty() && notifying) {
-            disableNotification(characteristic);
+        if (canNotify(characteristic)) {
+            boolean notifying = characteristic.isNotifying();
+            if (!valueListeners.isEmpty() && (!notifying || valueNotification == null)) {
+                enableNotification(characteristic);
+            } else if (valueListeners.isEmpty() && notifying) {
+                disableNotification(characteristic);
+            }
         }
     }
 
@@ -70,10 +71,10 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
     void reset(Characteristic characteristic) {
         logger.info("Disable characteristic notifications: " + getURL());
         valueNotification = null;
-        Device device = bluetoothManager.getBluetoothObject(getURL().getDeviceURL());
-        if (device != null && device.isConnected() && characteristic.isNotifying()) {
+        try {
+            // force notification to be disabled and ignore any error
             characteristic.disableValueNotifications();
-        }
+        } catch (Exception ignore) { /* do nothing */ }
     }
 
     @Override
