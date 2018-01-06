@@ -59,7 +59,6 @@ class CombinedCharacteristicGovernorImpl
     CombinedCharacteristicGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
         this.bluetoothManager = bluetoothManager;
         this.url = url;
-        this.bluetoothManager.addManagerListener(delegateListener);
     }
 
     @Override
@@ -162,7 +161,15 @@ class CombinedCharacteristicGovernorImpl
 
     @Override
     public void init() {
+        bluetoothManager.addManagerListener(delegateListener);
 
+        bluetoothManager.getRegisteredGovernors().stream()
+                .filter(registeredURL -> !COMBINED_ADDRESS.equals(registeredURL.getAdapterAddress())
+                        && registeredURL.copyWithProtocol(null).copyWithAdapter(COMBINED_ADDRESS).equals(url))
+                .map(registeredURL -> bluetoothManager.getGovernor(registeredURL))
+                .filter(BluetoothGovernor::isReady)
+                .reduce((a, b) -> { throw new IllegalStateException("multiple 'ready' characteristics found"); })
+                .ifPresent(governor -> installDelegate((CharacteristicGovernor) governor));
     }
 
     @Override
@@ -177,10 +184,10 @@ class CombinedCharacteristicGovernorImpl
 
     @Override
     public void dispose() {
+        bluetoothManager.removeManagerListener(delegateListener);
         uninstallDelegate();
         governorListeners.clear();
         valueListeners.clear();
-        bluetoothManager.removeManagerListener(delegateListener);
     }
 
     private void installDelegate(CharacteristicGovernor delegate) {
@@ -191,7 +198,7 @@ class CombinedCharacteristicGovernorImpl
             lastActivity = delegate.getLastActivity();
         }
         if (delegate.isReady()) {
-            BluetoothManagerUtils.safeForEachError(governorListeners, listner -> listner.ready(true), logger,
+            BluetoothManagerUtils.safeForEachError(governorListeners, listener -> listener.ready(true), logger,
                     "Execution error of a governor listener: ready");
         }
         BluetoothManagerUtils.safeForEachError(governorListeners,
@@ -223,14 +230,12 @@ class CombinedCharacteristicGovernorImpl
         @Override
         public void ready(BluetoothGovernor governor, boolean isReady) {
             if (governor instanceof CharacteristicGovernorImpl
-                    && !governor.getURL().copyWithAdapter(COMBINED_ADDRESS).getDeviceAddress()
-                    .equals(url.getDeviceAddress())) {
-                return;
-            }
-            if (isReady) {
-                installDelegate((CharacteristicGovernor) governor);
-            } else {
-                uninstallDelegate();
+                    && governor.getURL().copyWithProtocol(null).copyWithAdapter(COMBINED_ADDRESS).equals(url)) {
+                if (isReady) {
+                    installDelegate((CharacteristicGovernor) governor);
+                } else {
+                    uninstallDelegate();
+                }
             }
         }
     }
