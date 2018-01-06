@@ -232,9 +232,7 @@ class BluetoothManagerImpl implements BluetoothManager {
 
             schedulleGovernor(governor);
 
-            governorScheduler.submit(() -> {
-                init(governor);
-            });
+            init(governor);
 
             return governor;
         });
@@ -467,6 +465,7 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     private void update(BluetoothObjectGovernor governor) {
         try {
+            logger.debug("Updating governor: {}", governor.getURL());
             governor.update();
         } catch (Exception ex) {
             logger.warn("Could not update governor: " + governor, ex);

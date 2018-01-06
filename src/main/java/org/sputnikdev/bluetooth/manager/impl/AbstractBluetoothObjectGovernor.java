@@ -157,7 +157,6 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
             return;
         }
         try {
-            logger.debug("Updating governor state: {}", url);
             update(object);
             notifyLastChanged();
         } catch (Exception ex) {
