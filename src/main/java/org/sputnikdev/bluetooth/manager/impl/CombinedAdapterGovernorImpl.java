@@ -60,9 +60,9 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
     private boolean discoveringControl = true;
     private double signalPropagationExponent;
 
-    private final AtomicLong ready = new AtomicLong();
-    private final AtomicLong powered = new AtomicLong();
-    private final AtomicLong discovering = new AtomicLong();
+    private final ConcurrentBitMap ready = new ConcurrentBitMap();
+    private final ConcurrentBitMap powered = new ConcurrentBitMap();
+    private final ConcurrentBitMap discovering = new ConcurrentBitMap();
 
     private final AtomicInteger governorsCount = new AtomicInteger();
 
@@ -93,7 +93,7 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
 
     @Override
     public boolean isPowered() throws NotReadyException {
-        return powered.get() > 0;
+        return powered.get();
     }
 
     @Override
@@ -110,7 +110,7 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
 
     @Override
     public boolean isDiscovering() throws NotReadyException {
-        return discovering.get() > 0;
+        return discovering.get();
     }
 
     @Override
@@ -176,7 +176,7 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
 
     @Override
     public boolean isReady() {
-        return ready.get() > 0;
+        return ready.get();
     }
 
     @Override
@@ -261,7 +261,7 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
 
         @Override
         public void powered(boolean newState) {
-            BluetoothManagerUtils.setState(powered, index, newState, () -> {
+            powered.cumulativeSet(index, newState, () -> {
                 BluetoothManagerUtils.safeForEachError(adapterListeners, listener -> {
                     listener.powered(newState);
                 }, logger, "Execution error of a Powered listener");
@@ -270,7 +270,7 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
 
         @Override
         public void discovering(boolean newState) {
-            BluetoothManagerUtils.setState(discovering, index, newState, () -> {
+            discovering.cumulativeSet(index, newState, () -> {
                 BluetoothManagerUtils.safeForEachError(adapterListeners, listener -> {
                     listener.discovering(newState);
                 }, logger, "Execution error of a Discovering listener");
@@ -279,7 +279,7 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
 
         @Override
         public void ready(boolean newState) {
-            BluetoothManagerUtils.setState(ready, index, newState, () -> {
+            ready.cumulativeSet(index, newState, () -> {
                 BluetoothManagerUtils.safeForEachError(governorListeners, listener -> {
                     listener.ready(newState);
                 }, logger, "Execution error of a governor listener: ready");
