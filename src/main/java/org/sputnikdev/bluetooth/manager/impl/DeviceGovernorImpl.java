@@ -81,6 +81,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     private Date rssiLastNotified = new Date();
     private short measuredTxPower;
     private double signalPropagationExponent;
+    private long lastAdvertised;
 
     DeviceGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
         super(bluetoothManager, url);
@@ -103,7 +104,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
                 // Note: BlueGiga and TinyB devices work in different way:
                 // TinyB would have thrown an exception if the device was out of range (or turned off)
                 // BlueGiga would not thrown any exception by now
-                // threfore we need to check if BlueGiga device is still alive by querying the device RSSI
+                // therefore we need to check if BlueGiga device is still alive by querying the device RSSI
                 // Further note: TinyB device when connected constantly returns the very last known RSSI
                 boolean connected = updateConnected(device);
                 if (connected) {
@@ -249,6 +250,11 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     @Override
     public long getRssiReportingRate() {
         return rssiReportingRate;
+    }
+
+    @Override
+    public long getLastAdvertised() {
+        return lastAdvertised;
     }
 
     @Override
@@ -429,6 +435,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     }
 
     void updateRSSI(short next) {
+        lastAdvertised = System.currentTimeMillis();
         Filter<Short> filter = rssiFilter;
         if (rssiUpdateLock.tryLock()) {
             try {

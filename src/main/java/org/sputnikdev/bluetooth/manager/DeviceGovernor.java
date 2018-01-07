@@ -183,6 +183,12 @@ public interface DeviceGovernor extends BluetoothGovernor {
     long getRssiReportingRate();
 
     /**
+     * Returns epoch timestamp when the device was last advertised.
+     * @return last advertised epoch timestamp
+     */
+    long getLastAdvertised();
+
+    /**
      * Returns actual (manufacturer defined) TX power of the device. Some bluetooth devices do not adverise
      * its TX power, in this case the returning value is 0.
      * <br/>TX power is used in distance calculation ({@link #getEstimatedDistance()}).

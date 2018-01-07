@@ -61,6 +61,9 @@ import java.util.function.Consumer;
  */
 class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovernor, BluetoothObjectGovernor {
 
+    // when RSSI reading is deemed to be stale for the nearest adapter calculation
+    private static final int STALE_TIMEOUT = 10000;
+
     private Logger logger = LoggerFactory.getLogger(DeviceGovernorImpl.class);
 
     private final BluetoothManagerImpl bluetoothManager;
@@ -98,8 +101,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     private Date lastChanged;
 
     // some specifics for the nearest adapter detection
-    private final SortedSet<DeviceGovernorHandler> sortedByDistanceGovernors =
-            new TreeSet<>(Comparator.comparingDouble(handler -> handler.distance));
+    private final SortedSet<DeviceGovernorHandler> sortedByDistanceGovernors = new TreeSet<>(new DistanceComparator());
     private DeviceGovernor nearest;
     private final ReentrantLock rssiLock = new ReentrantLock();
 
@@ -258,6 +260,12 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     @Override
     public short getRSSI() throws NotReadyException {
         return rssi;
+    }
+
+    @Override
+    public long getLastAdvertised() {
+        DeviceGovernor nearest = this.nearest;
+        return nearest.getLastAdvertised();
     }
 
     @Override
@@ -512,6 +520,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
         private final DeviceGovernor delegate;
         private final int index;
         private double distance = Double.MAX_VALUE;
+        private long lastAdvertised;
         private boolean inited;
 
         private DeviceGovernorHandler(DeviceGovernor delegate, int index) {
@@ -638,6 +647,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
                 if (rssiLock.tryLock(50, TimeUnit.MILLISECONDS)) {
                     try {
                         sortedByDistanceGovernors.remove(this);
+                        lastAdvertised = delegate.getLastAdvertised();
                         distance = delegate.getEstimatedDistance();
                         sortedByDistanceGovernors.add(this);
                         nearest = sortedByDistanceGovernors.first().delegate;
@@ -778,4 +788,17 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
         }
     }
 
+    private class DistanceComparator implements Comparator<DeviceGovernorHandler> {
+
+        @Override
+        public int compare(DeviceGovernorHandler first, DeviceGovernorHandler second) {
+            long current = System.currentTimeMillis();
+            boolean firstStale = current - first.lastAdvertised > STALE_TIMEOUT;
+            boolean secondStale = current - second.lastAdvertised > STALE_TIMEOUT;
+            double firstWeighedValue = first.distance * (firstStale ? 1 : 1000);
+            double secondWeighedValue = second.distance * (secondStale ? 1 : 1000);
+
+            return Double.compare(firstWeighedValue, secondWeighedValue);
+        }
+    }
 }
