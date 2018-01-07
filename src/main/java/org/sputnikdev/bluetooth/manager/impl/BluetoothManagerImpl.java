@@ -188,7 +188,7 @@ class BluetoothManagerImpl implements BluetoothManager {
         deviceDiscoveryListeners.clear();
         adapterDiscoveryListeners.clear();
 
-        governors.values().forEach(this::reset);
+        governors.values().forEach(this::dispose);
         governors.clear();
 
         logger.info("Bluetooth service has been disposed");

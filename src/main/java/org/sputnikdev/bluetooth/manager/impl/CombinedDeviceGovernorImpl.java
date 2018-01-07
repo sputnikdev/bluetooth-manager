@@ -69,6 +69,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     private final AtomicInteger governorsCount = new AtomicInteger();
     private final Map<URL, DeviceGovernorHandler> governors = new ConcurrentHashMap<>();
     private final DelegateRegistrar delegateRegistrar = new DelegateRegistrar();
+    private CompletableFuture<?> initTask;
 
     // proxy listeners
     private final List<GovernorListener> governorListeners = new CopyOnWriteArrayList<>();
@@ -373,7 +374,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     @Override
     public void init() {
         bluetoothManager.addAdapterDiscoveryListener(delegateRegistrar);
-        CompletableFuture.runAsync(() -> {
+        initTask = CompletableFuture.runAsync(() -> {
             bluetoothManager.getDiscoveredAdapters().forEach(this::registerDelegate);
         });
     }
@@ -388,6 +389,9 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
 
     @Override
     public void dispose() {
+        if (initTask != null) {
+            initTask.cancel(true);
+        }
         setConnectionControl(false);
         bluetoothManager.removeAdapterDiscoveryListener(delegateRegistrar);
         governors.values().forEach(DeviceGovernorHandler::dispose);
@@ -477,7 +481,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
         if (url.isDevice() && this.url.getDeviceAddress().equals(url.getDeviceAddress())
                 && !COMBINED_ADDRESS.equals(url.getAdapterAddress())) {
             governors.computeIfAbsent(url.copyWithProtocol(null), newUrl -> {
-                DeviceGovernor deviceGovernor = BluetoothManagerFactory.getManager().getDeviceGovernor(url);
+                DeviceGovernor deviceGovernor = bluetoothManager.getDeviceGovernor(url);
                 int index = governorsCount.getAndIncrement();
                 DeviceGovernorHandler handler = new DeviceGovernorHandler(deviceGovernor, index);
                 handler.init();
