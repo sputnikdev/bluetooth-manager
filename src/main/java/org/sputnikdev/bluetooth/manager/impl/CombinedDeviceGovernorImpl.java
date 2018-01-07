@@ -25,15 +25,15 @@ import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.Filter;
 import org.sputnikdev.bluetooth.RssiKalmanFilter;
 import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.AdapterDiscoveryListener;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
 import org.sputnikdev.bluetooth.manager.BluetoothSmartDeviceListener;
 import org.sputnikdev.bluetooth.manager.CharacteristicGovernor;
 import org.sputnikdev.bluetooth.manager.CombinedDeviceGovernor;
 import org.sputnikdev.bluetooth.manager.ConnectionStrategy;
-import org.sputnikdev.bluetooth.manager.DeviceDiscoveryListener;
 import org.sputnikdev.bluetooth.manager.DeviceGovernor;
-import org.sputnikdev.bluetooth.manager.DiscoveredDevice;
+import org.sputnikdev.bluetooth.manager.DiscoveredAdapter;
 import org.sputnikdev.bluetooth.manager.GattCharacteristic;
 import org.sputnikdev.bluetooth.manager.GattService;
 import org.sputnikdev.bluetooth.manager.GenericBluetoothDeviceListener;
@@ -59,8 +59,7 @@ import java.util.function.Consumer;
  *
  * @author Vlad Kolotov
  */
-class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovernor,
-        BluetoothObjectGovernor, DeviceDiscoveryListener {
+class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovernor, BluetoothObjectGovernor {
 
     private Logger logger = LoggerFactory.getLogger(DeviceGovernorImpl.class);
 
@@ -69,6 +68,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
 
     private final AtomicInteger governorsCount = new AtomicInteger();
     private final Map<URL, DeviceGovernorHandler> governors = new ConcurrentHashMap<>();
+    private final DelegateRegistrar delegateRegistrar = new DelegateRegistrar();
 
     // proxy listeners
     private final List<GovernorListener> governorListeners = new CopyOnWriteArrayList<>();
@@ -139,8 +139,8 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     @Override
     public void setAlias(String alias) throws NotReadyException {
         governors.values().forEach(deviceGovernorHandler -> {
-            if (deviceGovernorHandler.deviceGovernor.isReady()) {
-                deviceGovernorHandler.deviceGovernor.setAlias(alias);
+            if (deviceGovernorHandler.delegate.isReady()) {
+                deviceGovernorHandler.delegate.setAlias(alias);
             }
         });
     }
@@ -169,7 +169,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
         } else {
             // make sure nothing sets connectionTarget and calls setConnectionControls
             synchronized (this.connected) {
-                governors.values().forEach(deviceGovernorHandler -> deviceGovernorHandler.deviceGovernor
+                governors.values().forEach(deviceGovernorHandler -> deviceGovernorHandler.delegate
                         .setConnectionControl(false));
             }
         }
@@ -212,7 +212,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
                     DeviceGovernorHandler preferredHandler = governors.get(
                             preferredAdapter.copyWithProtocol(null).copyWithDevice(url.getDeviceAddress()));
                     if (preferredHandler != null) {
-                        return preferredHandler.deviceGovernor;
+                        return preferredHandler.delegate;
                     }
                 }
                 return null;
@@ -234,7 +234,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     public void setBlockedControl(boolean blocked) {
         blockedControl = blocked;
         governors.values().forEach(
-            deviceGovernorHandler -> deviceGovernorHandler.deviceGovernor.setBlockedControl(blocked));
+            deviceGovernorHandler -> deviceGovernorHandler.delegate.setBlockedControl(blocked));
     }
 
     @Override
@@ -251,7 +251,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     public void setOnlineTimeout(int timeout) {
         onlineTimeout = timeout;
         governors.values().forEach(
-            deviceGovernorHandler -> deviceGovernorHandler.deviceGovernor.setOnlineTimeout(timeout));
+            deviceGovernorHandler -> deviceGovernorHandler.delegate.setOnlineTimeout(timeout));
     }
 
     @Override
@@ -273,7 +273,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     public void setMeasuredTxPower(short txPower) {
         measuredTxPower = txPower;
         governors.values().forEach(
-            deviceGovernorHandler -> deviceGovernorHandler.deviceGovernor.setMeasuredTxPower(txPower));
+            deviceGovernorHandler -> deviceGovernorHandler.delegate.setMeasuredTxPower(txPower));
     }
 
     @Override
@@ -285,7 +285,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     public void setSignalPropagationExponent(double exponent) {
         signalPropagationExponent = exponent;
         governors.values().forEach(
-            deviceGovernorHandler -> deviceGovernorHandler.deviceGovernor.setSignalPropagationExponent(exponent));
+            deviceGovernorHandler -> deviceGovernorHandler.delegate.setSignalPropagationExponent(exponent));
     }
 
     @Override
@@ -371,20 +371,10 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     }
 
     @Override
-    public void discovered(DiscoveredDevice discoveredDevice) {
-        registerGovernor(discoveredDevice.getURL());
-    }
-
-    @Override
-    public void deviceLost(URL url) { /* do nothing */ }
-
-    @Override
     public void init() {
+        bluetoothManager.addAdapterDiscoveryListener(delegateRegistrar);
         CompletableFuture.runAsync(() -> {
-            bluetoothManager.addDeviceDiscoveryListener(this);
-            bluetoothManager.getRegisteredGovernors().forEach(this::registerGovernor);
-            bluetoothManager.getDiscoveredDevices().stream().map(DiscoveredDevice::getURL)
-                    .forEach(this::registerGovernor);
+            bluetoothManager.getDiscoveredAdapters().forEach(this::registerDelegate);
         });
     }
 
@@ -399,7 +389,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     @Override
     public void dispose() {
         setConnectionControl(false);
-        bluetoothManager.removeDeviceDiscoveryListener(this);
+        bluetoothManager.removeAdapterDiscoveryListener(delegateRegistrar);
         governors.values().forEach(DeviceGovernorHandler::dispose);
         governors.clear();
         governorListeners.clear();
@@ -427,14 +417,14 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     public void setRssiFilteringEnabled(boolean enabled) {
         rssiFilteringEnabled = enabled;
         governors.values().forEach(
-            deviceGovernorHandler -> deviceGovernorHandler.deviceGovernor.setRssiFilteringEnabled(enabled));
+            deviceGovernorHandler -> deviceGovernorHandler.delegate.setRssiFilteringEnabled(enabled));
     }
 
     @Override
     public void setRssiReportingRate(long rate) {
         rssiReportingRate = rate;
         governors.values().forEach(
-            deviceGovernorHandler -> deviceGovernorHandler.deviceGovernor.setRssiReportingRate(rate));
+            deviceGovernorHandler -> deviceGovernorHandler.delegate.setRssiReportingRate(rate));
     }
 
     @Override
@@ -473,10 +463,14 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
 
     private DeviceGovernor getGovernor(int index) {
         return governors.values().stream().filter(handler -> handler.index == index)
-                .map(handler ->handler.deviceGovernor).findFirst().orElse(null);
+                .map(handler ->handler.delegate).findFirst().orElse(null);
     }
 
-    private void registerGovernor(URL url) {
+    private void registerDelegate(DiscoveredAdapter adapter) {
+        registerDelegate(url.copyWithAdapter(adapter.getURL().getAdapterAddress()));
+    }
+
+    private void registerDelegate(URL url) {
         if (governorsCount.get() > 63) {
             throw new IllegalStateException("Combined Device Governor can only span up to 63 device governors.");
         }
@@ -511,13 +505,13 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     private final class DeviceGovernorHandler
         implements GovernorListener, BluetoothSmartDeviceListener, GenericBluetoothDeviceListener {
 
-        private final DeviceGovernor deviceGovernor;
+        private final DeviceGovernor delegate;
         private final int index;
         private double distance = Double.MAX_VALUE;
         private boolean inited;
 
-        private DeviceGovernorHandler(DeviceGovernor deviceGovernor, int index) {
-            this.deviceGovernor = deviceGovernor;
+        private DeviceGovernorHandler(DeviceGovernor delegate, int index) {
+            this.delegate = delegate;
             this.index = index;
         }
 
@@ -528,23 +522,23 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
 
         private void initSafe() {
             // safe operations
-            deviceGovernor.addBluetoothSmartDeviceListener(this);
-            deviceGovernor.addGenericBluetoothDeviceListener(this);
-            deviceGovernor.addGovernorListener(this);
+            delegate.addBluetoothSmartDeviceListener(this);
+            delegate.addGenericBluetoothDeviceListener(this);
+            delegate.addGovernorListener(this);
 
-            notifyIfChangedOnline(deviceGovernor.isOnline());
+            notifyIfChangedOnline(delegate.isOnline());
 
-            if (!(deviceGovernor.getRssiFilter() instanceof RssiKalmanFilter)) {
-                deviceGovernor.setRssiFilter(RssiKalmanFilter.class);
+            if (!(delegate.getRssiFilter() instanceof RssiKalmanFilter)) {
+                delegate.setRssiFilter(RssiKalmanFilter.class);
             }
-            deviceGovernor.setOnlineTimeout(onlineTimeout);
-            deviceGovernor.setBlockedControl(blockedControl);
-            deviceGovernor.setRssiFilteringEnabled(rssiFilteringEnabled);
-            deviceGovernor.setRssiReportingRate(rssiReportingRate);
-            deviceGovernor.setSignalPropagationExponent(signalPropagationExponent);
-            deviceGovernor.setMeasuredTxPower(measuredTxPower);
+            delegate.setOnlineTimeout(onlineTimeout);
+            delegate.setBlockedControl(blockedControl);
+            delegate.setRssiFilteringEnabled(rssiFilteringEnabled);
+            delegate.setRssiReportingRate(rssiReportingRate);
+            delegate.setSignalPropagationExponent(signalPropagationExponent);
+            delegate.setMeasuredTxPower(measuredTxPower);
 
-            Date lastActivity = deviceGovernor.getLastActivity();
+            Date lastActivity = delegate.getLastActivity();
             if (lastActivity != null) {
                 updateLastUpdated(lastActivity);
             }
@@ -553,26 +547,26 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
         private void initUnsafe() {
             if (!inited) {
                 // this method can be called by different threads (notifications) so the synchronization is needed
-                synchronized (deviceGovernor) {
+                synchronized (delegate) {
                     // unsafe operations
-                    if (deviceGovernor.isReady()) {
+                    if (delegate.isReady()) {
                         notifyIfChangedReady(true);
                         // any of the following operations can produce NotReadyException
                         try {
-                            notifyIfChangedBlocked(deviceGovernor.isBlocked());
-                            notifyIfChangedConnected(deviceGovernor.isConnected());
-                            if (deviceGovernor.isServicesResolved()) {
-                                servicesResolved(deviceGovernor.getResolvedServices());
+                            notifyIfChangedBlocked(delegate.isBlocked());
+                            notifyIfChangedConnected(delegate.isConnected());
+                            if (delegate.isServicesResolved()) {
+                                servicesResolved(delegate.getResolvedServices());
                             }
 
-                            int deviceBluetoothClass = deviceGovernor.getBluetoothClass();
+                            int deviceBluetoothClass = delegate.getBluetoothClass();
                             if (deviceBluetoothClass != 0) {
                                 bluetoothClass = deviceBluetoothClass;
                             }
-                            bleEnabled |= deviceGovernor.isBleEnabled();
+                            bleEnabled |= delegate.isBleEnabled();
 
-                            name = deviceGovernor.getName();
-                            String deviceAlias = deviceGovernor.getAlias();
+                            name = delegate.getName();
+                            String deviceAlias = delegate.getAlias();
                             if (deviceAlias != null) {
                                 alias = deviceAlias;
                             }
@@ -640,10 +634,10 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
                 if (rssiLock.tryLock(50, TimeUnit.MILLISECONDS)) {
                     try {
                         sortedByDistanceGovernors.remove(this);
-                        distance = deviceGovernor.getEstimatedDistance();
+                        distance = delegate.getEstimatedDistance();
                         sortedByDistanceGovernors.add(this);
-                        nearest = sortedByDistanceGovernors.first().deviceGovernor;
-                        if (deviceGovernor == nearest) {
+                        nearest = sortedByDistanceGovernors.first().delegate;
+                        if (delegate == nearest) {
                             updateRssi(newRssi);
                         }
                     } finally {
@@ -671,9 +665,9 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
         }
 
         private void dispose() {
-            deviceGovernor.removeBluetoothSmartDeviceListener(this);
-            deviceGovernor.removeGenericBluetoothDeviceListener(this);
-            deviceGovernor.removeGovernorListener(this);
+            delegate.removeBluetoothSmartDeviceListener(this);
+            delegate.removeGenericBluetoothDeviceListener(this);
+            delegate.removeGovernorListener(this);
         }
 
         private void notifyIfChangedOnline(boolean newState) {
@@ -746,6 +740,17 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
         }
     }
 
+    private class DelegateRegistrar implements AdapterDiscoveryListener {
+
+        @Override
+        public void discovered(DiscoveredAdapter adapter) {
+            registerDelegate(adapter);
+        }
+
+        @Override
+        public void adapterLost(URL address) { /* do nothing */}
+    }
+
     private class KalmanFilterProxy extends RssiKalmanFilter {
 
         @Override
@@ -762,9 +767,9 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
 
         private void forEachKalmanFilter(Consumer<RssiKalmanFilter> consumer) {
             governors.values().stream()
-                    .filter(governorHandler -> governorHandler.deviceGovernor
+                    .filter(governorHandler -> governorHandler.delegate
                             .getRssiFilter() instanceof RssiKalmanFilter)
-                    .map(governorHandler -> (RssiKalmanFilter) governorHandler.deviceGovernor.getRssiFilter())
+                    .map(governorHandler -> (RssiKalmanFilter) governorHandler.delegate.getRssiFilter())
                     .forEach(consumer);
         }
     }
