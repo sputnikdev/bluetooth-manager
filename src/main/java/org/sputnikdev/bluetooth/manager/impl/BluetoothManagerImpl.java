@@ -145,7 +145,7 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     @Override
     public void disposeDescendantGovernors(URL url) {
-        computeForEachDescendatGovernorAndRemove(url, this::disposeGovernor);
+        computeForEachDescendantGovernorAndRemove(url, this::disposeGovernor);
     }
 
     @Override
@@ -232,7 +232,9 @@ class BluetoothManagerImpl implements BluetoothManager {
 
             schedulleGovernor(governor);
 
-            init(governor);
+            governorScheduler.submit(() -> {
+                init(governor);
+            });
 
             return governor;
         });
@@ -379,7 +381,7 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     Set<URL> getRegisteredGovernors() {
-        return governors.keySet();
+        return Collections.unmodifiableSet(governors.keySet());
     }
 
     private void disposeGovernor(BluetoothObjectGovernor governor) {
@@ -565,7 +567,7 @@ class BluetoothManagerImpl implements BluetoothManager {
         return governors.computeIfAbsent(url.copyWithProtocol(null), supplier);
     }
 
-    private void computeForEachDescendatGovernorAndRemove(URL url,  Consumer<BluetoothObjectGovernor> consumer) {
+    private void computeForEachDescendantGovernorAndRemove(URL url, Consumer<BluetoothObjectGovernor> consumer) {
         URL protocolLess = url.copyWithProtocol(null);
         governors.entrySet().removeIf(entry -> {
             if (entry.getKey().isDescendant(protocolLess)) {
