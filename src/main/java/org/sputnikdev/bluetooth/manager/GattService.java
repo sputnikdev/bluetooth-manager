@@ -20,10 +20,10 @@ package org.sputnikdev.bluetooth.manager;
  * #L%
  */
 
+import org.sputnikdev.bluetooth.URL;
+
 import java.util.Collections;
 import java.util.List;
-
-import org.sputnikdev.bluetooth.URL;
 
 /**
  * A class to capture discovered GATT services.
@@ -47,7 +47,7 @@ public class GattService {
 
     /**
      * Returns service URL.
-     * @return serice URL
+     * @return service URL
      */
     public URL getURL() {
         return uuid;

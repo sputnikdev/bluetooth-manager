@@ -99,8 +99,8 @@ public interface AdapterGovernor extends BluetoothGovernor {
     /**
      * Returns estimated (used defined) signal propagation exponent. It is mainly used in estimated distance
      * calculation between the adapter and its devices. This factor is specific to the environment
-     * where the adapter is used, i.e. how efficient the signal passes through obsticles on its way.
-     * Normally it ranges from 2.0 (outdoors, no obsticles) to 4.0 (indoors, walls and furniture).
+     * where the adapter is used, i.e. how efficient the signal passes through obstacles on its way.
+     * Normally it ranges from 2.0 (outdoors, no obstacles) to 4.0 (indoors, walls and furniture).
      * @return signal propagation exponent
      */
     double getSignalPropagationExponent();
@@ -108,8 +108,8 @@ public interface AdapterGovernor extends BluetoothGovernor {
     /**
      * Sets estimated (used defined) signal propagation exponent. It is mainly used in estimated distance
      * calculation between the adapter and its devices. This factor is specific to the environment
-     * where the adapter is used, i.e. how efficient the signal passes through obsticles on its way.
-     * Normally it ranges from 2.0 (outdoors, no obsticles) to 4.0 (indoors, walls and furniture).
+     * where the adapter is used, i.e. how efficient the signal passes through obstacles on its way.
+     * Normally it ranges from 2.0 (outdoors, no obstacles) to 4.0 (indoors, walls and furniture).
      * @param exponent signal propagation exponent
      */
     void setSignalPropagationExponent(double exponent);

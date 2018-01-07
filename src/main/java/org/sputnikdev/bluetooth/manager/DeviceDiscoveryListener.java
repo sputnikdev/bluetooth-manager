@@ -38,7 +38,7 @@ public interface DeviceDiscoveryListener {
     void discovered(DiscoveredDevice discoveredDevice);
 
     /**
-     * Fires when a bluetooth adapter or a blueooth device gets lost.
+     * Fires when a bluetooth adapter or a bluetooth device gets lost.
      *
      * @param url of a bluetooth adapter or device
      */

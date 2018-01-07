@@ -3,7 +3,7 @@ package org.sputnikdev.bluetooth.manager;
 import org.sputnikdev.bluetooth.URL;
 
 /**
- * Root interface for all bluetooth objects discoveed by Bluetooth Manager.
+ * Root interface for all bluetooth objects discovered by Bluetooth Manager.
  * @author Vlad Kolotov
  */
 public interface DiscoveredObject {

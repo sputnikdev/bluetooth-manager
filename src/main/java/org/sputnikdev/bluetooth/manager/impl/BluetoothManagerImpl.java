@@ -66,7 +66,7 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     private Logger logger = LoggerFactory.getLogger(BluetoothManagerImpl.class);
 
-    private final ScheduledExecutorService discoveryScheduller = Executors.newScheduledThreadPool(6);
+    private final ScheduledExecutorService discoveryScheduler = Executors.newScheduledThreadPool(6);
     private final ScheduledExecutorService governorScheduler = Executors.newScheduledThreadPool(5);
     private final Map<String, ScheduledFuture<?>> adapterDiscoveryFutures = new ConcurrentHashMap<>();
     private final Map<String, ScheduledFuture<?>> deviceDiscoveryFutures = new ConcurrentHashMap<>();
@@ -95,11 +95,11 @@ class BluetoothManagerImpl implements BluetoothManager {
             return;
         }
         this.startDiscovering = startDiscovering;
-        synchronized (discoveryScheduller) {
+        synchronized (discoveryScheduler) {
             BluetoothObjectFactoryProvider.getRegisteredFactories().forEach(this::scheduleDiscovery);
         }
         synchronized (governorScheduler) {
-            governors.values().forEach(this::schedulleGovernor);
+            governors.values().forEach(this::scheduleGovernor);
         }
         started = true;
     }
@@ -183,7 +183,7 @@ class BluetoothManagerImpl implements BluetoothManager {
         cancelAllFutures(true);
 
         governorScheduler.shutdown();
-        discoveryScheduller.shutdown();
+        discoveryScheduler.shutdown();
 
         deviceDiscoveryListeners.clear();
         adapterDiscoveryListeners.clear();
@@ -230,7 +230,7 @@ class BluetoothManagerImpl implements BluetoothManager {
         return computeIfGovernorAbsent(url, protocolLess -> {
             BluetoothObjectGovernor governor = createGovernor(protocolLess);
 
-            schedulleGovernor(governor);
+            scheduleGovernor(governor);
 
             governorScheduler.submit(() -> {
                 init(governor);
@@ -296,7 +296,7 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     void updateDescendants(URL parent) {
-        computeForEachDescendatGovernor(parent, this::update);
+        computeForEachDescendantGovernor(parent, this::update);
     }
 
     void resetDescendants(URL parent) {
@@ -307,7 +307,7 @@ class BluetoothManagerImpl implements BluetoothManager {
                 .filter(governor -> parent.getProtocol().equals(governor.getTransport()))
                 .forEach(this::reset);
         } else {
-            computeForEachDescendatGovernor(parent, this::reset);
+            computeForEachDescendantGovernor(parent, this::reset);
         }
     }
 
@@ -373,7 +373,7 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     void handleObjectFactoryUnregistered(BluetoothObjectFactory bluetoothObjectFactory) {
         String protocol = bluetoothObjectFactory.getProtocolName();
-        synchronized (discoveryScheduller) {
+        synchronized (discoveryScheduler) {
             cancelFutures(adapterDiscoveryFutures, protocol);
             cancelFutures(deviceDiscoveryFutures, protocol);
         }
@@ -578,7 +578,7 @@ class BluetoothManagerImpl implements BluetoothManager {
         });
     }
 
-    private void computeForEachDescendatGovernor(URL url, Consumer<BluetoothObjectGovernor> consumer) {
+    private void computeForEachDescendantGovernor(URL url, Consumer<BluetoothObjectGovernor> consumer) {
         URL protocolLess = url.copyWithProtocol(null);
         governors.values().stream().filter(governor -> governor.getURL().isDescendant(protocolLess)).forEach(consumer);
     }
@@ -595,28 +595,28 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     private void scheduleDiscovery(BluetoothObjectFactory factory) {
         adapterDiscoveryFutures.put(factory.getProtocolName(),
-            discoveryScheduller.scheduleWithFixedDelay(
+            discoveryScheduler.scheduleWithFixedDelay(
                 new AdapterDiscoveryJob(factory), 0, discoveryRate, TimeUnit.SECONDS));
 
         deviceDiscoveryFutures.put(factory.getProtocolName(),
-            discoveryScheduller.scheduleWithFixedDelay(
+            discoveryScheduler.scheduleWithFixedDelay(
                 new DeviceDiscoveryJob(factory), 5, discoveryRate, TimeUnit.SECONDS));
     }
 
-    private void schedulleGovernor(BluetoothObjectGovernor governor) {
+    private void scheduleGovernor(BluetoothObjectGovernor governor) {
         governorFutures.put(governor.getURL(),
             governorScheduler.scheduleWithFixedDelay(() -> update(governor),5, refreshRate, TimeUnit.SECONDS));
     }
 
-    private void cancelAllFutures(boolean forceInterrup) {
-        synchronized (discoveryScheduller) {
-            adapterDiscoveryFutures.values().forEach(future -> future.cancel(forceInterrup));
+    private void cancelAllFutures(boolean forceInterrupt) {
+        synchronized (discoveryScheduler) {
+            adapterDiscoveryFutures.values().forEach(future -> future.cancel(forceInterrupt));
             adapterDiscoveryFutures.clear();
-            deviceDiscoveryFutures.values().forEach(future -> future.cancel(forceInterrup));
+            deviceDiscoveryFutures.values().forEach(future -> future.cancel(forceInterrupt));
             deviceDiscoveryFutures.clear();
         }
         synchronized (governorScheduler) {
-            governorFutures.values().forEach(future -> future.cancel(forceInterrup));
+            governorFutures.values().forEach(future -> future.cancel(forceInterrupt));
             governorFutures.clear();
         }
     }

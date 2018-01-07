@@ -209,7 +209,7 @@ class CombinedCharacteristicGovernorImpl
                     "Execution error of a governor listener: ready");
         }
         BluetoothManagerUtils.safeForEachError(governorListeners,
-                listner -> listner.lastUpdatedChanged(lastActivity),
+                listener -> listener.lastUpdatedChanged(lastActivity),
                 logger,"Execution error of a governor listener: lastUpdatedChanged");
     }
 

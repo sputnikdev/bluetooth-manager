@@ -126,7 +126,7 @@ public class BluetoothManagerSimpleTest {
             + "0000180f-0000-1000-8000-00805f9b34fb/00002a19-0000-1000-8000-00805f9b34fb");
         // get a characteristic by its URL
         CharacteristicGovernor characteristicGovernor = manager.getCharacteristicGovernorAutoconnect(url);
-        // wait untill the Bluetooth manager does its magic (e.g. connecting the device etc)
+        // wait until the Bluetooth manager does its magic (e.g. connecting the device etc)
         while (!characteristicGovernor.isReady()) {
             Thread.sleep(200);
         }

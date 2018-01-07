@@ -75,7 +75,7 @@ public interface BluetoothManager {
 
     /**
      * Checks whether the bluetooth manager has been started.
-     * @return true if stareted, false otherwise
+     * @return true if started, false otherwise
      */
     boolean isStarted();
 
@@ -238,7 +238,7 @@ public interface BluetoothManager {
 
     /**
      * Removes an existing bluetooth manager listener.
-     * @param listener an existing bluetooth manager listner
+     * @param listener an existing bluetooth manager listener
      */
     void removeManagerListener(ManagerListener listener);
 

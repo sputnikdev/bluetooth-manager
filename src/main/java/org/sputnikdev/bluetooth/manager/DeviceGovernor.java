@@ -145,7 +145,7 @@ public interface DeviceGovernor extends BluetoothGovernor {
     short getRSSI() throws NotReadyException;
 
     /**
-     * Sets RSSI filter class. A new instnce is created by using reflection and a default constructior.
+     * Sets RSSI filter class. A new instance is created by using reflection and a default constructor.
      * Default implementation is Kalman filter
      * @param enabled if the filter is null, filtering disabled
      */
@@ -159,7 +159,7 @@ public interface DeviceGovernor extends BluetoothGovernor {
 
     /**
      * Checks whether RSSI filtering is enabled.
-     * @return true if enabled, false oherwise
+     * @return true if enabled, false otherwise
      */
     boolean isRssiFilteringEnabled();
 
@@ -177,7 +177,7 @@ public interface DeviceGovernor extends BluetoothGovernor {
     void setRssiReportingRate(long rate);
 
     /**
-     * Returns RSSI reporting rate (in mlliseconds). If RSSI equals to 0, then RSSI is reported unconditionally.
+     * Returns RSSI reporting rate (in milliseconds). If RSSI equals to 0, then RSSI is reported unconditionally.
      * @param rate RSSI reporting rate
      */
     long getRssiReportingRate();
@@ -189,7 +189,7 @@ public interface DeviceGovernor extends BluetoothGovernor {
     long getLastAdvertised();
 
     /**
-     * Returns actual (manufacturer defined) TX power of the device. Some bluetooth devices do not adverise
+     * Returns actual (manufacturer defined) TX power of the device. Some bluetooth devices do not advertise
      * its TX power, in this case the returning value is 0.
      * <br/>TX power is used in distance calculation ({@link #getEstimatedDistance()}).
      * @return actual TX power
@@ -214,7 +214,7 @@ public interface DeviceGovernor extends BluetoothGovernor {
     /**
      * Returns currently set the estimated (used defined) signal propagation exponent. It is used in distance
      * calculation ({@link #getEstimatedDistance()}). This factor is specific to the environment, i.e. how good or bad
-     * the signal can penetrate through obsticles. Normally it ranges from 2.0 (outdoors, no obsticles)
+     * the signal can penetrate through obstacles. Normally it ranges from 2.0 (outdoors, no obstacles)
      * to 4.0 (indoors, walls and furniture).
      * @return the signal propagation exponent
      */
@@ -223,7 +223,7 @@ public interface DeviceGovernor extends BluetoothGovernor {
     /**
      * Sets the estimated (used defined) signal propagation exponent. It is used in distance
      * calculation ({@link #getEstimatedDistance()}). This factor is specific to the environment, i.e. how efficient
-     * the signal passes through obsticles. Normally it ranges from 2.0 (outdoors, no obsticles)
+     * the signal passes through obstacles. Normally it ranges from 2.0 (outdoors, no obstacles)
      * to 4.0 (indoors, walls and furniture).
      * @param exponent the signal propagation exponent
      */
@@ -233,15 +233,15 @@ public interface DeviceGovernor extends BluetoothGovernor {
      * Returns estimated distance between this device and the adapter.
      * Either measured ({@link #setMeasuredTxPower(short)}) or actual ({@link #getTxPower()}) TX power must be
      * available for the estimation, otherwise the resulting value equals 0.
-     * The calculation is based on the logarithmetic function: d = 10 ^ ((TxPower - RSSI) / 10n)
+     * The calculation is based on the logarithmic function: d = 10 ^ ((TxPower - RSSI) / 10n)
      * where n ({@link #getSignalPropagationExponent()}) is the signal propagation exponent
-     * that ranges from 2 to 4 (environemnt specific factor, e.g. 2 outdoors -> 4 indoors)
+     * that ranges from 2 to 4 (environment specific factor, e.g. 2 outdoors -> 4 indoors)
      * @return estimated distance
      */
     double getEstimatedDistance();
 
     /**
-     * Returns location of the device (closest adapter URL). If the governor represets a group of devices,
+     * Returns location of the device (closest adapter URL). If the governor represents a group of devices,
      * then the result depends on distance to closest adapter ({@link #getEstimatedDistance()}).
      * @return location of the device
      */
@@ -278,7 +278,7 @@ public interface DeviceGovernor extends BluetoothGovernor {
     boolean isServicesResolved();
 
     /**
-     * Retunrs a list of resolved services. Null is returned if services are not resulved yet.
+     * Returns a list of resolved services. Null is returned if services are not resolved yet.
      * @return a list of resolved services
      */
     List<GattService> getResolvedServices() throws NotReadyException;
