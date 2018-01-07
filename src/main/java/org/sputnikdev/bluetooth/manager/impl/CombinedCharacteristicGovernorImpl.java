@@ -28,6 +28,7 @@ import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
 import org.sputnikdev.bluetooth.manager.CharacteristicGovernor;
 import org.sputnikdev.bluetooth.manager.CombinedGovernor;
+import org.sputnikdev.bluetooth.manager.DeviceGovernor;
 import org.sputnikdev.bluetooth.manager.GovernorListener;
 import org.sputnikdev.bluetooth.manager.ManagerListener;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
@@ -174,7 +175,13 @@ class CombinedCharacteristicGovernorImpl
 
     @Override
     public void update() {
-        // do nothing, bluetooth manager takes care of installing the delegate once it is available
+        if (delegate == null) {
+            // try to find and register delegate
+            bluetoothManager.getRegisteredGovernors().stream()
+                    .filter(this::targetDevice)
+                    .forEach(this::registerTargetCharacteristic);
+            // do nothing else, bluetooth manager takes care of installing the delegate through the ManagerListener
+        }
     }
 
     @Override
@@ -185,7 +192,7 @@ class CombinedCharacteristicGovernorImpl
     @Override
     public void dispose() {
         bluetoothManager.removeManagerListener(delegateListener);
-        uninstallDelegate();
+        reset();
         governorListeners.clear();
         valueListeners.clear();
     }
@@ -224,6 +231,17 @@ class CombinedCharacteristicGovernorImpl
             return delegate;
         }
         throw new NotReadyException("Combined characteristic governor is not ready yet");
+    }
+
+    private void registerTargetCharacteristic(URL deviceURL) {
+        bluetoothManager.getCharacteristicGovernor(url.copyWithAdapter(deviceURL.getAdapterAddress()));
+    }
+
+    private boolean targetDevice(URL registeredURL) {
+        return registeredURL.isDevice()
+                && !COMBINED_ADDRESS.equalsIgnoreCase(registeredURL.getAdapterAddress())
+                && registeredURL.getDeviceAddress().equalsIgnoreCase(url.getDeviceAddress())
+                && ((DeviceGovernor) bluetoothManager.getGovernor(registeredURL)).isServicesResolved();
     }
 
     private class DelegatesListener implements ManagerListener {
