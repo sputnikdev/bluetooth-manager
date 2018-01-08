@@ -67,7 +67,7 @@ public interface CharacteristicGovernor extends BluetoothGovernor {
     /**
      * Return true if notification is enabled, false otherwise.
      * @return true if notification is enabled, false otherwise
-     * @throws NotReadyException
+     * @throws NotReadyException if the bluetooth object is not ready
      */
     boolean isNotifying() throws NotReadyException;
 
@@ -88,13 +88,13 @@ public interface CharacteristicGovernor extends BluetoothGovernor {
     boolean write(byte[] data) throws NotReadyException;
 
     /**
-     * Register a new characteristic listener
+     * Register a new characteristic listener.
      * @param valueListener new characteristic listener
      */
     void addValueListener(ValueListener valueListener);
 
     /**
-     * Removes a previously registered characteristic listener
+     * Removes a previously registered characteristic listener.
      * @param valueListener a previously registered characteristic listener
      */
     void removeValueListener(ValueListener valueListener);

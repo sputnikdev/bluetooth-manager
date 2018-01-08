@@ -147,7 +147,7 @@ public interface DeviceGovernor extends BluetoothGovernor {
     /**
      * Sets RSSI filter class. A new instance is created by using reflection and a default constructor.
      * Default implementation is Kalman filter
-     * @param enabled if the filter is null, filtering disabled
+     * @param filter RSSI filter class
      */
     void setRssiFilter(Class<? extends Filter<Short>> filter);
 
@@ -178,7 +178,7 @@ public interface DeviceGovernor extends BluetoothGovernor {
 
     /**
      * Returns RSSI reporting rate (in milliseconds). If RSSI equals to 0, then RSSI is reported unconditionally.
-     * @param rate RSSI reporting rate
+     * @return RSSI reporting rate
      */
     long getRssiReportingRate();
 
@@ -191,14 +191,14 @@ public interface DeviceGovernor extends BluetoothGovernor {
     /**
      * Returns actual (manufacturer defined) TX power of the device. Some bluetooth devices do not advertise
      * its TX power, in this case the returning value is 0.
-     * <br/>TX power is used in distance calculation ({@link #getEstimatedDistance()}).
+     * <br>TX power is used in distance calculation ({@link #getEstimatedDistance()}).
      * @return actual TX power
      */
     short getTxPower();
 
     /**
      * Returns measured/estimated (user defined) TX power of the device that is measured 1 meter away from the adapter.
-     * <br/>TX power is used in distance calculation ({@link #getEstimatedDistance()}).
+     * <br>TX power is used in distance calculation ({@link #getEstimatedDistance()}).
      * @return measured TX power
      */
     short getMeasuredTxPower();
@@ -206,7 +206,7 @@ public interface DeviceGovernor extends BluetoothGovernor {
     /**
      * Sets measured/estimated (user defined) TX power of the device that is measured 1 meter away from the adapter.
      * TX power is used in distance calculation ({@link #getEstimatedDistance()}).
-     * <br/>To measure TX power, step 1 meter away from the adapter and take note of RSSI value (this will be TX Power).
+     * <br>To measure TX power, step 1 meter away from the adapter and take note of RSSI value (this will be TX Power).
      * @param txPower TX power
      */
     void setMeasuredTxPower(short txPower);
@@ -235,7 +235,7 @@ public interface DeviceGovernor extends BluetoothGovernor {
      * available for the estimation, otherwise the resulting value equals 0.
      * The calculation is based on the logarithmic function: d = 10 ^ ((TxPower - RSSI) / 10n)
      * where n ({@link #getSignalPropagationExponent()}) is the signal propagation exponent
-     * that ranges from 2 to 4 (environment specific factor, e.g. 2 outdoors -> 4 indoors)
+     * that ranges from 2 to 4 (environment specific factor, e.g. 2 outdoors to 4 indoors)
      * @return estimated distance
      */
     double getEstimatedDistance();
