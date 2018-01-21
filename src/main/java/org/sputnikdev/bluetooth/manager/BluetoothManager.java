@@ -21,6 +21,7 @@ package org.sputnikdev.bluetooth.manager;
  */
 
 import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.transport.BluetoothObjectFactory;
 
 import java.util.Set;
 
@@ -181,48 +182,11 @@ public interface BluetoothManager {
     void dispose();
 
     /**
-     * Sets how frequent the discovery process should update its state.
-     * Note: discovery rate must be set before calling {@link BluetoothManager#start} method
-     * @param seconds discovery rate in seconds
-     */
-    void setDiscoveryRate(int seconds);
-
-    /**
-     * Sets whether the discovery process should repeatedly notify clients
-     * ({@link AdapterDiscoveryListener#discovered(DiscoveredAdapter)} and
-     * {@link DeviceDiscoveryListener#discovered(DiscoveredDevice)}) about discovered devices every update step.
-     * See {@link #setDiscoveryRate(int)} to set discovery rate
-     * @param rediscover controls whether clients
-     */
-    void setRediscover(boolean rediscover);
-
-    /**
-     * Sets the refresh rate which controls how often bluetooth devices are checked/updated.
-     * Restart is required if the manager is already started.
-     * @param refreshRate refresh rate
-     */
-    void setRefreshRate(int refreshRate);
-
-    /**
-     * If set to true all discovered adapters are combined into a single adapter and therefore can be controlled as
-     * a single unit.
-     * @param combineAdapters if true, all discovered adapters are combined into a single adapter
-     */
-    void enableCombinedAdapters(boolean combineAdapters);
-
-    /**
      * Checks whether the bluetooth manager is in the "combine adapters" mode
      * ({@link #enableCombinedAdapters(boolean)}}).
      * @return true if the "combined adapters" mode is enabled
      */
     boolean isCombinedAdaptersEnabled();
-
-    /**
-     * If set to true all discovered devices with the same address (but discovered through different adapters)
-     * are combined into a single device and therefore can be controlled as a single unit.
-     * @param combineDevices if true, all discovered devices with the same address are combined into a single device
-     */
-    void enableCombinedDevices(boolean combineDevices);
 
     /**
      * Checks whether the bluetooth manager is in the "combine devices" mode ({@link #enableCombinedDevices(boolean)}}).
@@ -241,5 +205,18 @@ public interface BluetoothManager {
      * @param listener an existing bluetooth manager listener
      */
     void removeManagerListener(ManagerListener listener);
+
+    /**
+     * Registers a new Bluetooth Object factory (transport).
+     * @param transport a new Bluetooth Object factory
+     */
+    void registerFactory(BluetoothObjectFactory transport);
+
+    /**
+     * Un-registers a previously registered Bluetooth Object factory (transport).
+     * @param transport a Bluetooth Object factory
+     */
+    void unregisterFactory(BluetoothObjectFactory transport);
+
 
 }

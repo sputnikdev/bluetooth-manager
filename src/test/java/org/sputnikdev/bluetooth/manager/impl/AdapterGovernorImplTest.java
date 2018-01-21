@@ -40,7 +40,6 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest(BluetoothObjectFactoryProvider.class)
 public class AdapterGovernorImplTest {
 
     private static final Boolean POWERED = true;
@@ -92,8 +91,7 @@ public class AdapterGovernorImplTest {
 
         when(adapter.getURL()).thenReturn(URL);
 
-        PowerMockito.mockStatic(BluetoothObjectFactoryProvider.class);
-        when(BluetoothObjectFactoryProvider.getFactory(any())).thenReturn(bluetoothObjectFactory);
+        when(bluetoothManager.getFactory(any())).thenReturn(bluetoothObjectFactory);
         when(bluetoothObjectFactory.getAdapter(URL)).thenReturn(adapter);
         when(adapter.getDevices()).thenReturn(DEVICES);
     }

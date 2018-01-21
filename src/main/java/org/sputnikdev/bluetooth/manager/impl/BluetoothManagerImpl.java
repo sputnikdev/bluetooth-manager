@@ -61,10 +61,12 @@ import java.util.stream.Collectors;
  */
 class BluetoothManagerImpl implements BluetoothManager {
 
-    private static final int REFRESH_RATE_SEC = 5;
-    private static final int DISCOVERY_RATE_SEC = 10;
+    static final int REFRESH_RATE_SEC = 5;
+    static final int DISCOVERY_RATE_SEC = 10;
 
     private Logger logger = LoggerFactory.getLogger(BluetoothManagerImpl.class);
+
+    private final Map<String, BluetoothObjectFactory> factories = new ConcurrentHashMap<>();
 
     private final ScheduledExecutorService discoveryScheduler = Executors.newScheduledThreadPool(6);
     private final ScheduledExecutorService governorScheduler = Executors.newScheduledThreadPool(5);
@@ -95,13 +97,35 @@ class BluetoothManagerImpl implements BluetoothManager {
             return;
         }
         this.startDiscovering = startDiscovering;
-        synchronized (discoveryScheduler) {
-            BluetoothObjectFactoryProvider.getRegisteredFactories().forEach(this::scheduleDiscovery);
+        synchronized (factories) {
+            factories.values().forEach(this::scheduleDiscovery);
         }
         synchronized (governorScheduler) {
             governors.values().forEach(this::scheduleGovernor);
         }
         started = true;
+    }
+
+    @Override
+    public void registerFactory(BluetoothObjectFactory transport) {
+        logger.debug("Register {} transport", transport.getProtocolName());
+        synchronized (factories) {
+            factories.computeIfAbsent(transport.getProtocolName(), protocolName -> {
+                handleObjectFactoryRegistered(transport);
+                return transport;
+            });
+        }
+    }
+
+    @Override
+    public void unregisterFactory(BluetoothObjectFactory transport) {
+        logger.debug("Unregister {} transport", transport.getProtocolName());
+        synchronized (factories) {
+            factories.computeIfPresent(transport.getProtocolName(), (protocolName, factory) -> {
+                handleObjectFactoryUnregistered(factory);
+                return null;
+            });
+        }
     }
 
     @Override
@@ -191,6 +215,8 @@ class BluetoothManagerImpl implements BluetoothManager {
         governors.values().forEach(this::dispose);
         governors.clear();
 
+        factories.clear();
+
         logger.info("Bluetooth service has been disposed");
     }
 
@@ -203,7 +229,7 @@ class BluetoothManagerImpl implements BluetoothManager {
             return groupedByDeviceAddress.entrySet().stream().map(entry -> {
                 DiscoveredDevice discoveredDevice = entry.getValue().get(0);
                 return new DiscoveredDevice(entry.getKey(), discoveredDevice.getName(), discoveredDevice.getAlias(),
-                    discoveredDevice.isBleEnabled());
+                    discoveredDevice.getRSSI(), discoveredDevice.getBluetoothClass(), discoveredDevice.isBleEnabled());
             }).collect(Collectors.toSet());
         } else {
             return Collections.unmodifiableSet(discoveredDevices);
@@ -241,31 +267,6 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     @Override
-    public void setDiscoveryRate(int discoveryRate) {
-        this.discoveryRate = discoveryRate;
-    }
-
-    @Override
-    public void setRediscover(boolean rediscover) {
-        this.rediscover = rediscover;
-    }
-
-    @Override
-    public void setRefreshRate(int refreshRate) {
-        this.refreshRate = refreshRate;
-    }
-
-    @Override
-    public void enableCombinedAdapters(boolean combineAdapters) {
-        combinedAdapters = combineAdapters;
-    }
-
-    @Override
-    public void enableCombinedDevices(boolean combineDevices) {
-        combinedDevices = combineDevices;
-    }
-
-    @Override
     public boolean isCombinedAdaptersEnabled() {
         return combinedAdapters;
     }
@@ -283,6 +284,35 @@ class BluetoothManagerImpl implements BluetoothManager {
     @Override
     public void removeManagerListener(ManagerListener listener) {
         managerListeners.remove(listener);
+    }
+
+
+    BluetoothObjectFactory getFactory(String protocolName) {
+        BluetoothObjectFactory factory = factories.get(protocolName);
+        if (factory == null) {
+            logger.debug("Transport [{}] is not registered.", protocolName);
+        }
+        return factory;
+    }
+
+    void setDiscoveryRate(int discoveryRate) {
+        this.discoveryRate = discoveryRate;
+    }
+
+    void setRediscover(boolean rediscover) {
+        this.rediscover = rediscover;
+    }
+
+    void setRefreshRate(int refreshRate) {
+        this.refreshRate = refreshRate;
+    }
+
+    void enableCombinedAdapters(boolean combineAdapters) {
+        combinedAdapters = combineAdapters;
+    }
+
+    void enableCombinedDevices(boolean combineDevices) {
+        combinedDevices = combineDevices;
     }
 
     protected void notifyGovernorReady(BluetoothGovernor governor, boolean ready) {
@@ -367,11 +397,11 @@ class BluetoothManagerImpl implements BluetoothManager {
         throw new IllegalStateException("Unknown url");
     }
 
-    void handleObjectFactoryRegistered(BluetoothObjectFactory bluetoothObjectFactory) {
+    private void handleObjectFactoryRegistered(BluetoothObjectFactory bluetoothObjectFactory) {
         scheduleDiscovery(bluetoothObjectFactory);
     }
 
-    void handleObjectFactoryUnregistered(BluetoothObjectFactory bluetoothObjectFactory) {
+    private void handleObjectFactoryUnregistered(BluetoothObjectFactory bluetoothObjectFactory) {
         String protocol = bluetoothObjectFactory.getProtocolName();
         synchronized (discoveryScheduler) {
             cancelFutures(adapterDiscoveryFutures, protocol);
@@ -396,11 +426,11 @@ class BluetoothManagerImpl implements BluetoothManager {
         String protocol = url.getProtocol();
         String adapterAddress = url.getAdapterAddress();
         if (url.getProtocol() != null) {
-            return BluetoothObjectFactoryProvider.getFactory(protocol);
+            return getFactory(protocol);
         } else {
             for (DiscoveredAdapter adapter : discoveredAdapters) {
                 if (adapter.getURL().getAdapterAddress().equals(adapterAddress)) {
-                    return BluetoothObjectFactoryProvider.getFactory(adapter.getURL().getProtocol());
+                    return getFactory(adapter.getURL().getProtocol());
                 }
             }
         }
@@ -417,7 +447,8 @@ class BluetoothManagerImpl implements BluetoothManager {
             } else {
                 listener.discovered(new DiscoveredDevice(
                         device.getURL().copyWithAdapter(CombinedGovernor.COMBINED_ADDRESS),
-                        device.getName(), device.getAlias(), device.isBleEnabled()));
+                        device.getName(), device.getAlias(), device.getRSSI(), device.getBluetoothClass(),
+                        device.isBleEnabled()));
             }
         },"Error in device discovery listener");
     }

@@ -5,8 +5,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.powermock.reflect.Whitebox;
 import org.sputnikdev.bluetooth.URL;
@@ -18,11 +16,14 @@ import org.sputnikdev.bluetooth.manager.transport.Characteristic;
 import org.sputnikdev.bluetooth.manager.transport.Device;
 
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ScheduledFuture;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -30,7 +31,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest(fullyQualifiedNames = {"org.sputnikdev.bluetooth.manager.impl.BluetoothObjectFactoryProvider"})
 public class BluetoothManagerImplTest {
 
     private static final String TINYB_PROTOCOL_NAME = "tinyb";
@@ -73,12 +73,7 @@ public class BluetoothManagerImplTest {
 
     @Before
     public void setUp() throws InterruptedException {
-        PowerMockito.mockStatic(BluetoothObjectFactoryProvider.class);
-
-        when(BluetoothObjectFactoryProvider.getFactory(TINYB_PROTOCOL_NAME)).thenReturn(tinybObjectFactory);
         when(tinybObjectFactory.getProtocolName()).thenReturn(TINYB_PROTOCOL_NAME);
-
-        when(BluetoothObjectFactoryProvider.getFactory(DBUS_PROTOCOL_NAME)).thenReturn(dbusObjectFactory);
         when(dbusObjectFactory.getProtocolName()).thenReturn(DBUS_PROTOCOL_NAME);
 
         when(tinybObjectFactory.getAdapter(TINYB_ADAPTER_URL)).thenReturn(tinybAdapter);
@@ -86,16 +81,12 @@ public class BluetoothManagerImplTest {
         when(tinybObjectFactory.getDevice(TINYB_DEVICE_URL)).thenReturn(tinybDevice);
         when(tinybObjectFactory.getDevice(TINYB_DEVICE_URL.copyWithProtocol(null))).thenReturn(tinybDevice);
         when(tinybObjectFactory.getCharacteristic(TINYB_CHARACTERISTIC_URL)).thenReturn(tinybCharacteristic);
-        when(tinybObjectFactory.getCharacteristic(
-                TINYB_CHARACTERISTIC_URL.copyWithProtocol(null))).thenReturn(tinybCharacteristic);
 
         when(dbusObjectFactory.getAdapter(DBUS_ADAPTER_URL)).thenReturn(dbusAdapter);
         when(dbusObjectFactory.getAdapter(DBUS_ADAPTER_URL.copyWithProtocol(null))).thenReturn(dbusAdapter);
         when(dbusObjectFactory.getDevice(DBUS_DEVICE_URL)).thenReturn(dbusDevice);
         when(dbusObjectFactory.getDevice(DBUS_DEVICE_URL.copyWithProtocol(null))).thenReturn(dbusDevice);
         when(dbusObjectFactory.getCharacteristic(DBUS_CHARACTERISTIC_URL)).thenReturn(dbusCharacteristic);
-        when(dbusObjectFactory.getCharacteristic(
-                DBUS_CHARACTERISTIC_URL.copyWithProtocol(null))).thenReturn(dbusCharacteristic);
 
         DiscoveredAdapter tinyBDiscoveredAdapter = mock(DiscoveredAdapter.class);
         when(tinyBDiscoveredAdapter.getURL()).thenReturn(TINYB_ADAPTER_URL);
@@ -104,10 +95,6 @@ public class BluetoothManagerImplTest {
 
         when(tinybObjectFactory.getDiscoveredAdapters()).thenReturn(Arrays.asList(tinyBDiscoveredAdapter));
         when(dbusObjectFactory.getDiscoveredAdapters()).thenReturn(Arrays.asList(dbusDiscoveredAdapter));
-
-        when(BluetoothObjectFactoryProvider.getRegisteredFactories()).thenReturn(
-                Arrays.asList(tinybObjectFactory, dbusObjectFactory));
-
 
         when(tinybAdapter.getURL()).thenReturn(TINYB_ADAPTER_URL);
         when(dbusAdapter.getURL()).thenReturn(DBUS_ADAPTER_URL);
@@ -119,9 +106,13 @@ public class BluetoothManagerImplTest {
         when(tinybAdapter.isPowered()).thenReturn(true);
         when(dbusAdapter.isPowered()).thenReturn(true);
 
+        bluetoothManager.registerFactory(tinybObjectFactory);
+
         bluetoothManager.start(true);
 
-        Set discoveredAdapters = Whitebox.getInternalState(bluetoothManager, "discoveredAdapters");
+        bluetoothManager.registerFactory(dbusObjectFactory);
+
+        Set discoveredAdapters = bluetoothManager.getDiscoveredAdapters();
         while (discoveredAdapters.size() != 2) {
             Thread.sleep(10);
         }
@@ -181,6 +172,33 @@ public class BluetoothManagerImplTest {
     @Test
     public void testResetDescendantsRoot() {
         assertResetGovernors(1, 1, new URL("/"));
+    }
+
+    @Test
+    public void testUnregisterFactory() throws Exception {
+        AdapterGovernorImpl tinybAdapterGovernor = (AdapterGovernorImpl)
+                bluetoothManager.getAdapterGovernor(TINYB_ADAPTER_URL);
+        DeviceGovernorImpl tinybDeviceGovernor = (DeviceGovernorImpl)
+                bluetoothManager.getDeviceGovernor(TINYB_DEVICE_URL);
+        CharacteristicGovernorImpl tinybCharacteristicGovernor = (CharacteristicGovernorImpl)
+                bluetoothManager.getCharacteristicGovernor(TINYB_CHARACTERISTIC_URL);
+        AdapterGovernorImpl dbusAdapterGovernor = (AdapterGovernorImpl)
+                bluetoothManager.getAdapterGovernor(DBUS_ADAPTER_URL);
+        DeviceGovernorImpl dbusDeviceGovernor = (DeviceGovernorImpl)
+                bluetoothManager.getDeviceGovernor(DBUS_DEVICE_URL);
+        CharacteristicGovernorImpl dbusCharacteristicGovernor = (CharacteristicGovernorImpl)
+                bluetoothManager.getCharacteristicGovernor(DBUS_CHARACTERISTIC_URL);
+
+        bluetoothManager.updateDescendants(URL.ROOT);
+
+        bluetoothManager.unregisterFactory(tinybObjectFactory);
+
+        verify(tinybAdapterGovernor).reset(tinybAdapter);
+        verify(tinybDeviceGovernor).reset(tinybDevice);
+        verify(tinybCharacteristicGovernor).reset(tinybCharacteristic);
+        verify(dbusAdapterGovernor, never()).reset(dbusAdapter);
+        verify(dbusDeviceGovernor, never()).reset(dbusDevice);
+        verify(dbusCharacteristicGovernor, never()).reset(dbusCharacteristic);
     }
 
     private void assertResetGovernors(int tinybExpectedInvocations, int dbusExpectedInvocations, URL url) {

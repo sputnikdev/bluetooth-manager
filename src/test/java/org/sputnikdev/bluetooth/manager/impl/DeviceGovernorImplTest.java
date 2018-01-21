@@ -59,7 +59,6 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest(BluetoothObjectFactoryProvider.class)
 public class DeviceGovernorImplTest {
 
     private static final int BLUETOOTH_CLASS = 0;
@@ -115,8 +114,7 @@ public class DeviceGovernorImplTest {
         governor.addGenericBluetoothDeviceListener(genericDeviceListener);
         governor.addBluetoothSmartDeviceListener(bluetoothSmartDeviceListener);
 
-        PowerMockito.mockStatic(BluetoothObjectFactoryProvider.class);
-        when(BluetoothObjectFactoryProvider.getFactory(any())).thenReturn(bluetoothObjectFactory);
+        when(bluetoothManager.getFactory(any())).thenReturn(bluetoothObjectFactory);
         when(bluetoothObjectFactory.getDevice(URL)).thenReturn(device);
 
         when(device.getBluetoothClass()).thenReturn(BLUETOOTH_CLASS);

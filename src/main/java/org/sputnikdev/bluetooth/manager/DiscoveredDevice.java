@@ -44,20 +44,6 @@ public class DiscoveredDevice implements DiscoveredObject {
      * @param url bluetooth object URL
      * @param name bluetooth object name
      * @param alias bluetooth object alias
-     * @param bleEnabled indicated if it is a BLE enabled device
-     */
-    public DiscoveredDevice(URL url, String name, String alias, boolean bleEnabled) {
-        this.url = url;
-        this.name = name;
-        this.alias = alias;
-        this.bleEnabled = bleEnabled;
-    }
-
-    /**
-     * Creates a new object.
-     * @param url bluetooth object URL
-     * @param name bluetooth object name
-     * @param alias bluetooth object alias
      * @param rssi bluetooth object RSSI
      * @param bluetoothClass bluetooth object class
      * @param bleEnabled indicated if it is a BLE enabled device

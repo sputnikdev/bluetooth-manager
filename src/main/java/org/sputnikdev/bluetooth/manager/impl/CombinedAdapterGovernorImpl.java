@@ -40,7 +40,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
         BluetoothObjectGovernor, AdapterDiscoveryListener {
@@ -228,7 +227,7 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
         }
         if (url.isAdapter() && !url.equals(this.url)) {
             governors.computeIfAbsent(url, newUrl -> {
-                AdapterGovernor deviceGovernor = BluetoothManagerFactory.getManager().getAdapterGovernor(url);
+                AdapterGovernor deviceGovernor = bluetoothManager.getAdapterGovernor(url);
                 return new AdapterGovernorHandler(deviceGovernor, governorsCount.getAndIncrement());
             });
         }
