@@ -160,11 +160,38 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     @Override
-    public void disposeGovernor(URL url) {
-        computeIfGovernorPresent(url, (protocolLess, governor) -> {
-            disposeGovernor(governor);
+    public BluetoothGovernor getGovernor(URL url) {
+        if (url.isProtocol() || url.isRoot()) {
             return null;
-        });
+        }
+        synchronized (governors) {
+            URL protocolLess = url.copyWithProtocol(null);
+            if (governors.containsKey(protocolLess)) {
+                BluetoothObjectGovernor governor = governors.get(protocolLess);
+                if (!governor.isReady()) {
+                    update(governor);
+                }
+                return governor;
+            } else {
+                BluetoothObjectGovernor governor = createGovernor(protocolLess);
+                governors.put(protocolLess, governor);
+                init(governor);
+                scheduleGovernor(governor);
+                return governor;
+            }
+        }
+    }
+
+    @Override
+    public void disposeGovernor(URL url) {
+        synchronized (governors) {
+            URL protocolLess = url.copyWithProtocol(null);
+            if (governors.containsKey(protocolLess)) {
+                BluetoothObjectGovernor governor = governors.get(protocolLess);
+                disposeGovernor(governor);
+                governors.remove(protocolLess);
+            }
+        }
     }
 
     @Override
@@ -183,9 +210,14 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     @Override
-    public DeviceGovernor getDeviceGovernorAutoconnect(URL url) {
+    public DeviceGovernor getDeviceGovernor(URL url, boolean forceConnect) {
         DeviceGovernor deviceGovernor = getDeviceGovernor(url);
-        deviceGovernor.setConnectionControl(true);
+        if (forceConnect) {
+            deviceGovernor.setConnectionControl(true);
+            if (!deviceGovernor.isReady() || !deviceGovernor.isConnected()) {
+                update((BluetoothObjectGovernor) deviceGovernor);
+            }
+        }
         return deviceGovernor;
     }
 
@@ -195,9 +227,15 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     @Override
-    public CharacteristicGovernor getCharacteristicGovernorAutoconnect(URL url) {
-        getDeviceGovernor(url).setConnectionControl(true);
-        return getCharacteristicGovernor(url);
+    public CharacteristicGovernor getCharacteristicGovernor(URL url, boolean forceConnect) {
+        CharacteristicGovernor characteristicGovernor = getCharacteristicGovernor(url);
+        if (forceConnect) {
+            DeviceGovernor deviceGovernor = getDeviceGovernor(url, true);
+            if (deviceGovernor.isReady() && deviceGovernor.isConnected() && !characteristicGovernor.isReady()) {
+                update((BluetoothObjectGovernor) characteristicGovernor);
+            }
+        }
+        return characteristicGovernor;
     }
 
     @Override
@@ -249,24 +287,6 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     @Override
-    public BluetoothGovernor getGovernor(URL url) {
-        if (url.isProtocol() || url.isRoot()) {
-            return null;
-        }
-        return computeIfGovernorAbsent(url, protocolLess -> {
-            BluetoothObjectGovernor governor = createGovernor(protocolLess);
-
-            scheduleGovernor(governor);
-
-            governorScheduler.submit(() -> {
-                init(governor);
-            });
-
-            return governor;
-        });
-    }
-
-    @Override
     public boolean isCombinedAdaptersEnabled() {
         return combinedAdapters;
     }
@@ -286,6 +306,11 @@ class BluetoothManagerImpl implements BluetoothManager {
         managerListeners.remove(listener);
     }
 
+    protected void scheduleUpdate(BluetoothObjectGovernor governor) {
+        if (!governorScheduler.isShutdown()) {
+            governorScheduler.submit(() -> update(governor));
+        }
+    }
 
     BluetoothObjectFactory getFactory(String protocolName) {
         BluetoothObjectFactory factory = factories.get(protocolName);
@@ -589,15 +614,6 @@ class BluetoothManagerImpl implements BluetoothManager {
         }
     }
 
-    private BluetoothObjectGovernor computeIfGovernorPresent(URL url,
-                                          BiFunction<URL, BluetoothObjectGovernor, BluetoothObjectGovernor> function) {
-        return governors.computeIfPresent(url.copyWithProtocol(null), function);
-    }
-
-    private BluetoothObjectGovernor computeIfGovernorAbsent(URL url, Function<URL, BluetoothObjectGovernor> supplier) {
-        return governors.computeIfAbsent(url.copyWithProtocol(null), supplier);
-    }
-
     private void computeForEachDescendantGovernorAndRemove(URL url, Consumer<BluetoothObjectGovernor> consumer) {
         URL protocolLess = url.copyWithProtocol(null);
         governors.entrySet().removeIf(entry -> {
@@ -625,13 +641,15 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     private void scheduleDiscovery(BluetoothObjectFactory factory) {
+        AdapterDiscoveryJob adapterDiscoveryJob = new AdapterDiscoveryJob(factory);
+        adapterDiscoveryJob.run();
         adapterDiscoveryFutures.put(factory.getProtocolName(),
-            discoveryScheduler.scheduleWithFixedDelay(
-                new AdapterDiscoveryJob(factory), 0, discoveryRate, TimeUnit.SECONDS));
+            discoveryScheduler.scheduleWithFixedDelay(adapterDiscoveryJob, 5, discoveryRate, TimeUnit.SECONDS));
 
+        DeviceDiscoveryJob deviceDiscoveryJob = new DeviceDiscoveryJob(factory);
+        deviceDiscoveryJob.run();
         deviceDiscoveryFutures.put(factory.getProtocolName(),
-            discoveryScheduler.scheduleWithFixedDelay(
-                new DeviceDiscoveryJob(factory), 5, discoveryRate, TimeUnit.SECONDS));
+            discoveryScheduler.scheduleWithFixedDelay(deviceDiscoveryJob, 5, discoveryRate, TimeUnit.SECONDS));
     }
 
     private void scheduleGovernor(BluetoothObjectGovernor governor) {
