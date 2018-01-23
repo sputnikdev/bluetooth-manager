@@ -21,6 +21,7 @@ package org.sputnikdev.bluetooth.manager.transport;
  */
 
 import java.util.List;
+import java.util.Map;
 
 /**
  *
@@ -71,5 +72,9 @@ public interface Device extends BluetoothObject {
     void disableServicesResolvedNotifications();
 
     List<Service> getServices();
+
+    Map<String, byte[]> getServiceData();
+
+    Map<Short, byte[]> getManufacturerData();
 
 }
