@@ -181,9 +181,7 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
             logger.info("Resetting governor: {}", url);
             try {
                 if (bluetoothObject != null) {
-                    reset(bluetoothObject);
-                    notifyReady(false);
-                    bluetoothObject.dispose();
+                    forceReset(bluetoothObject);
                 }
                 bluetoothObject = null;
                 logger.info("Governor has been reset: {}", url);
@@ -256,6 +254,20 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
             }
         }
         return bluetoothObject;
+    }
+
+    private void forceReset(T bluetoothObject) {
+        try {
+            reset(bluetoothObject);
+        } catch (Exception ex) {
+            logger.debug("Could not reset bluetooth object {}: {}", url, ex.getMessage());
+        }
+        notifyReady(false);
+        try {
+            bluetoothObject.dispose();
+        } catch (Exception ex) {
+            logger.debug("Could not dispose bluetooth object {}: {}", url, ex.getMessage());
+        }
     }
 
 }
