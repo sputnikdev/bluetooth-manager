@@ -28,17 +28,18 @@ import java.util.List;
  *
  * @author Vlad Kolotov
  */
+@FunctionalInterface
 public interface BluetoothSmartDeviceListener {
 
     /**
      * Fires when the device gets connected.
      */
-    void connected();
+    default void connected() { }
 
     /**
      * Fires when the device gets disconnected.
      */
-    void disconnected();
+    default void disconnected() { }
 
     /**
      * Fires when GATT services get resolved.
@@ -50,6 +51,6 @@ public interface BluetoothSmartDeviceListener {
     /**
      * Fires when GATT services get unresolved.
      */
-    void servicesUnresolved();
+    default void servicesUnresolved() { }
 
 }
