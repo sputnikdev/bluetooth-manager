@@ -20,6 +20,8 @@ package org.sputnikdev.bluetooth.manager.impl;
  * #L%
  */
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.manager.AdapterDiscoveryListener;
 import org.sputnikdev.bluetooth.manager.BluetoothManager;
 import org.sputnikdev.bluetooth.manager.DeviceDiscoveryListener;
@@ -36,6 +38,8 @@ import java.lang.reflect.Constructor;
  */
 public class BluetoothManagerBuilder {
 
+    private Logger logger = LoggerFactory.getLogger(BluetoothManagerBuilder.class);
+
     private int discoveryRate = BluetoothManagerImpl.DISCOVERY_RATE_SEC;
     private boolean rediscover;
     private int refreshRate = BluetoothManagerImpl.REFRESH_RATE_SEC;
@@ -45,6 +49,7 @@ public class BluetoothManagerBuilder {
     private String bluegigaRegex;
     private boolean started = true;
     private boolean discovering;
+    private boolean ignoreTransportInitErrors;
 
     /**
      * Sets how frequent the discovery process should update its state.
@@ -174,14 +179,36 @@ public class BluetoothManagerBuilder {
         return manager;
     }
 
+    /**
+     * If set to true, initialization errors for the transport factories are ignored.
+     * @param ignoreTransportErrors ignore initialization errors for transports
+     */
+    public BluetoothManagerBuilder withIgnoreTransportInitErrors(boolean ignoreTransportInitErrors) {
+        this.ignoreTransportInitErrors = ignoreTransportInitErrors;
+        return this;
+    }
+
     private void loadTinyBTransport(BluetoothManager bluetoothManager) {
         try {
             Class<?> tinybFactoryClass =
                     Class.forName("org.sputnikdev.bluetooth.manager.transport.tinyb.TinyBFactory");
-            tinybFactoryClass.getDeclaredMethod("loadNativeLibraries").invoke(tinybFactoryClass);
-            bluetoothManager.registerFactory((BluetoothObjectFactory) tinybFactoryClass.newInstance());
+            boolean loaded = (boolean) tinybFactoryClass.getDeclaredMethod("loadNativeLibraries")
+                    .invoke(tinybFactoryClass);
+            if (loaded) {
+                bluetoothManager.registerFactory((BluetoothObjectFactory) tinybFactoryClass.newInstance());
+            } else {
+                if (ignoreTransportInitErrors) {
+                    logger.warn("Native libraries for TinyB transport could not be loaded.");
+                } else {
+                    throw new IllegalStateException("Native libraries for TinyB transport could not be loaded.");
+                }
+            }
         } catch (Exception ex) {
-            throw new IllegalStateException(ex);
+            if (ignoreTransportInitErrors) {
+                logger.warn("Could not initialize TinyB transport: {}", ex.getMessage());
+            } else {
+                throw new IllegalStateException(ex);
+            }
         }
     }
 
@@ -192,7 +219,11 @@ public class BluetoothManagerBuilder {
             Constructor<?> constructor = bluegigaFactoryClass.getConstructor(String.class);
             bluetoothManager.registerFactory((BluetoothObjectFactory) constructor.newInstance(bluegigaRegex));
         } catch (Exception ex) {
-            throw new IllegalStateException(ex);
+            if (ignoreTransportInitErrors) {
+                logger.warn("Could not initialize BlueGiga transport: {}", ex.getMessage());
+            } else {
+                throw new IllegalStateException(ex);
+            }
         }
     }
 
