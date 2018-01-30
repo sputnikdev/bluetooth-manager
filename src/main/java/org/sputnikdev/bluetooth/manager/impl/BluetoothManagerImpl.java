@@ -111,7 +111,9 @@ class BluetoothManagerImpl implements BluetoothManager {
         logger.debug("Register {} transport", transport.getProtocolName());
         synchronized (factories) {
             factories.computeIfAbsent(transport.getProtocolName(), protocolName -> {
-                handleObjectFactoryRegistered(transport);
+                if (started) {
+                    scheduleDiscovery(transport);
+                }
                 return transport;
             });
         }
@@ -420,10 +422,6 @@ class BluetoothManagerImpl implements BluetoothManager {
             return new CharacteristicGovernorImpl(this, url);
         }
         throw new IllegalStateException("Unknown url");
-    }
-
-    private void handleObjectFactoryRegistered(BluetoothObjectFactory bluetoothObjectFactory) {
-        scheduleDiscovery(bluetoothObjectFactory);
     }
 
     private void handleObjectFactoryUnregistered(BluetoothObjectFactory bluetoothObjectFactory) {
