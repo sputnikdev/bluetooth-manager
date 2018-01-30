@@ -65,7 +65,7 @@ public class BluetoothManagerBuilder {
      * Sets whether the discovery process should repeatedly notify clients
      * ({@link AdapterDiscoveryListener#discovered(DiscoveredAdapter)} and
      * {@link DeviceDiscoveryListener#discovered(DiscoveredDevice)}) about discovered devices every update step.
-     * See {@link #setDiscoveryRate(int)} to set discovery rate
+     * See {@link #withDiscoveryRate(int)} to set discovery rate
      * @param rediscover controls whether clients
      */
     public BluetoothManagerBuilder withRediscover(boolean rediscover) {
@@ -128,7 +128,7 @@ public class BluetoothManagerBuilder {
      *  <li>Matching all serial ports with some exclusions: (?!/dev/ttyACM0|/dev/ttyACM5)((/dev/ttyACM)[0-9]{1,3})</li>
      *  <li>Default regular expression is to match nothing: (?!)</li>
      * </ul>
-     * @param tinybTransport register BlueGiga transport
+     * @param bluegigaRegex BlueGiga serial port regular expression
      */
     public BluetoothManagerBuilder withBlueGigaTransport(String bluegigaRegex) {
         this.bluegigaRegex = bluegigaRegex;
@@ -146,7 +146,7 @@ public class BluetoothManagerBuilder {
 
     /**
      * If set to true, the discovery process will be enabled.
-     * @param started if true, the discovery process will be enabled
+     * @param discovering if true, the discovery process will be enabled
      */
     public BluetoothManagerBuilder withDiscovering(boolean discovering) {
         this.discovering = discovering;
@@ -181,7 +181,7 @@ public class BluetoothManagerBuilder {
 
     /**
      * If set to true, initialization errors for the transport factories are ignored.
-     * @param ignoreTransportErrors ignore initialization errors for transports
+     * @param ignoreTransportInitErrors ignore initialization errors for transports
      */
     public BluetoothManagerBuilder withIgnoreTransportInitErrors(boolean ignoreTransportInitErrors) {
         this.ignoreTransportInitErrors = ignoreTransportInitErrors;
