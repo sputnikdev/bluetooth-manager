@@ -105,73 +105,54 @@ The example below shows how to set up the Bluetooth Manager and read a character
 ```java
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.BluetoothManager;
-import org.sputnikdev.bluetooth.manager.CharacteristicGovernor;
-import org.sputnikdev.bluetooth.manager.impl.BluetoothManagerFactory;
-import org.sputnikdev.bluetooth.manager.impl.BluetoothObjectFactoryProvider;
-import org.sputnikdev.bluetooth.manager.transport.tinyb.TinyBFactory;
+import org.sputnikdev.bluetooth.manager.impl.BluetoothManagerBuilder;
 
 public class BluetoothManagerSimpleTest {
 
     public static void main(String args[]) {
-        // load TinyB native libraries
-        TinyBFactory.loadNativeLibraries();
-        // register TinyB transport
-        BluetoothObjectFactoryProvider.registerFactory(new TinyBFactory());
-        // getting the Bluetooth Manager
-        BluetoothManager manager = BluetoothManagerFactory.getManager();
-        // don't forget to start the Bluetooth Manager processes
-        manager.start(false);
-        // define a URL pointing to the target characteristic
-        URL url = new URL("/88:6B:0F:01:90:CA/CF:FC:9E:B2:0E:63/"
-            + "0000180f-0000-1000-8000-00805f9b34fb/00002a19-0000-1000-8000-00805f9b34fb");
-        // get a characteristic by its URL
-        CharacteristicGovernor characteristicGovernor = manager.getCharacteristicGovernorAutoconnect(url);
-        // wait until the Bluetooth manager does its magic (e.g. connecting the device etc)
-        while (!characteristicGovernor.isReady()) {
-            Thread.sleep(200);
-        }
-        // reading the characteristic
-        System.out.println("Battery level: " + characteristicGovernor.read()[0]);
-        // when we are done (just about to exit application) it is advisable to dispose the Bluetooth Manager, 
-        // so that it automatically releases all resources (disconnects devices etc)
-        manager.dispose();
+        System.out.println("Battery level: " +
+                new BluetoothManagerBuilder()
+                .withTinyBTransport(true)
+                .withBlueGigaTransport("^*.$")
+                .build()
+                .getCharacteristicGovernor(new URL("/XX:XX:XX:XX:XX:XX/F7:EC:62:B9:CF:1F/" +
+                        "0000180f-0000-1000-8000-00805f9b34fb/00002a19-0000-1000-8000-00805f9b34fb"), true)
+                .read()[0]);
     }
 }
 ```
-Note: Instead of explicit wait until the characteristic becomes "ready" it is advisable to use GovernorListener.
+//TODO add explanation what's happening behind the scene, e.g.:
+    - loading native libraries
+    - setting up bluetooth manager
+    - choosing the nearest bluetooth adapter
+    - connecting to the bluetooth device
+    - resolving GATT services and characteristics
+    - reading the "Battery Level" chracteristic
 
 ### Receiving characteristic notifications (preferable approach)
 
 ```java
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.BluetoothManager;
-import org.sputnikdev.bluetooth.manager.impl.BluetoothManagerFactory;
-import org.sputnikdev.bluetooth.manager.impl.BluetoothObjectFactoryProvider;
-import org.sputnikdev.bluetooth.manager.transport.tinyb.TinyBFactory;
+import org.sputnikdev.bluetooth.manager.impl.BluetoothManagerBuilder;
 
 public class BluetoothManagerSimpleTest {
 
     public static void main(String args[]) {
-        // load TinyB native libraries
-        TinyBFactory.loadNativeLibraries();
-        // register TinyB transport
-        BluetoothObjectFactoryProvider.registerFactory(new TinyBFactory());
         // get the Bluetooth Manager
-        BluetoothManager manager = BluetoothManagerFactory.getManager();
+        BluetoothManager manager = new BluetoothManagerBuilder()
+                .withTinyBTransport(true)
+                .withBlueGigaTransport("^*.$")
+                .build();
         // define a URL pointing to the target characteristic
         URL url = new URL("/88:6B:0F:01:90:CA/CF:FC:9E:B2:0E:63/" +
                 "0000180f-0000-1000-8000-00805f9b34fb/00002a19-0000-1000-8000-00805f9b34fb");
         // subscribe to the characteristic notification
-        manager.getCharacteristicGovernorAutoconnect(url).addValueListener(value -> {
+        manager.getCharacteristicGovernor(url, true).addValueListener(value -> {
             System.out.println("Battery level: " + value[0]);
         });
-        // don't forget to start the Bluetooth Manager processes
-        manager.start(false);
         // do your other stuff
         Thread.sleep(10000);
-        // when we are done (just about to exit application) it is advisable to dispose the Bluetooth Manager, 
-        // so that it automatically releases all resources (disconnects devices etc)
-        manager.dispose();
     }
 }
 ```

@@ -28,6 +28,7 @@ import org.sputnikdev.bluetooth.URL;
  *
  * @author Vlad Kolotov
  */
+@FunctionalInterface
 public interface DeviceDiscoveryListener {
 
     /**
@@ -42,6 +43,6 @@ public interface DeviceDiscoveryListener {
      *
      * @param url of a bluetooth adapter or device
      */
-    void deviceLost(URL url);
+    default void deviceLost(URL url) { }
 
 }

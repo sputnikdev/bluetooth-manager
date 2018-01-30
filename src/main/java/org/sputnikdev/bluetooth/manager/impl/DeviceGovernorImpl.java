@@ -183,6 +183,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     public void setConnectionControl(boolean connectionControl) {
         this.connectionControl = connectionControl;
+        scheduleUpdate();
     }
 
     @Override
