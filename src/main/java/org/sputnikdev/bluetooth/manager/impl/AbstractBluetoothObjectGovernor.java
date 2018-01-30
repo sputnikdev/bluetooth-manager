@@ -203,10 +203,10 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
         if (!isReady()) {
             // the governor is not ready, trying to update it
             update();
-        }
-        if (!isReady()) {
-            // still not ready even after the update?
-            throw new NotReadyException("Bluetooth object is not ready: " + url);
+            if (!isReady()) {
+                // still not ready even after the update?
+                throw new NotReadyException("Bluetooth object is not ready: " + url);
+            }
         }
         return bluetoothObject;
     }

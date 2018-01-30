@@ -75,11 +75,24 @@ public class AbstractBluetoothObjectGovernorTest {
     public void testGetBluetoothObject() throws Exception {
         assertEquals(bluetoothObject, governor.getBluetoothObject());
         verify(governor, times(1)).getBluetoothObject();
+        verify(governor, times(1)).isReady();
         verifyNoMoreInteractions(governor);
+    }
+
+    @Test
+    public void testGetBluetoothObjectGetReady() throws Exception {
+        Whitebox.setInternalState(governor, "bluetoothObject", null);
+        assertEquals(bluetoothObject, governor.getBluetoothObject());
+        InOrder inOrder = inOrder(governor);
+        inOrder.verify(governor).getBluetoothObject();
+        inOrder.verify(governor).isReady();
+        inOrder.verify(governor).update();
+        inOrder.verify(governor).isReady();
     }
 
     @Test(expected = NotReadyException.class)
     public void testGetBluetoothObjectNotReady() throws Exception {
+        when(bluetoothManager.getBluetoothObject(any())).thenReturn(null);
         Whitebox.setInternalState(governor, "bluetoothObject", null);
         governor.getBluetoothObject();
     }
