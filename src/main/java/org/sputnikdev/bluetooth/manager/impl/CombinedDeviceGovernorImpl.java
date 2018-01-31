@@ -48,7 +48,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
@@ -73,7 +72,6 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     private final AtomicInteger governorsCount = new AtomicInteger();
     private final Map<URL, DeviceGovernorHandler> governors = new ConcurrentHashMap<>();
     private final DelegateRegistrar delegateRegistrar = new DelegateRegistrar();
-    private CompletableFuture<?> initTask;
 
     // proxy listeners
     private final List<GovernorListener> governorListeners = new CopyOnWriteArrayList<>();
@@ -210,10 +208,14 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
                 DeviceGovernor newTarget = determineConnectionTarget();
                 if (connectionTarget != null && !connectionTarget.equals(newTarget)) {
                     connectionTarget.setConnectionControl(false);
+                    // update immediately
+                    ((BluetoothObjectGovernor) connectionTarget).update();
                 }
                 connectionTarget = newTarget;
                 if (connectionTarget != null) {
                     connectionTarget.setConnectionControl(connectionControl);
+                    // update immediately
+                    ((BluetoothObjectGovernor) connectionTarget).update();
                 }
             }
         }
@@ -395,9 +397,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     @Override
     public void init() {
         bluetoothManager.addAdapterDiscoveryListener(delegateRegistrar);
-        initTask = CompletableFuture.runAsync(() -> {
-            bluetoothManager.getDiscoveredAdapters().forEach(this::registerDelegate);
-        });
+        bluetoothManager.getDiscoveredAdapters().forEach(this::registerDelegate);
     }
 
     @Override
@@ -410,9 +410,6 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
 
     @Override
     public void dispose() {
-        if (initTask != null) {
-            initTask.cancel(true);
-        }
         setConnectionControl(false);
         bluetoothManager.removeAdapterDiscoveryListener(delegateRegistrar);
         governors.values().forEach(DeviceGovernorHandler::dispose);
@@ -596,6 +593,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
                             if (deviceAlias != null) {
                                 alias = deviceAlias;
                             }
+                            rssiChanged(delegate.getRSSI());
                             inited = true;
                         } catch (NotReadyException ex) {
                             // the device has become not ready, that's fine it will be initialized again later

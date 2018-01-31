@@ -142,11 +142,12 @@ public interface BluetoothManager {
 
     /**
      * Creates a new device governor or returns an existing one by its URL.
-     * Enables automatic the connection control ({@link DeviceGovernor#setConnectionControl(boolean)}) for the governor.
+     * If the provided boolean argument is set to true, then the connection control
+     * ({@link DeviceGovernor#setConnectionControl(boolean)}) is enabled for the governor.
      * @param url a URL of a bluetooth device
      * @return an device governor
      */
-    DeviceGovernor getDeviceGovernorAutoconnect(URL url);
+    DeviceGovernor getDeviceGovernor(URL url, boolean forceConnect);
 
     /**
      * Creates a new characteristic governor or returns an existing one by its URL.
@@ -157,12 +158,13 @@ public interface BluetoothManager {
 
     /**
      * Creates a new characteristic governor or returns an existing one by its URL.
-     * Makes sure that connection control ({@link DeviceGovernor#setConnectionControl(boolean)}) is enabled for
-     * the corresponding device governor.
+     * If the provided boolean argument is set to true, then the connection control
+     * ({@link DeviceGovernor#setConnectionControl(boolean)}) is enabled for the corresponding governor.
      * @param url a URL of a bluetooth characteristic
+     * @param forceConnect if set to true, the corresponding DeviceGovernor connection control is set to true
      * @return a characteristic governor
      */
-    CharacteristicGovernor getCharacteristicGovernorAutoconnect(URL url);
+    CharacteristicGovernor getCharacteristicGovernor(URL url, boolean forceConnect);
 
     /**
      * Disposes/ shuts down a governor by its URL.

@@ -135,9 +135,6 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
     @Override
     public boolean write(byte[] data) throws NotReadyException {
         Characteristic characteristic = getBluetoothObject();
-        if (characteristic == null) {
-            throw new IllegalStateException("Characteristic governor is not initialized");
-        }
         boolean result = characteristic.writeValue(data);
         updateLastChanged();
         return result;

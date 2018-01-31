@@ -29,17 +29,18 @@ import java.util.Map;
  *
  * @author Vlad Kolotov
  */
+@FunctionalInterface
 public interface BluetoothSmartDeviceListener {
 
     /**
      * Fires when the device gets connected.
      */
-    void connected();
+    default void connected() { }
 
     /**
      * Fires when the device gets disconnected.
      */
-    void disconnected();
+    default void disconnected() { }
 
     /**
      * Fires when GATT services get resolved.
@@ -51,7 +52,7 @@ public interface BluetoothSmartDeviceListener {
     /**
      * Fires when GATT services get unresolved.
      */
-    void servicesUnresolved();
+    default void servicesUnresolved() { }
 
     /**
      * Fires when the device advertises service data. The key is service UUID (16, 32 or 128 bit),

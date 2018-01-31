@@ -31,6 +31,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * A root class for all governors in the system. Defines lifecycle and error handling/recovery processes for governors.
@@ -87,6 +88,8 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
     private Date lastActivityNotified;
     private final List<GovernorListener> governorListeners = new CopyOnWriteArrayList<>();
 
+    private final ReentrantLock updateLock = new ReentrantLock();
+
     AbstractBluetoothObjectGovernor(BluetoothManagerImpl bluetoothManager, URL url) {
         this.bluetoothManager = bluetoothManager;
         this.url = url;
@@ -138,13 +141,6 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
         return transport;
     }
 
-    T getBluetoothObject() throws NotReadyException {
-        if (bluetoothObject == null) {
-            throw new NotReadyException("Bluetooth object is not ready: " + url);
-        }
-        return bluetoothObject;
-    }
-
     @Override
     public void init() {
         update();
@@ -152,38 +148,67 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
 
     @Override
     public void update() {
-        T object = getOrFindBluetoothObject();
-        if (object == null) {
-            return;
-        }
-        try {
-            update(object);
-            notifyLastChanged();
-        } catch (Exception ex) {
-            logger.warn("Could not update governor state.", ex);
-            reset();
+        if (updateLock.tryLock()) {
+            try {
+                T object = getOrFindBluetoothObject();
+                if (object == null) {
+                    return;
+                }
+                try {
+                    update(object);
+                    notifyLastChanged();
+                } catch (Exception ex) {
+                    logger.warn("Could not update governor state.", ex);
+                    reset();
+                }
+            } finally {
+                updateLock.unlock();
+            }
+        } else {
+            // looks like the bluetooth manager is performing an update of this governor already,
+            // therefore no need to run another update, let's wait until the bluetooth manager finishes its update
+            updateLock.lock();
+            updateLock.unlock();
         }
     }
 
+    protected void scheduleUpdate() {
+        bluetoothManager.scheduleUpdate(this);
+    }
+
     public void reset() {
-        logger.info("Resetting governor: {}", url);
-        try {
-            if (bluetoothObject != null) {
-                reset(bluetoothObject);
-                notifyReady(false);
-                bluetoothObject.dispose();
+        if (updateLock.tryLock()) {
+            logger.info("Resetting governor: {}", url);
+            try {
+                if (bluetoothObject != null) {
+                    forceReset(bluetoothObject);
+                }
+                bluetoothObject = null;
+                logger.info("Governor has been reset: {}", url);
+            } catch (Exception ex) {
+                logger.debug("Could not reset governor {}: {}", url, ex.getMessage());
+            } finally {
+                updateLock.unlock();
             }
-        } catch (Exception ex) {
-            logger.debug("Could not reset governor {}: {}", url, ex.getMessage());
         }
-        bluetoothObject = null;
-        logger.info("Governor has been reset: {}", url);
     }
 
     @Override
     public void dispose() {
         reset();
         governorListeners.clear();
+    }
+
+    T getBluetoothObject() throws NotReadyException {
+        if (!isReady()) {
+            // the governor is not ready, trying to update it
+            update();
+            if (!isReady()) {
+                // still not ready even after the update?
+                throw new NotReadyException("Bluetooth object is not ready: " + url);
+            }
+        }
+        return bluetoothObject;
     }
 
     abstract void init(T object);
@@ -229,6 +254,20 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
             }
         }
         return bluetoothObject;
+    }
+
+    private void forceReset(T bluetoothObject) {
+        try {
+            reset(bluetoothObject);
+        } catch (Exception ex) {
+            logger.debug("Could not reset bluetooth object {}: {}", url, ex.getMessage());
+        }
+        notifyReady(false);
+        try {
+            bluetoothObject.dispose();
+        } catch (Exception ex) {
+            logger.debug("Could not dispose bluetooth object {}: {}", url, ex.getMessage());
+        }
     }
 
 }
