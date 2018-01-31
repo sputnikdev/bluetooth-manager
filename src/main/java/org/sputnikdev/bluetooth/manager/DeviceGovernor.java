@@ -305,4 +305,16 @@ public interface DeviceGovernor extends BluetoothGovernor {
      */
     List<CharacteristicGovernor> getCharacteristicGovernors() throws NotReadyException;
 
+    /**
+     * Returns advertised manufacturer data. The key is manufacturer ID, the value is manufacturer data.
+     * @return advertised manufacturer data
+     */
+    Map<Short, byte[]> getManufacturerData();
+
+    /**
+     * Returns advertised service data. The key is service UUID (16, 32 or 128 bit UUID), the value is service data.
+     * @return advertised service data
+     */
+    Map<String, byte[]> getServiceData();
+
 }

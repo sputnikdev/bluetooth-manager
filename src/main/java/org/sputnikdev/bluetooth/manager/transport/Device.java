@@ -20,6 +20,8 @@ package org.sputnikdev.bluetooth.manager.transport;
  * #L%
  */
 
+import org.sputnikdev.bluetooth.manager.BluetoothAddressType;
+
 import java.util.List;
 import java.util.Map;
 
@@ -77,4 +79,13 @@ public interface Device extends BluetoothObject {
 
     Map<Short, byte[]> getManufacturerData();
 
+    BluetoothAddressType getAddressType();
+
+    void enableServiceDataNotifications(Notification<Map<String, byte[]>> notification);
+
+    void disableServiceDataNotifications();
+
+    void enableManufacturerDataNotifications(Notification<Map<Short, byte[]>> notification);
+
+    void disableManufacturerDataNotifications();
 }

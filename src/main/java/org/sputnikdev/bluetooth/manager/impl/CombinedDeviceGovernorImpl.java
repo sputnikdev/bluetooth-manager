@@ -41,6 +41,7 @@ import org.sputnikdev.bluetooth.manager.GovernorListener;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
@@ -187,6 +188,18 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     public List<GattService> getResolvedServices() throws NotReadyException {
         DeviceGovernor deviceGovernor = getGovernor(servicesResolved.getUniqueIndex());
         return deviceGovernor != null ? deviceGovernor.getResolvedServices() : null;
+    }
+
+    @Override
+    public Map<Short, byte[]> getManufacturerData() {
+        DeviceGovernor governor = nearest;
+        return governor != null ? governor.getManufacturerData() : Collections.emptyMap();
+    }
+
+    @Override
+    public Map<String, byte[]> getServiceData() {
+        DeviceGovernor governor = nearest;
+        return governor != null ? governor.getServiceData() : Collections.emptyMap();
     }
 
     private void updateConnectionTarget() {

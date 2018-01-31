@@ -69,6 +69,8 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     private BlockedNotification blockedNotification;
     private ServicesResolvedNotification servicesResolvedNotification;
     private RSSINotification rssiNotification;
+    private ServiceDataNotification serviceDataNotification;
+    private ManufacturerDataNotification manufacturerDataNotification;
     private boolean connectionControl;
     private boolean blockedControl;
     private boolean online;
@@ -93,6 +95,8 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         enableConnectionNotifications(device);
         enableServicesResolvedNotifications(device);
         enableBlockedNotifications(device);
+        enableManufacturerDataNotifications(device);
+        enableServiceDataNotifications(device);
     }
 
     @Override
@@ -125,6 +129,8 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         device.disableServicesResolvedNotifications();
         device.disableRSSINotifications();
         device.disableBlockedNotifications();
+        device.disableServiceDataNotifications();
+        device.disableManufacturerDataNotifications();
         logger.info("Disconnecting device: " + getURL());
         if (device.isConnected()) {
             device.disconnect();
@@ -395,6 +401,16 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         visitor.visit(this);
     }
 
+    @Override
+    public Map<Short, byte[]> getManufacturerData() {
+        return getBluetoothObject().getManufacturerData();
+    }
+
+    @Override
+    public Map<String, byte[]> getServiceData() {
+        return getBluetoothObject().getServiceData();
+    }
+
     void notifyConnected(boolean connected) {
         bluetoothSmartDeviceListeners.forEach(listener -> {
             try {
@@ -525,6 +541,22 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         }
     }
 
+    private void enableServiceDataNotifications(Device bluetoothDevice) {
+        if (serviceDataNotification == null) {
+            logger.info("Enabling service data notification: {} ", getURL());
+            serviceDataNotification = new ServiceDataNotification();
+            bluetoothDevice.enableServiceDataNotifications(serviceDataNotification);
+        }
+    }
+
+    private void enableManufacturerDataNotifications(Device bluetoothDevice) {
+        if (manufacturerDataNotification == null) {
+            logger.info("Enabling manufacturer data notification: {} ", getURL());
+            manufacturerDataNotification = new ManufacturerDataNotification();
+            bluetoothDevice.enableManufacturerDataNotifications(manufacturerDataNotification);
+        }
+    }
+
     private void updateCharacteristics() {
         bluetoothManager.updateDescendants(url);
     }
@@ -627,6 +659,34 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         @Override
         public void notify(Short rssi) {
             updateRSSI(rssi);
+            updateLastChanged();
+        }
+    }
+
+    private class ServiceDataNotification implements Notification<Map<String, byte[]>> {
+        @Override
+        public void notify(Map<String, byte[]> serviceData) {
+            bluetoothSmartDeviceListeners.forEach(listener -> {
+                try {
+                    listener.serviceDataChanged(serviceData);
+                } catch (Exception ex) {
+                    logger.error("Execution error of a service data listener", ex);
+                }
+            });
+            updateLastChanged();
+        }
+    }
+
+    private class ManufacturerDataNotification implements Notification<Map<Short, byte[]>> {
+        @Override
+        public void notify(Map<Short, byte[]> manufacturerData) {
+            bluetoothSmartDeviceListeners.forEach(listener -> {
+                try {
+                    listener.manufacturerDataChanged(manufacturerData);
+                } catch (Exception ex) {
+                    logger.error("Execution error of a manufacturer data listener", ex);
+                }
+            });
             updateLastChanged();
         }
     }

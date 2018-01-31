@@ -21,6 +21,7 @@ package org.sputnikdev.bluetooth.manager;
  */
 
 import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -51,5 +52,16 @@ public interface BluetoothSmartDeviceListener {
      * Fires when GATT services get unresolved.
      */
     void servicesUnresolved();
+
+    /**
+     * Fires when the device advertises service data. The key is service UUID (16, 32 or 128 bit),
+     * the value is advertised data.
+     */
+    default void serviceDataChanged(Map<String, byte[]> serviceData) { }
+
+    /**
+     * Fires when the device advertises manufacturer data. The key is manufacturer ID, the value is advertised data.
+     */
+    default void manufacturerDataChanged(Map<Short, byte[]> manufacturerData) { }
 
 }
