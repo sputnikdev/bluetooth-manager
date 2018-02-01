@@ -100,6 +100,10 @@ public class DeviceGovernorImplTest {
     private ArgumentCaptor<Notification<Boolean>> connectedCaptor;
     @Captor
     private ArgumentCaptor<Notification<Boolean>> servicesResolvedCaptor;
+    @Captor
+    private ArgumentCaptor<Notification<Map<String, byte[]>>> serviceDataCaptor;
+    @Captor
+    private ArgumentCaptor<Notification<Map<Short, byte[]>>> manufacturerDataCaptor;
 
     @Before
     public void setUp() throws Exception {
@@ -110,6 +114,8 @@ public class DeviceGovernorImplTest {
         doNothing().when(device).enableBlockedNotifications(blockedCaptor.capture());
         doNothing().when(device).enableConnectedNotifications(connectedCaptor.capture());
         doNothing().when(device).enableServicesResolvedNotifications(servicesResolvedCaptor.capture());
+        doNothing().when(device).enableServiceDataNotifications(serviceDataCaptor.capture());
+        doNothing().when(device).enableManufacturerDataNotifications(manufacturerDataCaptor.capture());
 
         governor.addGenericBluetoothDeviceListener(genericDeviceListener);
         governor.addBluetoothSmartDeviceListener(bluetoothSmartDeviceListener);
@@ -165,6 +171,8 @@ public class DeviceGovernorImplTest {
         verify(device, times(1)).enableBlockedNotifications(blockedCaptor.getValue());
         verify(device, times(1)).enableConnectedNotifications(connectedCaptor.getValue());
         verify(device, times(1)).enableServicesResolvedNotifications(servicesResolvedCaptor.getValue());
+        verify(device, times(1)).enableServiceDataNotifications(serviceDataCaptor.getValue());
+        verify(device, times(1)).enableManufacturerDataNotifications(manufacturerDataCaptor.getValue());
 
         verifyNoMoreInteractions(device, genericDeviceListener, bluetoothSmartDeviceListener);
     }
@@ -355,6 +363,8 @@ public class DeviceGovernorImplTest {
         verify(device, times(1)).disableServicesResolvedNotifications();
         verify(device, times(1)).disableConnectedNotifications();
         verify(device, times(1)).disableBlockedNotifications();
+        verify(device, times(1)).disableServiceDataNotifications();
+        verify(device, times(1)).disableManufacturerDataNotifications();
         verify(device, times(1)).isConnected();
         verify(device, times(0)).disconnect();
         verify(bluetoothSmartDeviceListener, times(0)).disconnected();
@@ -370,6 +380,8 @@ public class DeviceGovernorImplTest {
         verify(device, times(2)).disableServicesResolvedNotifications();
         verify(device, times(2)).disableConnectedNotifications();
         verify(device, times(2)).disableBlockedNotifications();
+        verify(device, times(2)).disableServiceDataNotifications();
+        verify(device, times(2)).disableManufacturerDataNotifications();
         verify(device, times(2)).isConnected();
         verify(device, times(1)).disconnect();
         verify(bluetoothSmartDeviceListener, times(1)).disconnected();
