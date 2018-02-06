@@ -166,22 +166,26 @@ class BluetoothManagerImpl implements BluetoothManager {
         if (url.isProtocol() || url.isRoot()) {
             return null;
         }
-        synchronized (governors) {
-            URL protocolLess = url.copyWithProtocol(null);
-            if (governors.containsKey(protocolLess)) {
-                BluetoothObjectGovernor governor = governors.get(protocolLess);
-                if (!governor.isReady()) {
-                    update(governor);
+        URL protocolLess = url.copyWithProtocol(null);
+        BluetoothObjectGovernor governor = governors.get(protocolLess);
+        if (governor == null) {
+            synchronized (governors) {
+                // is it still missing?
+                if (!governors.containsKey(protocolLess)) {
+                    governor = createGovernor(protocolLess);
+                    governors.put(protocolLess, governor);
+                    init(governor);
+                    scheduleGovernor(governor);
+                    return governor;
+                } else {
+                    governor = governors.get(protocolLess);
                 }
-                return governor;
-            } else {
-                BluetoothObjectGovernor governor = createGovernor(protocolLess);
-                governors.put(protocolLess, governor);
-                init(governor);
-                scheduleGovernor(governor);
-                return governor;
             }
         }
+        if (!governor.isReady()) {
+            update(governor);
+        }
+        return governor;
     }
 
     @Override
