@@ -28,6 +28,7 @@ import java.util.Date;
  * A listener to watch governors events.
  *
  */
+@FunctionalInterface
 public interface GovernorListener {
 
     /**
@@ -40,6 +41,6 @@ public interface GovernorListener {
      * Reports when a device/governor was last active (receiving events, sending commands etc).
      * @param lastActivity a date when a device was last active
      */
-    void lastUpdatedChanged(Date lastActivity);
+    default void lastUpdatedChanged(Date lastActivity) { }
 
 }
