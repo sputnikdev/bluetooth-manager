@@ -32,6 +32,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * A root class for all governors in the system. Defines lifecycle and error handling/recovery processes for governors.
@@ -172,10 +174,6 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
         }
     }
 
-    protected void scheduleUpdate() {
-        bluetoothManager.scheduleUpdate(this);
-    }
-
     public void reset() {
         if (updateLock.tryLock()) {
             logger.info("Resetting governor: {}", url);
@@ -183,6 +181,7 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
                 if (bluetoothObject != null) {
                     forceReset(bluetoothObject);
                 }
+                bluetoothManager.resetDescendants(url);
                 bluetoothObject = null;
                 logger.info("Governor has been reset: {}", url);
             } catch (Exception ex) {
@@ -199,7 +198,26 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
         governorListeners.clear();
     }
 
-    T getBluetoothObject() throws NotReadyException {
+    protected void scheduleUpdate() {
+        bluetoothManager.scheduleUpdate(this);
+    }
+
+    protected <R> R interact(Function<T, R> delegate) {
+        try {
+            R result = delegate.apply(getBluetoothObject());
+            updateLastChanged();
+            return result;
+        } catch (Exception ex) {
+            reset();
+            throw ex;
+        }
+    }
+
+    protected void interact(Consumer<T> delegate) {
+        interact((Function<T, Void>)(object) -> {delegate.accept(object); return null;});
+    }
+
+    private T getBluetoothObject() throws NotReadyException {
         if (!isReady()) {
             // the governor is not ready, trying to update it
             update();

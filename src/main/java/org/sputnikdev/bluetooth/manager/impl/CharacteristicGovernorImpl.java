@@ -35,6 +35,7 @@ import org.sputnikdev.bluetooth.manager.transport.Notification;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Function;
 
 /**
  *
@@ -95,7 +96,7 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
 
     @Override
     public Set<CharacteristicAccessType> getFlags() throws NotReadyException {
-        return getBluetoothObject().getFlags();
+        return interact(Characteristic::getFlags);
     }
 
     @Override
@@ -106,7 +107,7 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
 
     @Override
     public boolean isNotifying() throws NotReadyException {
-        return getBluetoothObject().isNotifying();
+        return isReady() && interact(Characteristic::isNotifying);
     }
 
     @Override
@@ -123,21 +124,12 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
 
     @Override
     public byte[] read() throws NotReadyException {
-        Characteristic characteristic = getBluetoothObject();
-        if (characteristic == null) {
-            throw new IllegalStateException("Characteristic governor is not initialized");
-        }
-        byte[] result = characteristic.readValue();
-        updateLastChanged();
-        return result;
+        return interact(Characteristic::readValue);
     }
 
     @Override
     public boolean write(byte[] data) throws NotReadyException {
-        Characteristic characteristic = getBluetoothObject();
-        boolean result = characteristic.writeValue(data);
-        updateLastChanged();
-        return result;
+        return interact((Function<Characteristic, Boolean>) characteristic -> characteristic.writeValue(data));
     }
 
     @Override

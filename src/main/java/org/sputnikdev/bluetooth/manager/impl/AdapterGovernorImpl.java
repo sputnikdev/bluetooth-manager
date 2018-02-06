@@ -34,6 +34,8 @@ import org.sputnikdev.bluetooth.manager.transport.Notification;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  *
@@ -98,8 +100,7 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
 
     @Override
     public boolean isPowered() throws NotReadyException {
-        Adapter adapter = getBluetoothObject();
-        return adapter != null && adapter.isPowered();
+        return isReady() && interact(Adapter::isPowered);
     }
 
     @Override
@@ -114,23 +115,22 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
 
     @Override
     public boolean isDiscovering() throws NotReadyException {
-        Adapter adapter = getBluetoothObject();
-        return adapter != null && adapter.isDiscovering();
+        return isReady() && interact(Adapter::isDiscovering);
     }
 
     @Override
     public void setAlias(String alias) throws NotReadyException {
-        getBluetoothObject().setAlias(alias);
+        interact((Consumer<Adapter>) adapter -> adapter.setAlias(alias));
     }
 
     @Override
     public String getAlias() throws NotReadyException {
-        return getBluetoothObject().getAlias();
+        return interact(Adapter::getAlias);
     }
 
     @Override
     public String getName() throws NotReadyException {
-        return getBluetoothObject().getName();
+        return interact(Adapter::getName);
     }
 
     @Override
@@ -151,12 +151,13 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
 
     @Override
     public List<URL> getDevices() throws NotReadyException {
-        return BluetoothManagerUtils.getURLs(getBluetoothObject().getDevices());
+        return interact((Function<Adapter, List<URL>>) adapter -> BluetoothManagerUtils.getURLs(adapter.getDevices()));
     }
 
     @Override
     public List<DeviceGovernor> getDeviceGovernors() throws NotReadyException {
-        return (List) bluetoothManager.getGovernors(getBluetoothObject().getDevices());
+        return interact((Function<Adapter, List<DeviceGovernor>>) adapter ->
+                (List) bluetoothManager.getGovernors(adapter.getDevices()));
     }
 
     @Override

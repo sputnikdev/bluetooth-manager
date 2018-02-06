@@ -1,7 +1,5 @@
 package org.sputnikdev.bluetooth.manager.impl;
 
-import java.util.Date;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -18,6 +16,9 @@ import org.sputnikdev.bluetooth.manager.GovernorListener;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObject;
 
+import java.util.Date;
+import java.util.function.Function;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -32,6 +33,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+import static org.powermock.api.mockito.PowerMockito.spy;
 
 @RunWith(MockitoJUnitRunner.class)
 public class AbstractBluetoothObjectGovernorTest {
@@ -72,29 +74,55 @@ public class AbstractBluetoothObjectGovernorTest {
     }
 
     @Test
-    public void testGetBluetoothObject() throws Exception {
-        assertEquals(bluetoothObject, governor.getBluetoothObject());
-        verify(governor, times(1)).getBluetoothObject();
-        verify(governor, times(1)).isReady();
-        verifyNoMoreInteractions(governor);
-    }
-
-    @Test
-    public void testGetBluetoothObjectGetReady() throws Exception {
-        Whitebox.setInternalState(governor, "bluetoothObject", null);
-        assertEquals(bluetoothObject, governor.getBluetoothObject());
-        InOrder inOrder = inOrder(governor);
-        inOrder.verify(governor).getBluetoothObject();
+    public void testInteractGetReady() {
+        when(governor.isReady()).thenReturn(false, true);
+        Function<BluetoothObject, Boolean> function = spy(new Function<BluetoothObject, Boolean>() {
+            @Override
+            public Boolean apply(BluetoothObject object) {
+                assertEquals(bluetoothObject, object);
+                return false;
+            }
+        });
+        governor.interact(function);
+        InOrder inOrder = inOrder(governor, function);
         inOrder.verify(governor).isReady();
         inOrder.verify(governor).update();
         inOrder.verify(governor).isReady();
+        inOrder.verify(function).apply(bluetoothObject);
     }
 
     @Test(expected = NotReadyException.class)
-    public void testGetBluetoothObjectNotReady() throws Exception {
-        when(bluetoothManager.getBluetoothObject(any())).thenReturn(null);
-        Whitebox.setInternalState(governor, "bluetoothObject", null);
-        governor.getBluetoothObject();
+    public void testInteractNotReady() {
+        when(governor.isReady()).thenReturn(false);
+        governor.interact((obj) -> true);
+    }
+
+    @Test
+    public void testInteractReady() {
+        when(governor.isReady()).thenReturn(true);
+        Function<BluetoothObject, Boolean> function = spy(new Function<BluetoothObject, Boolean>() {
+            @Override
+            public Boolean apply(BluetoothObject object) {
+                assertEquals(bluetoothObject, object);
+                return false;
+            }
+        });
+        governor.interact(function);
+        InOrder inOrder = inOrder(governor, function);
+        inOrder.verify(governor).isReady();
+        inOrder.verify(function).apply(bluetoothObject);
+    }
+
+    @Test(expected = Exception.class)
+    public void testInteractException() {
+        when(governor.isReady()).thenReturn(true);
+        Function<BluetoothObject, Boolean> function = mock(Function.class);
+        when(function.apply(any())).thenThrow(Exception.class);
+        try {
+            governor.interact(function);
+        } finally {
+            verify(governor).reset();
+        }
     }
 
     @Test
@@ -217,9 +245,10 @@ public class AbstractBluetoothObjectGovernorTest {
         governor.reset();
 
         // check interactions
-        InOrder inOrder = inOrder(governor, governorListener);
+        InOrder inOrder = inOrder(governor, governorListener, bluetoothManager);
         inOrder.verify(governor, times(1)).reset(bluetoothObject);
         inOrder.verify(governorListener, times(1)).ready(false);
+        inOrder.verify(bluetoothManager).resetDescendants(URL);
 
         inOrder.verifyNoMoreInteractions();
     }

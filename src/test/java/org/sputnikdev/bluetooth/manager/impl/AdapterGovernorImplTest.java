@@ -1,9 +1,5 @@
 package org.sputnikdev.bluetooth.manager.impl;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -14,15 +10,24 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.internal.util.reflection.Whitebox;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
+import org.mockito.runners.MockitoJUnitRunner;
 import org.sputnikdev.bluetooth.URL;
-import org.sputnikdev.bluetooth.manager.*;
+import org.sputnikdev.bluetooth.manager.AdapterGovernor;
+import org.sputnikdev.bluetooth.manager.AdapterListener;
+import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
+import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
+import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
+import org.sputnikdev.bluetooth.manager.CharacteristicGovernor;
+import org.sputnikdev.bluetooth.manager.DeviceGovernor;
 import org.sputnikdev.bluetooth.manager.transport.Adapter;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObjectFactory;
 import org.sputnikdev.bluetooth.manager.transport.Device;
 import org.sputnikdev.bluetooth.manager.transport.Notification;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Function;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -39,7 +44,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-@RunWith(PowerMockRunner.class)
+@RunWith(MockitoJUnitRunner.class)
 public class AdapterGovernorImplTest {
 
     private static final Boolean POWERED = true;
@@ -60,8 +65,9 @@ public class AdapterGovernorImplTest {
 
     @Mock(name = "bluetoothObject")
     private Adapter adapter;
-    @Mock
+
     private BluetoothManagerImpl bluetoothManager = mock(BluetoothManagerImpl.class);
+
     @Mock
     private AdapterListener listener;
     @Mock
@@ -97,14 +103,8 @@ public class AdapterGovernorImplTest {
     }
 
     @Test
-    public void testInit() throws Exception {
+    public void testInit() {
         governor.init(adapter);
-
-        //verify(adapter, times(1)).isPowered();
-        //verify(listener, times(1)).powered(POWERED);
-
-        //verify(adapter, times(1)).isDiscovering();
-        //verify(listener, times(1)).discovering(DISCOVERING);
 
         verify(adapter, times(1)).enablePoweredNotifications(poweredCaptor.getValue());
         verify(adapter, times(1)).enableDiscoveringNotifications(discoveringCaptor.getValue());
@@ -114,16 +114,11 @@ public class AdapterGovernorImplTest {
     }
 
     @Test
-    public void testUpdate() throws Exception {
+    public void testUpdate() {
         when(adapter.isDiscovering())
                 .thenReturn(false)
                 .thenReturn(false)
                 .thenReturn(true);
-
-//        when(adapter.isPowered())
-//                .thenReturn(false).thenReturn(false)
-//                .thenReturn(false).thenReturn(true)
-//                .thenReturn(true).thenReturn(true);
 
         governor.setPoweredControl(false);
         governor.setDiscoveringControl(false);
@@ -178,7 +173,7 @@ public class AdapterGovernorImplTest {
     }
 
     @Test
-    public void testReset() throws Exception {
+    public void testReset() {
         governor.reset(adapter);
 
         verify(adapter, times(1)).disableDiscoveringNotifications();
@@ -186,7 +181,7 @@ public class AdapterGovernorImplTest {
     }
 
     @Test
-    public void testGetSetPoweredControl() throws Exception {
+    public void testGetSetPoweredControl() {
         governor.setPoweredControl(true);
         assertTrue(governor.getPoweredControl());
 
@@ -195,22 +190,22 @@ public class AdapterGovernorImplTest {
     }
 
     @Test
-    public void testIsPowered() throws Exception {
+    public void testIsPowered() {
         when(adapter.isPowered()).thenReturn(false).thenReturn(true);
 
         assertFalse(governor.isPowered());
         verify(adapter, times(1)).isPowered();
-        verify(governor, times(1)).getBluetoothObject();
+        verify(governor).interact(any(Function.class));
 
         assertTrue(governor.isPowered());
         verify(adapter, times(2)).isPowered();
-        verify(governor, times(2)).getBluetoothObject();
+        verify(governor, times(2)).interact(any(Function.class));
 
         verifyNoMoreInteractions(adapter);
     }
 
     @Test
-    public void testGetSetDiscoveringControl() throws Exception {
+    public void testGetSetDiscoveringControl() {
         governor.setDiscoveringControl(true);
         assertTrue(governor.getDiscoveringControl());
 
@@ -219,70 +214,71 @@ public class AdapterGovernorImplTest {
     }
 
     @Test
-    public void testIsDiscovering() throws Exception {
+    public void testIsDiscovering() {
         when(adapter.isDiscovering()).thenReturn(false).thenReturn(true);
 
         assertFalse(governor.isDiscovering());
         verify(adapter, times(1)).isDiscovering();
-        verify(governor, times(1)).getBluetoothObject();
+        verify(governor).interact(any(Function.class));
 
         assertTrue(governor.isDiscovering());
         verify(adapter, times(2)).isDiscovering();
+        verify(governor, times(2)).interact(any(Function.class));
 
         verifyNoMoreInteractions(adapter);
     }
 
     @Test
-    public void testGetAlias() throws Exception {
+    public void testGetAlias() {
         assertEquals(ALIAS, governor.getAlias());
 
-        verify(governor, times(1)).getBluetoothObject();
         verify(adapter, times(1)).getAlias();
+        verify(governor).interact(any(Function.class));
 
         verifyNoMoreInteractions(adapter);
     }
 
     @Test
-    public void testSetAlias() throws Exception {
+    public void testSetAlias() {
         String newAlias = "new alias";
 
         governor.setAlias(newAlias);
 
-        verify(governor, times(1)).getBluetoothObject();
         verify(adapter, times(1)).setAlias(newAlias);
+        verify(governor).interact(any(Function.class));
 
         verifyNoMoreInteractions(adapter);
     }
 
     @Test
-    public void testGetName() throws Exception {
+    public void testGetName() {
         assertEquals(NAME, governor.getName());
 
-        verify(governor, times(1)).getBluetoothObject();
         verify(adapter, times(1)).getName();
+        verify(governor).interact(any(Function.class));
 
         verifyNoMoreInteractions(adapter);
     }
 
     @Test
-    public void testGetDisplayName() throws Exception {
+    public void testGetDisplayName() {
         when(adapter.getAlias()).thenReturn(ALIAS).thenReturn(null);
         when(adapter.getName()).thenReturn(NAME);
 
         assertEquals(ALIAS, governor.getDisplayName());
-        verify(governor, times(1)).getBluetoothObject();
         verify(adapter, times(1)).getAlias();
+        verify(governor, times(1)).interact(any(Function.class));
 
         assertEquals(NAME, governor.getDisplayName());
-        verify(governor, times(3)).getBluetoothObject();
         verify(adapter, times(2)).getAlias();
         verify(adapter, times(1)).getName();
+        verify(governor, times(3)).interact(any(Function.class));
 
         verifyNoMoreInteractions(adapter);
     }
 
     @Test
-    public void testGetDevices() throws Exception {
+    public void testGetDevices() {
         List<URL> deviceURLs = new ArrayList<>(governor.getDevices());
         assertEquals(2, deviceURLs.size());
         Collections.sort(deviceURLs);
@@ -294,25 +290,25 @@ public class AdapterGovernorImplTest {
     }
 
     @Test
-    public void testGetDeviceGovernors() throws Exception {
+    public void testGetDeviceGovernors() {
         List<BluetoothGovernor> deviceGovernors = mock(List.class);
-        when(bluetoothManager.getGovernors(DEVICES)).thenReturn(deviceGovernors);
+        when(bluetoothManager.getGovernors(any())).thenReturn(deviceGovernors);
 
         assertEquals(deviceGovernors, governor.getDeviceGovernors());
 
-        verify(adapter, times(1)).getDevices();
+        verify(adapter).getDevices();
         verifyNoMoreInteractions(adapter);
     }
 
     @Test
-    public void testToString() throws Exception {
+    public void testToString() {
         when(adapter.getAlias()).thenReturn(ALIAS).thenReturn(null);
         assertEquals("[Adapter] " + URL + " [" + ALIAS + "]", governor.toString());
         assertEquals("[Adapter] " + URL + " [" + NAME + "]", governor.toString());
     }
 
     @Test
-    public void testEquals() throws Exception {
+    public void testEquals() {
         URL url1 = new URL("/11:22:33:44:55:67");
         URL url2 = new URL("/11:22:33:44:55:66");
 
@@ -331,7 +327,7 @@ public class AdapterGovernorImplTest {
     }
 
     @Test
-    public void testHashCode() throws Exception {
+    public void testHashCode() {
         URL url1 = new URL("/11:22:33:44:55:67");
         URL url2 = new URL("/11:22:33:44:55:66");
 
@@ -346,29 +342,29 @@ public class AdapterGovernorImplTest {
     }
 
     @Test
-    public void testGetType() throws Exception {
+    public void testGetType() {
         assertEquals(BluetoothObjectType.ADAPTER, governor.getType());
     }
 
     @Test
     public void testAccept() throws Exception {
         governor.accept(new BluetoothObjectVisitor() {
-            @Override public void visit(AdapterGovernor governor) throws Exception {
+            @Override public void visit(AdapterGovernor governor) {
                 assertEquals(AdapterGovernorImplTest.this.governor, governor);
             }
 
-            @Override public void visit(DeviceGovernor governor) throws Exception {
+            @Override public void visit(DeviceGovernor governor) {
                 assertFalse(true);
             }
 
-            @Override public void visit(CharacteristicGovernor governor) throws Exception {
+            @Override public void visit(CharacteristicGovernor governor) {
                 assertFalse(true);
             }
         });
     }
 
     @Test
-    public void testAddRemoveAdapterListener() throws Exception {
+    public void testAddRemoveAdapterListener() {
         AdapterListener adapterListener = mock(AdapterListener.class);
         governor.addAdapterListener(adapterListener);
 
@@ -382,7 +378,7 @@ public class AdapterGovernorImplTest {
     }
 
     @Test
-    public void testNotifyPowered() throws Exception {
+    public void testNotifyPowered() {
         AdapterListener adapterListener1 = mock(AdapterListener.class);
         AdapterListener adapterListener2 = mock(AdapterListener.class);
         governor.addAdapterListener(adapterListener1);
@@ -405,7 +401,7 @@ public class AdapterGovernorImplTest {
     }
 
     @Test
-    public void testNotifyDiscovering() throws Exception {
+    public void testNotifyDiscovering() {
         AdapterListener adapterListener1 = mock(AdapterListener.class);
         AdapterListener adapterListener2 = mock(AdapterListener.class);
         governor.addAdapterListener(adapterListener1);
@@ -445,15 +441,6 @@ public class AdapterGovernorImplTest {
         verify(listener, times(1)).powered(true);
         verify(governor, times(1)).notifyPowered(true);
         verify(governor, times(1)).updateLastChanged();
-
-//        when(governor.findBluetoothObject()).thenReturn(null);
-//
-//        notificationCaptor.getValue().notify(Boolean.FALSE);
-//        // handling the case when the adapter physically disconnected
-//        verify(listener, times(1)).powered(false);
-//        verify(governor, times(1)).notifyPowered(false);
-//        verify(governor, times(2)).updateLastChanged();
-//        verify(governor, times(1)).reset();
     }
 
     @Test

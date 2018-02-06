@@ -49,6 +49,8 @@ import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
  *
@@ -135,7 +137,6 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         if (device.isConnected()) {
             device.disconnect();
             notifyConnected(false);
-            resetCharacteristics();
         }
         connectionNotification = null;
         servicesResolvedNotification = null;
@@ -153,27 +154,27 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     @Override
     public int getBluetoothClass() throws NotReadyException {
-        return getBluetoothObject().getBluetoothClass();
+        return interact(Device::getBluetoothClass);
     }
 
     @Override
     public boolean isBleEnabled() throws NotReadyException {
-        return getBluetoothObject().isBleEnabled();
+        return interact(Device::isBleEnabled);
     }
 
     @Override
     public String getName() throws NotReadyException {
-        return getBluetoothObject().getName();
+        return interact(Device::getName);
     }
 
     @Override
     public String getAlias() throws NotReadyException {
-        return getBluetoothObject().getAlias();
+        return interact(Device::getAlias);
     }
 
     @Override
     public void setAlias(String alias) throws NotReadyException {
-        getBluetoothObject().setAlias(alias);
+        interact((Consumer<Device>) device -> device.setAlias(alias));
     }
 
     @Override
@@ -204,12 +205,12 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     @Override
     public boolean isConnected() throws NotReadyException {
-        return getBluetoothObject().isConnected();
+        return isReady() && interact(Device::isConnected);
     }
 
     @Override
     public boolean isBlocked() throws NotReadyException {
-        return getBluetoothObject().isBlocked();
+        return interact(Device::isBlocked);
     }
 
     @Override
@@ -231,7 +232,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     @Override
     public short getRSSI() throws NotReadyException {
-        return getBluetoothObject().getRSSI();
+        return interact(Device::getRSSI);
     }
 
     @Override
@@ -266,7 +267,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     @Override
     public short getTxPower() {
-        return getBluetoothObject().getTxPower();
+        return interact(Device::getTxPower);
     }
 
     @Override
@@ -337,7 +338,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     @Override
     public boolean isServicesResolved() throws NotReadyException {
         try {
-            return getBluetoothObject().isServicesResolved();
+            return isReady() && interact(Device::isServicesResolved);
         } catch (NotReadyException ignore) {
             return false;
         }
@@ -345,26 +346,29 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     @Override
     public List<GattService> getResolvedServices() throws NotReadyException {
-        List<GattService> services = new ArrayList<>();
-        Device device = getBluetoothObject();
-        for (Service service : device.getServices()) {
-            List<GattCharacteristic> characteristics = new ArrayList<>();
-            for (Characteristic characteristic : service.getCharacteristics()) {
-                characteristics.add(convert(characteristic));
+        return interact((device -> {
+            List<GattService> services = new ArrayList<>();
+            for (Service service : device.getServices()) {
+                List<GattCharacteristic> characteristics = new ArrayList<>();
+                for (Characteristic characteristic : service.getCharacteristics()) {
+                    characteristics.add(convert(characteristic));
+                }
+                services.add(new GattService(service.getURL(), characteristics));
             }
-            services.add(new GattService(service.getURL(), characteristics));
-        }
-        return services;
+            return services;
+        }));
     }
 
     @Override
     public Map<URL, List<CharacteristicGovernor>> getServicesToCharacteristicsMap() throws NotReadyException {
-        Map<URL, List<CharacteristicGovernor>> services = new HashMap<>();
-        for (Service service : getBluetoothObject().getServices()) {
-            URL serviceURL = service.getURL();
-            services.put(serviceURL, (List) bluetoothManager.getGovernors(service.getCharacteristics()));
-        }
-        return services;
+        return interact(device -> {
+            Map<URL, List<CharacteristicGovernor>> services = new HashMap<>();
+            for (Service service : device.getServices()) {
+                URL serviceURL = service.getURL();
+                services.put(serviceURL, (List) bluetoothManager.getGovernors(service.getCharacteristics()));
+            }
+            return services;
+        });
     }
 
     @Override
@@ -404,12 +408,12 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     @Override
     public Map<Short, byte[]> getManufacturerData() {
-        return getBluetoothObject().getManufacturerData();
+        return interact(Device::getManufacturerData);
     }
 
     @Override
     public Map<String, byte[]> getServiceData() {
-        return getBluetoothObject().getServiceData();
+        return interact(Device::getServiceData);
     }
 
     void notifyConnected(boolean connected) {
@@ -436,17 +440,24 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         });
     }
 
-    void notifyServicesResolved(boolean resolved) {
-        logger.info("Services resolved {}: {}", resolved, getURL());
+    void notifyServicesResolved(List<GattService> services) {
+        logger.info("Services resolved {}: {}", services.size(), getURL());
         bluetoothSmartDeviceListeners.forEach(listener -> {
             try {
-                if (resolved) {
-                    listener.servicesResolved(getResolvedServices());
-                } else {
-                    listener.servicesUnresolved();
-                }
+                listener.servicesResolved(services);
             } catch (Exception ex) {
                 logger.error("Execution error of a service resolved listener", ex);
+            }
+        });
+    }
+
+    void notifyServicesUnresolved() {
+        logger.info("Services unresolved: {}", getURL());
+        bluetoothSmartDeviceListeners.forEach(listener -> {
+            try {
+                listener.servicesUnresolved();
+            } catch (Exception ex) {
+                logger.error("Execution error of a service unresolved listener", ex);
             }
         });
     }
@@ -497,17 +508,19 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     }
 
     private List<Characteristic> getAllCharacteristics() throws NotReadyException {
-        List<Characteristic> characteristics = new ArrayList<>();
-        List<Service> services = getBluetoothObject().getServices();
-        if (services != null) {
-            for (Service service : services) {
-                List<Characteristic> chars = service.getCharacteristics();
-                if (chars != null) {
-                    characteristics.addAll(chars);
+        return interact(device -> {
+            List<Characteristic> characteristics = new ArrayList<>();
+            List<Service> services = device.getServices();
+            if (services != null) {
+                for (Service service : services) {
+                    List<Characteristic> chars = service.getCharacteristics();
+                    if (chars != null) {
+                        characteristics.addAll(chars);
+                    }
                 }
             }
-        }
-        return characteristics;
+            return characteristics;
+        });
     }
 
     private void enableConnectionNotifications(Device bluetoothDevice) {
@@ -645,13 +658,16 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
             logger.info("Services resolved (notification): " + serviceResolved);
 
             if (serviceResolved) {
+                List<GattService> gattServices = getResolvedServices();
                 updateCharacteristics();
+                if (gattServices != null && !gattServices.isEmpty()) {
+                    notifyServicesResolved(gattServices);
+                }
             } else {
                 logger.info("Resetting characteristic governors due to services unresolved event");
                 resetCharacteristics();
+                notifyServicesUnresolved();
             }
-
-            notifyServicesResolved(serviceResolved);
             updateLastChanged();
         }
     }
