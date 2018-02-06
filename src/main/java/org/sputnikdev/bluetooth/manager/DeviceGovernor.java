@@ -315,6 +315,6 @@ public interface DeviceGovernor extends BluetoothGovernor {
      * Returns advertised service data. The key is service UUID (16, 32 or 128 bit UUID), the value is service data.
      * @return advertised service data
      */
-    Map<String, byte[]> getServiceData();
+    Map<URL, byte[]> getServiceData();
 
 }

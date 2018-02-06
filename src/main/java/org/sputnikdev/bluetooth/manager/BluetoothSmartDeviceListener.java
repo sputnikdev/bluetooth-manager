@@ -20,6 +20,8 @@ package org.sputnikdev.bluetooth.manager;
  * #L%
  */
 
+import org.sputnikdev.bluetooth.URL;
+
 import java.util.List;
 import java.util.Map;
 
@@ -58,7 +60,7 @@ public interface BluetoothSmartDeviceListener {
      * Fires when the device advertises service data. The key is service UUID (16, 32 or 128 bit),
      * the value is advertised data.
      */
-    default void serviceDataChanged(Map<String, byte[]> serviceData) { }
+    default void serviceDataChanged(Map<URL, byte[]> serviceData) { }
 
     /**
      * Fires when the device advertises manufacturer data. The key is manufacturer ID, the value is advertised data.

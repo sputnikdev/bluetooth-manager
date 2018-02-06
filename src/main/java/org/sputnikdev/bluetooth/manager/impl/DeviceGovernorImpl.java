@@ -9,9 +9,9 @@ package org.sputnikdev.bluetooth.manager.impl;
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -142,6 +142,8 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         servicesResolvedNotification = null;
         rssiNotification = null;
         blockedNotification = null;
+        serviceDataNotification = null;
+        manufacturerDataNotification = null;
         logger.info("Resetting device governor completed: " + getURL());
     }
 
@@ -217,7 +219,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     public boolean isOnline() {
         Date lastActivity = getLastActivity();
         return lastActivity != null && Instant.now().minusSeconds(onlineTimeout)
-            .isBefore(getLastActivity().toInstant());
+                .isBefore(getLastActivity().toInstant());
     }
 
     @Override
@@ -412,8 +414,10 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     }
 
     @Override
-    public Map<String, byte[]> getServiceData() {
-        return interact(Device::getServiceData);
+    public Map<URL, byte[]> getServiceData() {
+        return interact(device -> {
+            return convert(device.getServiceData());
+        });
     }
 
     void notifyConnected(boolean connected) {
@@ -481,7 +485,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     void notifyRSSIChanged(short next) {
         if (rssiReportingRate == 0
-            || System.currentTimeMillis() - rssiLastNotified.getTime() > rssiReportingRate) {
+                || System.currentTimeMillis() - rssiLastNotified.getTime() > rssiReportingRate) {
             genericBluetoothDeviceListeners.forEach(listener -> {
                 try {
                     listener.rssiChanged(next);
@@ -634,6 +638,11 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         return propagationExponent;
     }
 
+    private Map<URL, byte[]> convert(Map<String, byte[]> serviceData) {
+        return serviceData.entrySet().stream()
+                .collect(Collectors.toMap(entry -> url.copyWithService(entry.getKey()), Map.Entry::getValue)) ;
+    }
+
     private class ConnectionNotification implements Notification<Boolean> {
         @Override
         public void notify(Boolean connected) {
@@ -685,7 +694,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         public void notify(Map<String, byte[]> serviceData) {
             bluetoothSmartDeviceListeners.forEach(listener -> {
                 try {
-                    listener.serviceDataChanged(serviceData);
+                    listener.serviceDataChanged(convert(serviceData));
                 } catch (Exception ex) {
                     logger.error("Execution error of a service data listener", ex);
                 }

@@ -54,6 +54,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
  *
@@ -195,7 +196,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     }
 
     @Override
-    public Map<String, byte[]> getServiceData() {
+    public Map<URL, byte[]> getServiceData() {
         DeviceGovernor governor = nearest;
         return governor != null ? governor.getServiceData() : Collections.emptyMap();
     }
@@ -634,6 +635,26 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
                     BluetoothSmartDeviceListener::servicesUnresolved,
                     logger, "Execution error of a service resolved listener");
             });
+        }
+
+        @Override
+        public void serviceDataChanged(Map<URL, byte[]> serviceData) {
+            if (delegate == nearest) {
+                BluetoothManagerUtils.safeForEachError(bluetoothSmartDeviceListeners,
+                        listener -> listener.serviceDataChanged(serviceData.entrySet().stream()
+                                .collect(Collectors.toMap(entry -> entry.getKey().copyWithAdapter(COMBINED_ADDRESS),
+                                        Map.Entry::getValue))),
+                        logger, "Execution error of a service resolved listener");
+            }
+        }
+
+        @Override
+        public void manufacturerDataChanged(Map<Short, byte[]> manufacturerData) {
+            if (delegate == nearest) {
+                BluetoothManagerUtils.safeForEachError(bluetoothSmartDeviceListeners,
+                        listener -> listener.manufacturerDataChanged(manufacturerData),
+                        logger, "Execution error of a service resolved listener");
+            }
         }
 
         @Override
