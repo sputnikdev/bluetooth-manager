@@ -77,9 +77,10 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
         adapter.disableDiscoveringNotifications();
         poweredNotification = null;
         discoveringNotification = null;
-        if (isPowered() && adapter.isDiscovering()) {
+        try {
+            // force stop discovery and ignore any error
             adapter.stopDiscovery();
-        }
+        } catch (Exception ignore) { /* ignore */ }
     }
 
     @Override
@@ -156,8 +157,7 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
 
     @Override
     public List<DeviceGovernor> getDeviceGovernors() throws NotReadyException {
-        return interact((Function<Adapter, List<DeviceGovernor>>) adapter ->
-                (List) bluetoothManager.getGovernors(adapter.getDevices()));
+        return interact(adapter -> (List) bluetoothManager.getGovernors(adapter.getDevices()));
     }
 
     @Override
