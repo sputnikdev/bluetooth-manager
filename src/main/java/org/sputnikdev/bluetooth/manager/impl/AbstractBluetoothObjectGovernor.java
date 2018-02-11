@@ -151,6 +151,7 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
     @Override
     public void update() {
         logger.debug("Updating governor. Trying to acquire lock: {}", url);
+        boolean updated = false;
         if (updateLock.tryLock()) {
             try {
                 logger.debug("Lock acquired. Getting a native object: {}", url);
@@ -164,7 +165,7 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
                             url, Integer.toHexString(object.hashCode()));
                     update(object);
                     logger.debug("Governor has been updated: {}", url);
-                    notifyLastChanged();
+                    updated = true;
                 } catch (Exception ex) {
                     logger.debug("Error occurred while updating governor: {} / {} : {}",
                             url, Integer.toHexString(object.hashCode()), ex.getMessage());
@@ -173,6 +174,9 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
             } finally {
                 logger.debug("Unlocking update (update) lock: {}", url);
                 updateLock.unlock();
+            }
+            if (updated) {
+                notifyLastChanged();
             }
         } else {
             // looks like the bluetooth manager is performing an update of this governor already,
@@ -191,8 +195,6 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
             if (bluetoothObject != null) {
                 forceReset(bluetoothObject);
             }
-            logger.debug("Resetting descendants: {}", url);
-            bluetoothManager.resetDescendants(url);
             bluetoothObject = null;
             logger.debug("Governor has been reset: {}", url);
         } catch (Exception ex) {
@@ -201,6 +203,8 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
             logger.debug("Unlocking update (reset) lock: {}", url);
             updateLock.unlock();
         }
+        logger.debug("Resetting descendants: {}", url);
+        bluetoothManager.resetDescendants(url);
     }
 
     @Override
