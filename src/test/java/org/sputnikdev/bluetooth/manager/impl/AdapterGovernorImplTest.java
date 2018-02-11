@@ -34,6 +34,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -195,11 +196,11 @@ public class AdapterGovernorImplTest {
 
         assertFalse(governor.isPowered());
         verify(adapter, times(1)).isPowered();
-        verify(governor).interact(any(Function.class));
+        verify(governor).interact(eq("isPowered"), any(Function.class));
 
         assertTrue(governor.isPowered());
         verify(adapter, times(2)).isPowered();
-        verify(governor, times(2)).interact(any(Function.class));
+        verify(governor, times(2)).interact(eq("isPowered"), any(Function.class));
 
         verifyNoMoreInteractions(adapter);
     }
@@ -219,11 +220,11 @@ public class AdapterGovernorImplTest {
 
         assertFalse(governor.isDiscovering());
         verify(adapter, times(1)).isDiscovering();
-        verify(governor).interact(any(Function.class));
+        verify(governor).interact(eq("isDiscovering"), any(Function.class));
 
         assertTrue(governor.isDiscovering());
         verify(adapter, times(2)).isDiscovering();
-        verify(governor, times(2)).interact(any(Function.class));
+        verify(governor, times(2)).interact(eq("isDiscovering"), any(Function.class));
 
         verifyNoMoreInteractions(adapter);
     }
@@ -233,7 +234,7 @@ public class AdapterGovernorImplTest {
         assertEquals(ALIAS, governor.getAlias());
 
         verify(adapter, times(1)).getAlias();
-        verify(governor).interact(any(Function.class));
+        verify(governor).interact(eq("getAlias"), any(Function.class));
 
         verifyNoMoreInteractions(adapter);
     }
@@ -245,7 +246,7 @@ public class AdapterGovernorImplTest {
         governor.setAlias(newAlias);
 
         verify(adapter, times(1)).setAlias(newAlias);
-        verify(governor).interact(any(Function.class));
+        verify(governor).interact(eq("setAlias"), any(Function.class));
 
         verifyNoMoreInteractions(adapter);
     }
@@ -255,7 +256,7 @@ public class AdapterGovernorImplTest {
         assertEquals(NAME, governor.getName());
 
         verify(adapter, times(1)).getName();
-        verify(governor).interact(any(Function.class));
+        verify(governor).interact(eq("getName"), any(Function.class));
 
         verifyNoMoreInteractions(adapter);
     }
@@ -267,12 +268,13 @@ public class AdapterGovernorImplTest {
 
         assertEquals(ALIAS, governor.getDisplayName());
         verify(adapter, times(1)).getAlias();
-        verify(governor, times(1)).interact(any(Function.class));
+        verify(governor, times(1)).interact(eq("getAlias"), any(Function.class));
 
         assertEquals(NAME, governor.getDisplayName());
         verify(adapter, times(2)).getAlias();
         verify(adapter, times(1)).getName();
-        verify(governor, times(3)).interact(any(Function.class));
+        verify(governor, times(1)).interact(eq("getName"), any(Function.class));
+        verify(governor, times(2)).interact(eq("getAlias"), any(Function.class));
 
         verifyNoMoreInteractions(adapter);
     }

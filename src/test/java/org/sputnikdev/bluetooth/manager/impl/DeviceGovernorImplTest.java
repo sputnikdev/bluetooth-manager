@@ -49,6 +49,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyList;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -414,7 +415,7 @@ public class DeviceGovernorImplTest {
         verify(device, times(1)).getName();
 
         verifyNoMoreInteractions(device);
-        verify(governor).interact(any(Function.class));
+        verify(governor).interact(eq("getName"), any(Function.class));
     }
 
     @Test
@@ -430,7 +431,8 @@ public class DeviceGovernorImplTest {
         verify(device, times(1)).getName();
 
         verifyNoMoreInteractions(device);
-        verify(governor, times(3)).interact(any(Function.class));
+        verify(governor, times(2)).interact(eq("getAlias"), any(Function.class));
+        verify(governor, times(1)).interact(eq("getName"), any(Function.class));
     }
 
     @Test
@@ -440,7 +442,7 @@ public class DeviceGovernorImplTest {
         verify(device, times(1)).getAlias();
 
         verifyNoMoreInteractions(device);
-        verify(governor).interact(any(Function.class));
+        verify(governor).interact(eq("getAlias"), any(Function.class));
     }
 
     @Test
@@ -452,7 +454,7 @@ public class DeviceGovernorImplTest {
         verify(device, times(1)).setAlias(newAlias);
 
         verifyNoMoreInteractions(device);
-        verify(governor).interact(any(Function.class));
+        verify(governor).interact(eq("setAlias"), any(Function.class));
     }
 
     @Test
@@ -484,7 +486,7 @@ public class DeviceGovernorImplTest {
         verify(device, times(2)).isConnected();
 
         verifyNoMoreInteractions(device);
-        verify(governor, times(2)).interact(any(Function.class));
+        verify(governor, times(2)).interact(eq("isConnected"), any(Function.class));
     }
 
     @Test 
@@ -498,7 +500,7 @@ public class DeviceGovernorImplTest {
         verify(device, times(2)).isBlocked();
 
         verifyNoMoreInteractions(device);
-        verify(governor, times(2)).interact(any(Function.class));
+        verify(governor, times(2)).interact(eq("isBlocked"), any(Function.class));
     }
 
     @Test

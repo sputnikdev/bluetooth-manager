@@ -83,7 +83,7 @@ public class AbstractBluetoothObjectGovernorTest {
                 return false;
             }
         });
-        governor.interact(function);
+        governor.interact("test", function);
         InOrder inOrder = inOrder(governor, function);
         inOrder.verify(governor).isReady();
         inOrder.verify(governor).update();
@@ -94,7 +94,7 @@ public class AbstractBluetoothObjectGovernorTest {
     @Test(expected = NotReadyException.class)
     public void testInteractNotReady() {
         when(governor.isReady()).thenReturn(false);
-        governor.interact((obj) -> true);
+        governor.interact("test", (obj) -> true);
     }
 
     @Test
@@ -107,7 +107,7 @@ public class AbstractBluetoothObjectGovernorTest {
                 return false;
             }
         });
-        governor.interact(function);
+        governor.interact("test", function);
         InOrder inOrder = inOrder(governor, function);
         inOrder.verify(governor).isReady();
         inOrder.verify(function).apply(bluetoothObject);
@@ -119,7 +119,7 @@ public class AbstractBluetoothObjectGovernorTest {
         Function<BluetoothObject, Boolean> function = mock(Function.class);
         when(function.apply(any())).thenThrow(Exception.class);
         try {
-            governor.interact(function);
+            governor.interact("test", function);
         } finally {
             verify(governor).reset();
         }
