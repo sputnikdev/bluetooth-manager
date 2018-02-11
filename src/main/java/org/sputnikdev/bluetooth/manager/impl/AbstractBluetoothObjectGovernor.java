@@ -150,50 +150,62 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
 
     @Override
     public void update() {
+        logger.debug("Updating governor. Trying to acquire lock: {}", url);
         if (updateLock.tryLock()) {
             try {
+                logger.debug("Lock acquired. Getting a native object: {}", url);
                 T object = getOrFindBluetoothObject();
                 if (object == null) {
+                    logger.debug("Native object is not available: {}", url);
                     return;
                 }
                 try {
+                    logger.debug("Performing update with the native object: {} / {}",
+                            url, Integer.toHexString(object.hashCode()));
                     update(object);
+                    logger.debug("Governor has been updated: {}", url);
                     notifyLastChanged();
                 } catch (Exception ex) {
-                    logger.warn("Could not update governor state.", ex);
+                    logger.debug("Error occurred while updating governor: {} / {} : {}",
+                            url, Integer.toHexString(object.hashCode()), ex.getMessage());
                     reset();
                 }
             } finally {
+                logger.debug("Unlocking update (update) lock: {}", url);
                 updateLock.unlock();
             }
         } else {
             // looks like the bluetooth manager is performing an update of this governor already,
             // therefore no need to run another update, let's wait until the bluetooth manager finishes its update
+            logger.debug("Lock could not be acquired (governor is being updated). Skipping the update.");
             updateLock.lock();
             updateLock.unlock();
         }
     }
 
     public void reset() {
-        if (updateLock.tryLock()) {
-            logger.info("Resetting governor: {}", url);
-            try {
-                if (bluetoothObject != null) {
-                    forceReset(bluetoothObject);
-                }
-                bluetoothManager.resetDescendants(url);
-                bluetoothObject = null;
-                logger.info("Governor has been reset: {}", url);
-            } catch (Exception ex) {
-                logger.debug("Could not reset governor {}: {}", url, ex.getMessage());
-            } finally {
-                updateLock.unlock();
+        logger.debug("Resetting governor. Trying to acquire lock: {}", url);
+        updateLock.lock();
+        try {
+            logger.debug("Lock acquired. Resetting governor now: {}", url);
+            if (bluetoothObject != null) {
+                forceReset(bluetoothObject);
             }
+            logger.debug("Resetting descendants: {}", url);
+            bluetoothManager.resetDescendants(url);
+            bluetoothObject = null;
+            logger.debug("Governor has been reset: {}", url);
+        } catch (Exception ex) {
+            logger.debug("Error occured while resetting governor {}: {}", url, ex.getMessage());
+        } finally {
+            logger.debug("Unlocking update (reset) lock: {}", url);
+            updateLock.unlock();
         }
     }
 
     @Override
     public void dispose() {
+        logger.debug("Disposing governor: {}", url);
         reset();
         governorListeners.clear();
     }
@@ -203,29 +215,50 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
     }
 
     protected <R> R interact(Function<T, R> delegate) {
+        return interact(null, delegate);
+    }
+
+    protected <R> R interact(String name, Function<T, R> delegate) {
         try {
-            R result = delegate.apply(getBluetoothObject());
+            T object = getBluetoothObject();
+            logger.debug("Interacting with native object ({}): {} / {}",
+                    name, url, Integer.toHexString(object.hashCode()));
+            R result = delegate.apply(object);
+            logger.debug("Interaction completed ({}): {} / {}", name, url, Integer.toHexString(object.hashCode()));
             updateLastChanged();
             return result;
         } catch (Exception ex) {
+            logger.debug("Error occurred while interacting with native object: {}", url);
             reset();
             throw ex;
         }
     }
 
     protected void interact(Consumer<T> delegate) {
-        interact((Function<T, Void>)(object) -> {delegate.accept(object); return null;});
+        interact(null, delegate);
+    }
+
+    protected void interact(String name, Consumer<T> delegate) {
+        interact(name, (Function<T, Void>) object -> {
+            delegate.accept(object);
+            return null;
+        });
     }
 
     private T getBluetoothObject() throws NotReadyException {
+        logger.debug("Getting native object. Checking if governor is ready: {}", url);
         if (!isReady()) {
+            logger.debug("Governor is not ready. Trying to perform an explicit update: {}", url);
             // the governor is not ready, trying to update it
             update();
+            logger.debug("Checking if governor is ready after the explicit update: {}", url);
             if (!isReady()) {
                 // still not ready even after the update?
                 throw new NotReadyException("Bluetooth object is not ready: " + url);
             }
         }
+        logger.debug("Returning native object: {} / {}", url,
+                bluetoothObject != null ? Integer.toHexString(bluetoothObject.hashCode()) : null);
         return bluetoothObject;
     }
 
@@ -256,32 +289,41 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
     }
 
     private T getOrFindBluetoothObject() {
+        logger.debug("Acquiring native object: {}", url);
         if (bluetoothObject == null) {
+            logger.debug("Native object is null. Trying to get a new native object from manager: {}", url);
             bluetoothObject = bluetoothManager.getBluetoothObject(
                     transport != null ? url.copyWithProtocol(transport) : url);
             if (bluetoothObject != null) {
+                logger.debug("A new native object has been acquired: {}", url);
                 // update internal cache so that next time acquiring "native" object will be faster
                 transport = bluetoothObject.getURL().getProtocol();
                 try {
+                    logger.debug("Initializing governor with the new native object: {}", url);
                     init(bluetoothObject);
+                    logger.debug("Initialization succeeded: {}", url);
                     notifyReady(true);
                 } catch (Exception ex) {
-                    logger.info("Could not init governor {}: {}", url, ex.getMessage());
+                    logger.info("Error occurred while initializing governor with a new native object: {}: {}",
+                            url, ex.getMessage());
                     reset();
                 }
             }
         }
+        logger.debug("Returning native object: {}", url);
         return bluetoothObject;
     }
 
     private void forceReset(T bluetoothObject) {
         try {
+            logger.debug("Resetting native object: {} / {}", url, Integer.toHexString(bluetoothObject.hashCode()));
             reset(bluetoothObject);
         } catch (Exception ex) {
             logger.debug("Could not reset bluetooth object {}: {}", url, ex.getMessage());
         }
         notifyReady(false);
         try {
+            logger.debug("Disposing native object: {} / {}", url, Integer.toHexString(bluetoothObject.hashCode()));
             bluetoothObject.dispose();
         } catch (Exception ex) {
             logger.debug("Could not dispose bluetooth object {}: {}", url, ex.getMessage());

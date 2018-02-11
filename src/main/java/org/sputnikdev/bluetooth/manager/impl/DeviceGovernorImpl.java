@@ -93,18 +93,25 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     @Override
     void init(Device device) {
+        logger.debug("Initializing device governor: {}", url);
         enableRSSINotifications(device);
         enableConnectionNotifications(device);
         enableServicesResolvedNotifications(device);
         enableBlockedNotifications(device);
         enableManufacturerDataNotifications(device);
         enableServiceDataNotifications(device);
+        logger.debug("Device governor initialization performed: {}", url);
     }
 
     @Override
     void update(Device device) {
+        logger.debug("Updating device governor: {}", url);
         AdapterGovernor adapterGovernor = bluetoothManager.getAdapterGovernor(getURL());
-        if (adapterGovernor != null && adapterGovernor.isReady() && adapterGovernor.isPowered()) {
+        boolean adapterReady = adapterGovernor.isReady();
+        boolean adapterPowered = adapterGovernor.isPowered();
+        logger.debug("Checking if device adapter is ready / powered: {} : {} / {}",
+                url, adapterReady, adapterPowered);
+        if (adapterReady && adapterPowered) {
             updateBlocked(device);
             if (!blockedControl) {
                 // Note: BlueGiga and TinyB devices work in different way:
@@ -114,33 +121,35 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
                 // Further note: TinyB device when connected constantly returns the very last known RSSI
                 boolean connected = updateConnected(device);
                 if (connected) {
+                    logger.debug("Checking if device is still alive by getting its RSSI: {}", url);
                     notifyRSSIChanged(getRSSI());
                     updateLastChanged();
                 }
             }
         }
         updateOnline(isOnline());
+        logger.debug("Device governor update performed: {}", url);
     }
 
     @Override
     void reset(Device device) {
-        logger.info("Resetting device governor: " + getURL());
+        logger.debug("Resetting device governor: {}", url);
         updateOnline(false);
         try {
-            logger.info("Disable device notifications: " + getURL());
+            logger.debug("Disable device notifications: {}", url);
             device.disableConnectedNotifications();
             device.disableServicesResolvedNotifications();
             device.disableRSSINotifications();
             device.disableBlockedNotifications();
             device.disableServiceDataNotifications();
             device.disableManufacturerDataNotifications();
-            logger.info("Disconnecting device: " + getURL());
+            logger.debug("Disconnecting device: {}", url);
             if (device.isConnected()) {
                 device.disconnect();
                 notifyConnected(false);
             }
         } catch (Exception ex) {
-            logger.debug("Error occurred while resetting device: {} : {} ", getURL(), ex.getMessage());
+            logger.debug("Error occurred while resetting device: {} : {} ", url, ex.getMessage());
         }
         connectionNotification = null;
         servicesResolvedNotification = null;
@@ -148,39 +157,41 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         blockedNotification = null;
         serviceDataNotification = null;
         manufacturerDataNotification = null;
-        logger.info("Resetting device governor completed: " + getURL());
+        logger.debug("Device governor reset performed: {}", url);
     }
 
     @Override
     public void dispose() {
         super.dispose();
+        logger.debug("Disposing device governor: {}", url);
         genericBluetoothDeviceListeners.clear();
         bluetoothSmartDeviceListeners.clear();
+        logger.debug("Device governor disposed: {}", url);
     }
 
     @Override
     public int getBluetoothClass() throws NotReadyException {
-        return interact(Device::getBluetoothClass);
+        return interact("getBluetoothClass", Device::getBluetoothClass);
     }
 
     @Override
     public boolean isBleEnabled() throws NotReadyException {
-        return interact(Device::isBleEnabled);
+        return interact("isBleEnabled", Device::isBleEnabled);
     }
 
     @Override
     public String getName() throws NotReadyException {
-        return interact(Device::getName);
+        return interact("getName", Device::getName);
     }
 
     @Override
     public String getAlias() throws NotReadyException {
-        return interact(Device::getAlias);
+        return interact("getAlias", Device::getAlias);
     }
 
     @Override
     public void setAlias(String alias) throws NotReadyException {
-        interact((Consumer<Device>) device -> device.setAlias(alias));
+        interact("setAlias", (Consumer<Device>) device -> device.setAlias(alias));
     }
 
     @Override
@@ -195,28 +206,30 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     }
 
     public void setConnectionControl(boolean connectionControl) {
+        logger.debug("Setting connection control: {} : {}", url, connectionControl);
         this.connectionControl = connectionControl;
         scheduleUpdate();
     }
 
     @Override
     public boolean getBlockedControl() {
-        return this.blockedControl;
+        return blockedControl;
     }
 
     @Override
     public void setBlockedControl(boolean blockedControl) {
+        logger.debug("Setting blocked control: {} : {}", url, blockedControl);
         this.blockedControl = blockedControl;
     }
 
     @Override
     public boolean isConnected() throws NotReadyException {
-        return isReady() && interact(Device::isConnected);
+        return isReady() && interact("isConnected", Device::isConnected);
     }
 
     @Override
     public boolean isBlocked() throws NotReadyException {
-        return interact(Device::isBlocked);
+        return interact("isBlocked", Device::isBlocked);
     }
 
     @Override
@@ -238,7 +251,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     @Override
     public short getRSSI() throws NotReadyException {
-        return interact(Device::getRSSI);
+        return interact("getRSSI", Device::getRSSI);
     }
 
     @Override
@@ -273,7 +286,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     @Override
     public short getTxPower() {
-        return interact(Device::getTxPower);
+        return interact("getTxPower", Device::getTxPower);
     }
 
     @Override
@@ -308,7 +321,10 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         if (rssi == 0) {
             return 0;
         }
-        return Math.pow(10d, ((double) getTxPowerInternal() - rssi) / (10 * getPropagationExponentInternal()));
+        double estimated = Math.pow(10d,
+                ((double) getTxPowerInternal() - rssi) / (10 * getPropagationExponentInternal()));
+        logger.debug("Estimated distance: {} : {}", url, estimated);
+        return estimated;
     }
 
     @Override
@@ -344,7 +360,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     @Override
     public boolean isServicesResolved() throws NotReadyException {
         try {
-            return isReady() && interact(Device::isServicesResolved);
+            return isReady() && interact("isServicesResolved", Device::isServicesResolved);
         } catch (NotReadyException ignore) {
             return false;
         }
@@ -352,7 +368,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     @Override
     public List<GattService> getResolvedServices() throws NotReadyException {
-        return interact((device -> {
+        return interact("getResolvedServices", device -> {
             List<GattService> services = new ArrayList<>();
             for (Service service : device.getServices()) {
                 List<GattCharacteristic> characteristics = new ArrayList<>();
@@ -362,12 +378,12 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
                 services.add(new GattService(service.getURL(), characteristics));
             }
             return services;
-        }));
+        });
     }
 
     @Override
     public Map<URL, List<CharacteristicGovernor>> getServicesToCharacteristicsMap() throws NotReadyException {
-        return interact(device -> {
+        return interact("getServicesToCharacteristicsMap", device -> {
             Map<URL, List<CharacteristicGovernor>> services = new HashMap<>();
             for (Service service : device.getServices()) {
                 URL serviceURL = service.getURL();
@@ -414,17 +430,19 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     @Override
     public Map<Short, byte[]> getManufacturerData() {
-        return interact(Device::getManufacturerData);
+        return interact("getManufacturerData", Device::getManufacturerData);
     }
 
     @Override
     public Map<URL, byte[]> getServiceData() {
-        return interact(device -> {
+        return interact("getServiceData", device -> {
             return convert(device.getServiceData());
         });
     }
 
     void notifyConnected(boolean connected) {
+        logger.debug("Notifying device governor listener (connected): {} : {} : {}",
+                url, bluetoothSmartDeviceListeners.size(), connected);
         bluetoothSmartDeviceListeners.forEach(listener -> {
             try {
                 if (connected) {
@@ -439,38 +457,30 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     }
 
     void notifyBlocked(boolean blocked) {
-        genericBluetoothDeviceListeners.forEach(listener -> {
-            try {
-                listener.blocked(blocked);
-            } catch (Exception ex) {
-                logger.error("Execution error of a Blocked listener", ex);
-            }
-        });
+        logger.debug("Notifying device governor listener (blocked): {} : {} : {}",
+                url, genericBluetoothDeviceListeners.size(), blocked);
+        BluetoothManagerUtils.safeForEachError(genericBluetoothDeviceListeners,
+                listener -> listener.blocked(blocked), logger,"Execution error of a blocked listener");
     }
 
     void notifyServicesResolved(List<GattService> services) {
-        logger.info("Services resolved {}: {}", services.size(), getURL());
-        bluetoothSmartDeviceListeners.forEach(listener -> {
-            try {
-                listener.servicesResolved(services);
-            } catch (Exception ex) {
-                logger.error("Execution error of a service resolved listener", ex);
-            }
-        });
+        logger.debug("Notifying device governor listener (services resolved): {} : {} : {}",
+                url, bluetoothSmartDeviceListeners.size(), services.size());
+        BluetoothManagerUtils.safeForEachError(bluetoothSmartDeviceListeners, listener -> listener
+                        .servicesResolved(services), logger,
+                "Execution error of a service resolved listener");
     }
 
     void notifyServicesUnresolved() {
-        logger.info("Services unresolved: {}", getURL());
-        bluetoothSmartDeviceListeners.forEach(listener -> {
-            try {
-                listener.servicesUnresolved();
-            } catch (Exception ex) {
-                logger.error("Execution error of a service unresolved listener", ex);
-            }
-        });
+        logger.debug("Notifying device governor listener (services unresolved): {} : {}",
+                url, bluetoothSmartDeviceListeners.size());
+        BluetoothManagerUtils.safeForEachError(bluetoothSmartDeviceListeners,
+                BluetoothSmartDeviceListener::servicesUnresolved, logger,
+                "Execution error of a service unresolved listener");
     }
 
     void updateRSSI(short next) {
+        logger.trace("Updating RSSI: {} : {}", url, next);
         lastAdvertised = System.currentTimeMillis();
         Filter<Short> filter = rssiFilter;
         if (rssiUpdateLock.tryLock()) {
@@ -490,33 +500,28 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     void notifyRSSIChanged(short next) {
         if (rssiReportingRate == 0
                 || System.currentTimeMillis() - rssiLastNotified.getTime() > rssiReportingRate) {
-            genericBluetoothDeviceListeners.forEach(listener -> {
-                try {
-                    listener.rssiChanged(next);
-                } catch (Exception ex) {
-                    logger.error("Execution error of a RSSI listener", ex);
-                }
-            });
+            BluetoothManagerUtils.safeForEachError(genericBluetoothDeviceListeners,
+                    listener -> listener.rssiChanged(next), logger,
+                    "Execution error of a RSSI listener");
             rssiLastNotified = new Date();
         }
     }
 
     void notifyOnline(boolean online) {
-        genericBluetoothDeviceListeners.forEach(listener -> {
-            try {
+        logger.debug("Notifying device governor listener (online): {} : {} : {}",
+                url, genericBluetoothDeviceListeners.size(), online);
+        BluetoothManagerUtils.safeForEachError(genericBluetoothDeviceListeners,
+            listener -> {
                 if (online) {
                     listener.online();
                 } else {
                     listener.offline();
                 }
-            } catch (Exception ex) {
-                logger.error("Execution error of an online listener", ex);
-            }
-        });
+            }, logger,"Execution error of an online listener");
     }
 
     private List<Characteristic> getAllCharacteristics() throws NotReadyException {
-        return interact(device -> {
+        return interact("getAllCharacteristics", device -> {
             List<Characteristic> characteristics = new ArrayList<>();
             List<Service> services = device.getServices();
             if (services != null) {
@@ -532,58 +537,62 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     }
 
     private void enableConnectionNotifications(Device bluetoothDevice) {
+        logger.debug("Enabling connection notification: {} : {}", getURL(), connectionNotification == null);
         if (connectionNotification == null) {
-            logger.info("Enabling connection notification: {} ", getURL());
             connectionNotification = new ConnectionNotification();
             bluetoothDevice.enableConnectedNotifications(connectionNotification);
         }
     }
 
     private void enableBlockedNotifications(Device bluetoothDevice) {
+        logger.debug("Enabling blocked notification: {} : {}", getURL(), blockedNotification == null);
         if (blockedNotification == null) {
-            logger.info("Enabling blocked notification: {} ", getURL());
             blockedNotification = new BlockedNotification();
             bluetoothDevice.enableBlockedNotifications(blockedNotification);
         }
     }
 
     private void enableServicesResolvedNotifications(Device bluetoothDevice) {
+        logger.debug("Enabling services resolved notification: {} : {}",
+                getURL(), servicesResolvedNotification == null);
         if (servicesResolvedNotification == null) {
-            logger.info("Enabling services resolved notification: {} ", getURL());
             servicesResolvedNotification = new ServicesResolvedNotification();
             bluetoothDevice.enableServicesResolvedNotifications(servicesResolvedNotification);
         }
     }
 
     private void enableRSSINotifications(Device bluetoothDevice) {
+        logger.debug("Enabling RSSI notification: {} : {}", getURL(), rssiNotification == null);
         if (rssiNotification == null) {
-            logger.info("Enabling RSSI notification: {} ", getURL());
             rssiNotification = new RSSINotification();
             bluetoothDevice.enableRSSINotifications(rssiNotification);
         }
     }
 
     private void enableServiceDataNotifications(Device bluetoothDevice) {
+        logger.debug("Enabling service data notification: {} : {}", getURL(), serviceDataNotification == null);
         if (serviceDataNotification == null) {
-            logger.info("Enabling service data notification: {} ", getURL());
             serviceDataNotification = new ServiceDataNotification();
             bluetoothDevice.enableServiceDataNotifications(serviceDataNotification);
         }
     }
 
     private void enableManufacturerDataNotifications(Device bluetoothDevice) {
+        logger.debug("Enabling manufacturer data notification: {} : {}",
+                getURL(), manufacturerDataNotification == null);
         if (manufacturerDataNotification == null) {
-            logger.info("Enabling manufacturer data notification: {} ", getURL());
             manufacturerDataNotification = new ManufacturerDataNotification();
             bluetoothDevice.enableManufacturerDataNotifications(manufacturerDataNotification);
         }
     }
 
     private void updateCharacteristics() {
+        logger.debug("Updating device governor characteristics: {}", url);
         bluetoothManager.updateDescendants(url);
     }
 
     private void resetCharacteristics() {
+        logger.debug("Resetting device governor characteristics: {}", url);
         bluetoothManager.resetDescendants(url);
     }
 
@@ -592,6 +601,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     }
 
     private void updateOnline(boolean online) {
+        logger.debug("Updating device governor online state: {} : {}", url, online);
         if (online != this.online) {
             notifyOnline(online);
         }
@@ -600,20 +610,28 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
 
     private void updateBlocked(Device device) {
-        if (blockedControl != device.isBlocked()) {
+        logger.debug("Updating device governor blocked state: {}", url);
+        boolean blocked = device.isBlocked();
+        logger.debug("Blocked state: {} : {} (control) / {} (state)", url, blockedControl, blocked);
+        if (blockedControl != blocked) {
             device.setBlocked(blockedControl);
         }
     }
 
     private boolean updateConnected(Device device) {
+        logger.debug("Updating device governor connected state: {}", url);
         boolean connected = device.isConnected();
+        logger.debug("Connected state: {} : {} (control) / {} (state)", url, connectionControl, connected);
         if (connectionControl && !connected) {
+            logger.debug("Connecting device: {}", url);
             connected = device.connect();
         } else if (!connectionControl && connected) {
+            logger.debug("Disconnecting device: {}", url);
             device.disconnect();
             resetCharacteristics();
             connected = false;
         }
+        logger.debug("Connected: {} : {}", url, connected);
         return connected;
     }
 
@@ -650,7 +668,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     private class ConnectionNotification implements Notification<Boolean> {
         @Override
         public void notify(Boolean connected) {
-            logger.info("Connected (notification): " + getURL() + " " + connected);
+            logger.debug("Connected (notification): {} : {}", url, connected);
             notifyConnected(connected);
             updateLastChanged();
         }
@@ -659,7 +677,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     private class BlockedNotification implements Notification<Boolean> {
         @Override
         public void notify(Boolean blocked) {
-            logger.info("Blocked (notification): " + getURL() + " " + blocked);
+            logger.debug("Blocked (notification): {} : {}", url, blocked);
             notifyBlocked(blocked);
             updateLastChanged();
         }
@@ -668,7 +686,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     private class ServicesResolvedNotification implements Notification<Boolean> {
         @Override
         public void notify(Boolean serviceResolved) {
-            logger.info("Services resolved (notification): " + serviceResolved);
+            logger.debug("Services resolved (notification): {} : {}", url, serviceResolved);
 
             if (serviceResolved) {
                 List<GattService> gattServices = getResolvedServices();
@@ -677,7 +695,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
                     notifyServicesResolved(gattServices);
                 }
             } else {
-                logger.info("Resetting characteristic governors due to services unresolved event");
+                logger.debug("Resetting characteristic governors due to services unresolved event: {}", url);
                 resetCharacteristics();
                 notifyServicesUnresolved();
             }
@@ -696,13 +714,11 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     private class ServiceDataNotification implements Notification<Map<String, byte[]>> {
         @Override
         public void notify(Map<String, byte[]> serviceData) {
-            bluetoothSmartDeviceListeners.forEach(listener -> {
-                try {
-                    listener.serviceDataChanged(convert(serviceData));
-                } catch (Exception ex) {
-                    logger.error("Execution error of a service data listener", ex);
-                }
-            });
+            logger.debug("Services data changed (notification): {} : {} : {}",
+                    url, bluetoothSmartDeviceListeners.size(), serviceData.size());
+            BluetoothManagerUtils.safeForEachError(bluetoothSmartDeviceListeners,
+                listener -> listener.serviceDataChanged(convert(serviceData)), logger,
+                    "Execution error of a service data listener");
             updateLastChanged();
         }
     }
@@ -710,13 +726,11 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     private class ManufacturerDataNotification implements Notification<Map<Short, byte[]>> {
         @Override
         public void notify(Map<Short, byte[]> manufacturerData) {
-            bluetoothSmartDeviceListeners.forEach(listener -> {
-                try {
-                    listener.manufacturerDataChanged(manufacturerData);
-                } catch (Exception ex) {
-                    logger.error("Execution error of a manufacturer data listener", ex);
-                }
-            });
+            logger.debug("Manufacturer data changed (notification): {} : {} : {}",
+                    url, bluetoothSmartDeviceListeners.size(), manufacturerData.size());
+            BluetoothManagerUtils.safeForEachError(bluetoothSmartDeviceListeners,
+                listener -> listener.manufacturerDataChanged(manufacturerData), logger,
+                    "Execution error of a manufacturer data listener");
             updateLastChanged();
         }
     }

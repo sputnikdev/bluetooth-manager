@@ -59,34 +59,44 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
     }
 
     void init(Adapter adapter) {
+        logger.debug("Initializing adapter governor: {}", url);
         enablePoweredNotifications(adapter);
         enableDiscoveringNotifications(adapter);
+        logger.debug("Adapter governor initialization performed: {}", url);
     }
 
     void update(Adapter adapter) {
+        logger.debug("Updating adapter governor: {}", url);
         updatePowered(adapter);
-        if (isPowered()) {
+        if (adapter.isPowered()) {
             updateDiscovering(adapter);
         }
         updateLastChanged();
+        logger.debug("Adapter governor update performed: {}", url);
     }
 
     @Override
     void reset(Adapter adapter) {
-        adapter.disablePoweredNotifications();
-        adapter.disableDiscoveringNotifications();
-        poweredNotification = null;
-        discoveringNotification = null;
+        logger.debug("Resetting adapter governor: {}", url);
         try {
+            adapter.disablePoweredNotifications();
+            adapter.disableDiscoveringNotifications();
             // force stop discovery and ignore any error
             adapter.stopDiscovery();
-        } catch (Exception ignore) { /* ignore */ }
+        } catch (Exception ex) {
+            logger.debug("Error occurred while resetting adapter native object: {} : {}", url, ex.getMessage());
+        }
+        poweredNotification = null;
+        discoveringNotification = null;
+        logger.debug("Adapter governor reset performed: {}", url);
     }
 
     @Override
     public void dispose() {
         super.dispose();
+        logger.debug("Disposing adapter governor: {}", url);
         adapterListeners.clear();
+        logger.debug("Adapter governor disposed: {}", url);
     }
 
     @Override
@@ -101,7 +111,7 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
 
     @Override
     public boolean isPowered() throws NotReadyException {
-        return isReady() && interact(Adapter::isPowered);
+        return isReady() && interact("isPowered", Adapter::isPowered);
     }
 
     @Override
@@ -116,7 +126,7 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
 
     @Override
     public boolean isDiscovering() throws NotReadyException {
-        return isReady() && interact(Adapter::isDiscovering);
+        return isReady() && interact("isDiscovering", Adapter::isDiscovering);
     }
 
     @Override
@@ -126,12 +136,12 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
 
     @Override
     public String getAlias() throws NotReadyException {
-        return interact(Adapter::getAlias);
+        return interact("getAlias", Adapter::getAlias);
     }
 
     @Override
     public String getName() throws NotReadyException {
-        return interact(Adapter::getName);
+        return interact("getName", Adapter::getName);
     }
 
     @Override
@@ -152,12 +162,14 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
 
     @Override
     public List<URL> getDevices() throws NotReadyException {
-        return interact((Function<Adapter, List<URL>>) adapter -> BluetoothManagerUtils.getURLs(adapter.getDevices()));
+        return interact("getDevices",
+                (Function<Adapter, List<URL>>) adapter -> BluetoothManagerUtils.getURLs(adapter.getDevices()));
     }
 
     @Override
     public List<DeviceGovernor> getDeviceGovernors() throws NotReadyException {
-        return interact(adapter -> (List) bluetoothManager.getGovernors(adapter.getDevices()));
+        return interact("getDeviceGovernors",
+                adapter -> (List) bluetoothManager.getGovernors(adapter.getDevices()));
     }
 
     @Override
@@ -193,27 +205,26 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
     }
 
     void notifyPowered(boolean powered) {
-        adapterListeners.forEach(listener -> {
-            try {
-                listener.powered(powered);
-            } catch (Exception ex) {
-                logger.error("Execution error of a powered listener: " + powered, ex);
-            }
-        });
+        logger.debug("Notifying adapter governor listener (powered): {} : {} : {}",
+                url, adapterListeners.size(), powered);
+        BluetoothManagerUtils.safeForEachError(adapterListeners,
+                listener -> listener.powered(powered), logger,
+                "Execution error of a powered listener: " + powered);
     }
 
     void notifyDiscovering(boolean discovering) {
-        adapterListeners.forEach(listener -> {
-            try {
-                listener.discovering(discovering);
-            } catch (Exception ex) {
-                logger.error("Execution error of a discovering listener: " + discovering, ex);
-            }
-        });
+        logger.debug("Notifying adapter governor listener (discovering): {} : {} : {}",
+                url, adapterListeners.size(), discovering);
+        BluetoothManagerUtils.safeForEachError(adapterListeners,
+                listener -> listener.discovering(discovering), logger,
+                "Execution error of a discovering listener: " + discovering);
     }
 
     private void updatePowered(Adapter adapter) {
-        if (poweredControl != adapter.isPowered()) {
+        logger.debug("Updating adapter governor powered state: {}", url);
+        boolean powered = adapter.isPowered();
+        logger.debug("Powered state: {} : {} (control) / {} (state)", url, poweredControl, powered);
+        if (poweredControl != powered) {
             adapter.setPowered(poweredControl);
             if (!adapter.isPowered()) {
                 throw new NotReadyException("Could not power adapter");
@@ -222,7 +233,9 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
     }
 
     private void updateDiscovering(Adapter adapter) {
+        logger.debug("Updating adapter governor discovering state: {}", url);
         boolean isDiscovering = adapter.isDiscovering();
+        logger.debug("Discovering state: {} : {} (control) / {} (state)", url, discoveringControl, isDiscovering);
         if (discoveringControl && !isDiscovering) {
             adapter.startDiscovery();
         } else if (!discoveringControl && isDiscovering) {
@@ -231,16 +244,20 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
     }
 
     private void enablePoweredNotifications(Adapter adapter) {
+        logger.debug("Enabling powered notifications: {}", url);
         if (poweredNotification == null) {
             poweredNotification = new PoweredNotification();
             adapter.enablePoweredNotifications(poweredNotification);
+            logger.debug("Powered notifications enabled: {}", url);
         }
     }
 
     private void enableDiscoveringNotifications(Adapter adapter) {
+        logger.debug("Enabling discovering notifications: {}", url);
         if (discoveringNotification == null) {
             discoveringNotification = new DiscoveringNotification();
             adapter.enableDiscoveringNotifications(discoveringNotification);
+            logger.debug("Discovering notifications enabled: {}", url);
         }
     }
 
