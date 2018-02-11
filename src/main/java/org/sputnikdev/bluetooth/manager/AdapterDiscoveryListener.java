@@ -23,11 +23,11 @@ package org.sputnikdev.bluetooth.manager;
 import org.sputnikdev.bluetooth.URL;
 
 /**
- *
  * A listener to handle discovery results for Bluetooth adapters.
  *
  * @author Vlad Kolotov
  */
+@FunctionalInterface
 public interface AdapterDiscoveryListener {
 
     /**
@@ -42,6 +42,6 @@ public interface AdapterDiscoveryListener {
      *
      * @param address adapter URL
      */
-    void adapterLost(URL address);
+    default void adapterLost(URL address) { }
 
 }
