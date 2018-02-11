@@ -214,10 +214,6 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
         bluetoothManager.scheduleUpdate(this);
     }
 
-    protected <R> R interact(Function<T, R> delegate) {
-        return interact(null, delegate);
-    }
-
     protected <R> R interact(String name, Function<T, R> delegate) {
         try {
             T object = getBluetoothObject();
@@ -232,10 +228,6 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
             reset();
             throw ex;
         }
-    }
-
-    protected void interact(Consumer<T> delegate) {
-        interact(null, delegate);
     }
 
     protected void interact(String name, Consumer<T> delegate) {
