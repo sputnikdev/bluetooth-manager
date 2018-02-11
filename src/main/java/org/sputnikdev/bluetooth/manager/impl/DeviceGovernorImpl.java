@@ -126,17 +126,21 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     void reset(Device device) {
         logger.info("Resetting device governor: " + getURL());
         updateOnline(false);
-        logger.info("Disable device notifications: " + getURL());
-        device.disableConnectedNotifications();
-        device.disableServicesResolvedNotifications();
-        device.disableRSSINotifications();
-        device.disableBlockedNotifications();
-        device.disableServiceDataNotifications();
-        device.disableManufacturerDataNotifications();
-        logger.info("Disconnecting device: " + getURL());
-        if (device.isConnected()) {
-            device.disconnect();
-            notifyConnected(false);
+        try {
+            logger.info("Disable device notifications: " + getURL());
+            device.disableConnectedNotifications();
+            device.disableServicesResolvedNotifications();
+            device.disableRSSINotifications();
+            device.disableBlockedNotifications();
+            device.disableServiceDataNotifications();
+            device.disableManufacturerDataNotifications();
+            logger.info("Disconnecting device: " + getURL());
+            if (device.isConnected()) {
+                device.disconnect();
+                notifyConnected(false);
+            }
+        } catch (Exception ex) {
+            logger.debug("Error occurred while resetting device: {} : {} ", getURL(), ex.getMessage());
         }
         connectionNotification = null;
         servicesResolvedNotification = null;
