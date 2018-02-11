@@ -72,7 +72,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
 
     private final AtomicInteger governorsCount = new AtomicInteger();
     private final Map<URL, DeviceGovernorHandler> governors = new ConcurrentHashMap<>();
-    private final DelegateRegistrar delegateRegistrar = new DelegateRegistrar();
+    private final AdapterDiscoveryListener delegateRegistrar = adapter -> registerDelegate((DiscoveredAdapter) adapter);
 
     // proxy listeners
     private final List<GovernorListener> governorListeners = new CopyOnWriteArrayList<>();
@@ -490,7 +490,9 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     }
 
     private void registerDelegate(DiscoveredAdapter adapter) {
-        registerDelegate(url.copyWithAdapter(adapter.getURL().getAdapterAddress()));
+        synchronized (governors) {
+            registerDelegate(url.copyWithAdapter(adapter.getURL().getAdapterAddress()));
+        }
     }
 
     private void registerDelegate(URL url) {
@@ -784,17 +786,6 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
                 BluetoothSmartDeviceListener::servicesUnresolved,
                 logger, "Execution error of a service resolved listener");
         }
-    }
-
-    private class DelegateRegistrar implements AdapterDiscoveryListener {
-
-        @Override
-        public void discovered(DiscoveredAdapter adapter) {
-            registerDelegate(adapter);
-        }
-
-        @Override
-        public void adapterLost(URL address) { /* do nothing */}
     }
 
     private class KalmanFilterProxy extends RssiKalmanFilter {
