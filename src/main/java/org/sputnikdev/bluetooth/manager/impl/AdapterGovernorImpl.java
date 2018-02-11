@@ -131,7 +131,7 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
 
     @Override
     public void setAlias(String alias) throws NotReadyException {
-        interact((Consumer<Adapter>) adapter -> adapter.setAlias(alias));
+        interact("setAlias", (Consumer<Adapter>) adapter -> adapter.setAlias(alias));
     }
 
     @Override
