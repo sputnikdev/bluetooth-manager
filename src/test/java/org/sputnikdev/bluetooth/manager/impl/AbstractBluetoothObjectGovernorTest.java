@@ -246,11 +246,9 @@ public class AbstractBluetoothObjectGovernorTest {
 
         // check interactions
         InOrder inOrder = inOrder(governor, governorListener, bluetoothManager);
+        inOrder.verify(bluetoothManager).resetDescendants(URL);
         inOrder.verify(governor, times(1)).reset(bluetoothObject);
         inOrder.verify(governorListener, times(1)).ready(false);
-        inOrder.verify(bluetoothManager).resetDescendants(URL);
-
-        inOrder.verifyNoMoreInteractions();
     }
 
     @Test
