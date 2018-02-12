@@ -210,14 +210,15 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
             if (!isConnected()) {
                 DeviceGovernor newTarget = findConnectionTarget();
                 logger.debug("Current target / new target: {} / {}",
-                        connectionTarget != null ? connectionTarget.getURL() : null, newTarget.getURL());
+                        connectionTarget != null ? connectionTarget.getURL() : null,
+                        newTarget != null ? newTarget.getURL() : null);
                 if (connectionTarget != null && !connectionTarget.equals(newTarget)) {
                     connectionTarget.setConnectionControl(false);
                 }
-                connectionTarget = newTarget;
-                if (connectionTarget != null) {
-                    connectionTarget.setConnectionControl(connectionControl);
+                if (newTarget != null && newTarget.getConnectionControl() != connectionControl) {
+                    newTarget.setConnectionControl(connectionControl);
                 }
+                connectionTarget = newTarget;
             } else {
                 logger.trace("Skipping updating connection target as the governor is currently connected: {}", url);
             }
