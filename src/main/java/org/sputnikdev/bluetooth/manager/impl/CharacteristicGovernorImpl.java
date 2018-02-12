@@ -58,7 +58,7 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
     void init(Characteristic characteristic) {
         logger.debug("Initializing characteristic governor: {}", url);
         canNotify = canNotify(characteristic);
-        logger.debug("Characteristic governor initialization performed: {} : {}", url, canNotify);
+        logger.trace("Characteristic governor initialization performed: {} : {}", url, canNotify);
     }
 
     @Override
@@ -66,7 +66,7 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
         logger.debug("Updating characteristic governor: {}", url);
         if (canNotify) {
             boolean notifying = characteristic.isNotifying();
-            logger.debug("Updating characteristic governor notifications state: {} : {} / {} / {}",
+            logger.trace("Updating characteristic governor notifications state: {} : {} / {} / {}",
                     url, valueListeners.isEmpty(), notifying, valueNotification == null);
             if (!valueListeners.isEmpty() && (!notifying || valueNotification == null)) {
                 enableNotification(characteristic);
@@ -84,7 +84,7 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
             // force notification to be disabled and ignore any error
             characteristic.disableValueNotifications();
         } catch (Exception ex) {
-            logger.debug("Error occurred while resetting characteristic: {} : {} ", url, ex.getMessage());
+            logger.warn("Error occurred while resetting characteristic: {} : {} ", url, ex.getMessage());
         }
     }
 
@@ -93,7 +93,7 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
         super.dispose();
         logger.debug("Disposing characteristic governor: {}", url);
         valueListeners.clear();
-        logger.debug("Characteristic governor disposed: {}", url);
+        logger.trace("Characteristic governor disposed: {}", url);
     }
 
     @Override

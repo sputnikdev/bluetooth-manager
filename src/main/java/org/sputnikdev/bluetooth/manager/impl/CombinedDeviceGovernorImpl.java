@@ -166,7 +166,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
 
     @Override
     public void setConnectionControl(boolean connected) {
-        logger.debug("Setting connection control: {} : {}", url, connectionControl);
+        logger.debug("Setting connection control: {} : {}", url, connected);
         connectionControl = connected;
         if (connected) {
             updateConnectionTarget();
@@ -219,24 +219,24 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
                     connectionTarget.setConnectionControl(connectionControl);
                 }
             } else {
-                logger.debug("Skipping updating connection target as the governor is currently connected: {}", url);
+                logger.trace("Skipping updating connection target as the governor is currently connected: {}", url);
             }
         }
     }
 
     private DeviceGovernor findConnectionTarget() {
-        logger.debug("Finding connection target: {} : {}", url, connectionStrategy);
+        logger.trace("Finding connection target: {} : {}", url, connectionStrategy);
         switch (connectionStrategy) {
             case NEAREST_ADAPTER:
-                logger.debug("Nearest connection target: {}", nearest.getURL());
+                logger.trace("Nearest connection target: {}", nearest != null ? nearest.getURL() : null);
                 return nearest;
             case PREFERRED_ADAPTER:
-                logger.debug("Preferred adapter: {}", preferredAdapter);
+                logger.trace("Preferred adapter: {}", preferredAdapter);
                 if (preferredAdapter != null) {
                     DeviceGovernorHandler preferredHandler = governors.get(
                             preferredAdapter.copyWithProtocol(null).copyWithDevice(url.getDeviceAddress()));
                     if (preferredHandler != null) {
-                        logger.debug("Preferred connection target: {}", preferredHandler.delegate.getURL());
+                        logger.trace("Preferred connection target: {}", preferredHandler.delegate.getURL());
                         return preferredHandler.delegate;
                     }
                 }
@@ -620,7 +620,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
                         } catch (NotReadyException ex) {
                             // the device has become not ready, that's fine it will be initialized again later
                             // when it becomes ready, so just ignore it for now
-                            logger.debug("Error occurred while initializing unsafe operations: {} : {}",
+                            logger.warn("Error occurred while initializing unsafe operations: {} : {}",
                                     url, ex.getMessage());
                         }
                     }

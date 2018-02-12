@@ -92,6 +92,7 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     @Override
     public void start(boolean startDiscovering) {
+        logger.debug("Starting bluetooth manager: {}", Integer.toHexString(hashCode()));
         if (started || !adapterDiscoveryFutures.isEmpty() || !deviceDiscoveryFutures.isEmpty()
             || !governorFutures.isEmpty()) {
             return;
@@ -164,14 +165,14 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     @Override
     public BluetoothGovernor getGovernor(URL url) {
-        logger.debug("Governor requested: {}", url);
+        logger.trace("Governor requested: {}", url);
         if (url.isProtocol() || url.isRoot()) {
             return null;
         }
         URL protocolLess = url.copyWithProtocol(null);
         BluetoothObjectGovernor governor = governors.get(protocolLess);
         if (governor == null) {
-            logger.debug("Governor does not exist: {}", protocolLess);
+            logger.trace("Governor does not exist: {}", protocolLess);
             synchronized (governors) {
                 // is it still missing?
                 if (!governors.containsKey(protocolLess)) {
@@ -182,7 +183,7 @@ class BluetoothManagerImpl implements BluetoothManager {
                     return governor;
                 } else {
                     governor = governors.get(protocolLess);
-                    logger.debug("Returning an existing governor: {}", governor);
+                    logger.trace("Returning an existing governor: {}", governor);
                 }
             }
         }
@@ -329,10 +330,10 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     BluetoothObjectFactory getFactory(String protocolName) {
-        logger.debug("Getting registered transport (factory): {}", protocolName);
+        logger.trace("Getting registered transport (factory): {}", protocolName);
         BluetoothObjectFactory factory = factories.get(protocolName);
         if (factory == null) {
-            logger.debug("Transport [{}] is not registered.", protocolName);
+            logger.warn("Transport [{}] is not registered.", protocolName);
         }
         return factory;
     }
@@ -392,9 +393,9 @@ class BluetoothManagerImpl implements BluetoothManager {
      * @return a native object corresponding to the given url
      */
     <T extends BluetoothObject> T getBluetoothObject(URL url) {
-        logger.debug("Native object requested: {}", url);
+        logger.trace("Native object requested: {}", url);
         BluetoothObjectFactory factory = findFactory(url);
-        logger.debug("Factory found: {} : {}", url, factory != null ? factory.getProtocolName() : null);
+        logger.trace("Factory found: {} : {}", url, factory != null ? factory.getProtocolName() : null);
         BluetoothObject bluetoothObject = null;
         if (factory != null) {
             URL objectURL = url.copyWithProtocol(factory.getProtocolName());
@@ -406,7 +407,7 @@ class BluetoothManagerImpl implements BluetoothManager {
                 bluetoothObject = factory.getCharacteristic(objectURL);
             }
         }
-        logger.debug("Returning native object: {} : {}", url, bluetoothObject);
+        logger.trace("Returning native object: {} : {}", url, bluetoothObject);
         return (T) bluetoothObject;
     }
 
@@ -536,7 +537,7 @@ class BluetoothManagerImpl implements BluetoothManager {
             logger.debug("Resetting governor: {}", governor.getURL());
             governor.reset();
         } catch (Exception ex) {
-            logger.debug("Error occurred while resetting governor: " + governor, ex);
+            logger.warn("Error occurred while resetting governor: " + governor, ex);
         }
     }
 
@@ -545,7 +546,7 @@ class BluetoothManagerImpl implements BluetoothManager {
             logger.debug("Disposing governor: {}", governor.getURL());
             governor.dispose();
         } catch (Exception ex) {
-            logger.debug("Error occurred while disposing governor: " + governor, ex);
+            logger.warn("Error occurred while disposing governor: " + governor, ex);
         }
     }
 
@@ -554,16 +555,16 @@ class BluetoothManagerImpl implements BluetoothManager {
             logger.debug("Updating governor: {}", governor.getURL());
             governor.update();
         } catch (Exception ex) {
-            logger.debug("Error occurred while updating governor: " + governor, ex);
+            logger.warn("Error occurred while updating governor: " + governor, ex);
         }
     }
 
     private void init(BluetoothObjectGovernor governor) {
-        logger.debug("Initializing governor: {}", governor.getURL());
         try {
+            logger.debug("Initializing governor: {}", governor.getURL());
             governor.init();
         } catch (Exception ex) {
-            logger.debug("Error occurred while initializing governor: " + governor, ex);
+            logger.warn("Error occurred while initializing governor: " + governor, ex);
         }
     }
 
@@ -580,7 +581,7 @@ class BluetoothManagerImpl implements BluetoothManager {
             try {
                 discoverDevices();
             } catch (Exception ex) {
-                logger.error("Device discovery job error", ex);
+                logger.warn("Device discovery job error", ex);
             }
         }
 
@@ -615,7 +616,7 @@ class BluetoothManagerImpl implements BluetoothManager {
             try {
                 discoverAdapters();
             } catch (Exception ex) {
-                logger.error("Adapter discovery job error", ex);
+                logger.warn("Adapter discovery job error", ex);
             }
         }
 

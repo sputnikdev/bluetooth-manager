@@ -62,7 +62,7 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
         logger.debug("Initializing adapter governor: {}", url);
         enablePoweredNotifications(adapter);
         enableDiscoveringNotifications(adapter);
-        logger.debug("Adapter governor initialization performed: {}", url);
+        logger.trace("Adapter governor initialization performed: {}", url);
     }
 
     void update(Adapter adapter) {
@@ -72,7 +72,7 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
             updateDiscovering(adapter);
         }
         updateLastChanged();
-        logger.debug("Adapter governor update performed: {}", url);
+        logger.trace("Adapter governor update performed: {}", url);
     }
 
     @Override
@@ -84,11 +84,11 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
             // force stop discovery and ignore any error
             adapter.stopDiscovery();
         } catch (Exception ex) {
-            logger.debug("Error occurred while resetting adapter native object: {} : {}", url, ex.getMessage());
+            logger.warn("Error occurred while resetting adapter native object: {} : {}", url, ex.getMessage());
         }
         poweredNotification = null;
         discoveringNotification = null;
-        logger.debug("Adapter governor reset performed: {}", url);
+        logger.trace("Adapter governor reset performed: {}", url);
     }
 
     @Override
@@ -96,7 +96,7 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
         super.dispose();
         logger.debug("Disposing adapter governor: {}", url);
         adapterListeners.clear();
-        logger.debug("Adapter governor disposed: {}", url);
+        logger.trace("Adapter governor disposed: {}", url);
     }
 
     @Override
@@ -221,10 +221,11 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
     }
 
     private void updatePowered(Adapter adapter) {
-        logger.debug("Updating adapter governor powered state: {}", url);
+        logger.trace("Updating adapter governor powered state: {}", url);
         boolean powered = adapter.isPowered();
-        logger.debug("Powered state: {} : {} (control) / {} (state)", url, poweredControl, powered);
+        logger.trace("Powered state: {} : {} (control) / {} (state)", url, poweredControl, powered);
         if (poweredControl != powered) {
+            logger.debug("Setting powered: {} : {}", url, poweredControl);
             adapter.setPowered(poweredControl);
             if (!adapter.isPowered()) {
                 throw new NotReadyException("Could not power adapter");
@@ -233,31 +234,33 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
     }
 
     private void updateDiscovering(Adapter adapter) {
-        logger.debug("Updating adapter governor discovering state: {}", url);
+        logger.trace("Updating adapter governor discovering state: {}", url);
         boolean isDiscovering = adapter.isDiscovering();
-        logger.debug("Discovering state: {} : {} (control) / {} (state)", url, discoveringControl, isDiscovering);
+        logger.trace("Discovering state: {} : {} (control) / {} (state)", url, discoveringControl, isDiscovering);
         if (discoveringControl && !isDiscovering) {
+            logger.debug("Starting discovery: {}", url);
             adapter.startDiscovery();
         } else if (!discoveringControl && isDiscovering) {
+            logger.debug("Stopping discovery: {}", url);
             adapter.stopDiscovery();
         }
     }
 
     private void enablePoweredNotifications(Adapter adapter) {
-        logger.debug("Enabling powered notifications: {}", url);
+        logger.debug("Enabling powered notifications: {} : {} ", url, poweredNotification == null);
         if (poweredNotification == null) {
             poweredNotification = new PoweredNotification();
             adapter.enablePoweredNotifications(poweredNotification);
-            logger.debug("Powered notifications enabled: {}", url);
+            logger.trace("Powered notifications enabled: {}", url);
         }
     }
 
     private void enableDiscoveringNotifications(Adapter adapter) {
-        logger.debug("Enabling discovering notifications: {}", url);
+        logger.debug("Enabling discovering notifications: {} : {}", url, discoveringNotification == null);
         if (discoveringNotification == null) {
             discoveringNotification = new DiscoveringNotification();
             adapter.enableDiscoveringNotifications(discoveringNotification);
-            logger.debug("Discovering notifications enabled: {}", url);
+            logger.trace("Discovering notifications enabled: {}", url);
         }
     }
 

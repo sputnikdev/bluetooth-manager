@@ -100,7 +100,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         enableBlockedNotifications(device);
         enableManufacturerDataNotifications(device);
         enableServiceDataNotifications(device);
-        logger.debug("Device governor initialization performed: {}", url);
+        logger.trace("Device governor initialization performed: {}", url);
     }
 
     @Override
@@ -109,7 +109,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         AdapterGovernor adapterGovernor = bluetoothManager.getAdapterGovernor(getURL());
         boolean adapterReady = adapterGovernor.isReady();
         boolean adapterPowered = adapterGovernor.isPowered();
-        logger.debug("Checking if device adapter is ready / powered: {} : {} / {}",
+        logger.trace("Checking if device adapter is ready / powered: {} : {} / {}",
                 url, adapterReady, adapterPowered);
         if (adapterReady && adapterPowered) {
             updateBlocked(device);
@@ -128,7 +128,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
             }
         }
         updateOnline(isOnline());
-        logger.debug("Device governor update performed: {}", url);
+        logger.trace("Device governor update performed: {}", url);
     }
 
     @Override
@@ -136,20 +136,20 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         logger.debug("Resetting device governor: {}", url);
         updateOnline(false);
         try {
-            logger.debug("Disable device notifications: {}", url);
+            logger.trace("Disable device notifications: {}", url);
             device.disableConnectedNotifications();
             device.disableServicesResolvedNotifications();
             device.disableRSSINotifications();
             device.disableBlockedNotifications();
             device.disableServiceDataNotifications();
             device.disableManufacturerDataNotifications();
-            logger.debug("Disconnecting device: {}", url);
+            logger.trace("Disconnecting device: {}", url);
             if (device.isConnected()) {
                 device.disconnect();
                 notifyConnected(false);
             }
         } catch (Exception ex) {
-            logger.debug("Error occurred while resetting device: {} : {} ", url, ex.getMessage());
+            logger.warn("Error occurred while resetting device: {} : {} ", url, ex.getMessage());
         }
         connectionNotification = null;
         servicesResolvedNotification = null;
@@ -157,13 +157,13 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         blockedNotification = null;
         serviceDataNotification = null;
         manufacturerDataNotification = null;
-        logger.debug("Device governor reset performed: {}", url);
+        logger.trace("Device governor reset performed: {}", url);
     }
 
     @Override
     public void dispose() {
         super.dispose();
-        logger.debug("Disposing device governor: {}", url);
+        logger.trace("Disposing device governor: {}", url);
         genericBluetoothDeviceListeners.clear();
         bluetoothSmartDeviceListeners.clear();
         logger.debug("Device governor disposed: {}", url);
@@ -206,9 +206,12 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     }
 
     public void setConnectionControl(boolean connectionControl) {
-        logger.debug("Setting connection control: {} : {}", url, connectionControl);
-        this.connectionControl = connectionControl;
-        scheduleUpdate();
+        logger.debug("Setting connection control: {} : {} / {}", url, this.connectionControl, connectionControl);
+        boolean changed = this.connectionControl != connectionControl;
+        if (changed) {
+            this.connectionControl = connectionControl;
+            scheduleUpdate();
+        }
     }
 
     @Override
@@ -601,27 +604,27 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     }
 
     private void updateOnline(boolean online) {
-        logger.debug("Updating device governor online state: {} : {}", url, online);
+        logger.trace("Updating device governor online state: {}", url);
         if (online != this.online) {
+            logger.debug("Updating online state: {} : {} (control) / {} (state)", url, this.online, online);
             notifyOnline(online);
         }
         this.online = online;
     }
 
-
     private void updateBlocked(Device device) {
-        logger.debug("Updating device governor blocked state: {}", url);
+        logger.trace("Updating device governor blocked state: {}", url);
         boolean blocked = device.isBlocked();
-        logger.debug("Blocked state: {} : {} (control) / {} (state)", url, blockedControl, blocked);
         if (blockedControl != blocked) {
+            logger.debug("Updating blocked state: {} : {} (control) / {} (state)", url, blockedControl, blocked);
             device.setBlocked(blockedControl);
         }
     }
 
     private boolean updateConnected(Device device) {
-        logger.debug("Updating device governor connected state: {}", url);
+        logger.trace("Updating device governor connected state: {}", url);
         boolean connected = device.isConnected();
-        logger.debug("Connected state: {} : {} (control) / {} (state)", url, connectionControl, connected);
+        logger.trace("Connected state: {} : {} (control) / {} (state)", url, connectionControl, connected);
         if (connectionControl && !connected) {
             logger.debug("Connecting device: {}", url);
             connected = device.connect();
@@ -631,7 +634,6 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
             resetCharacteristics();
             connected = false;
         }
-        logger.debug("Connected: {} : {}", url, connected);
         return connected;
     }
 
