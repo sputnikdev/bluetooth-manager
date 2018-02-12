@@ -267,12 +267,13 @@ class BluetoothManagerImpl implements BluetoothManager {
         deviceDiscoveryListeners.clear();
         adapterDiscoveryListeners.clear();
 
-        governors.values().forEach(this::dispose);
-        governors.clear();
-
         factories.clear();
 
-        logger.debug("Bluetooth service has been disposed: {}", Integer.toHexString(hashCode()));
+        Map<URL, BluetoothObjectGovernor> tmp = new HashMap<>(governors);
+        governors.clear();
+        tmp.values().forEach(this::dispose);
+
+        logger.debug("Bluetooth manager has been disposed: {}", Integer.toHexString(hashCode()));
     }
 
     @Override

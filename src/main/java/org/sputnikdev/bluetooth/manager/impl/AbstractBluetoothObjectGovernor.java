@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.GovernorListener;
+import org.sputnikdev.bluetooth.manager.GovernorState;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObject;
 
@@ -89,6 +90,7 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
     private Date lastActivity;
     private Date lastActivityNotified;
     private final List<GovernorListener> governorListeners = new CopyOnWriteArrayList<>();
+    private GovernorState state = GovernorState.NEW;
 
     private final ReentrantLock updateLock = new ReentrantLock();
 
@@ -150,63 +152,69 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
 
     @Override
     public void update() {
-        logger.debug("Updating governor. Trying to acquire lock: {}", url);
-        boolean updated = false;
-        T object = null;
-        if (updateLock.tryLock()) {
-            try {
-                logger.trace("Lock acquired. Getting a native object: {}", url);
-                object = getOrFindBluetoothObject();
-                if (object == null) {
-                    logger.trace("Native object is not available: {}", url);
-                    return;
+        if (state != GovernorState.DISPOSED) {
+            logger.debug("Updating governor. Trying to acquire lock: {}", url);
+            boolean updated = false;
+            T object = null;
+            if (updateLock.tryLock()) {
+                try {
+                    logger.trace("Lock acquired. Getting a native object: {}", url);
+                    object = getOrFindBluetoothObject();
+                    if (object == null) {
+                        logger.trace("Native object is not available: {}", url);
+                        return;
+                    }
+                    logger.trace("Performing update with the native object: {} / {}",
+                            url, Integer.toHexString(object.hashCode()));
+                    update(object);
+                    logger.debug("Governor has been updated: {}", url);
+                    updated = true;
+                } catch (Exception ex) {
+                    logger.warn("Error occurred while updating governor: {} / {} : {}",
+                            url, object != null ? Integer.toHexString(object.hashCode()) : null, ex.getMessage());
+                    reset();
+                } finally {
+                    logger.trace("Unlocking update (update) lock: {}", url);
+                    updateLock.unlock();
                 }
-                logger.trace("Performing update with the native object: {} / {}",
-                        url, Integer.toHexString(object.hashCode()));
-                update(object);
-                logger.debug("Governor has been updated: {}", url);
-                updated = true;
-            } catch (Exception ex) {
-                logger.warn("Error occurred while updating governor: {} / {} : {}",
-                        url, object != null ? Integer.toHexString(object.hashCode()) : null, ex.getMessage());
-                reset();
-            } finally {
-                logger.trace("Unlocking update (update) lock: {}", url);
+                if (updated) {
+                    notifyLastChanged();
+                }
+            } else {
+                // looks like the bluetooth manager is performing an update of this governor already,
+                // therefore no need to run another update, let's wait until the bluetooth manager finishes its update
+                logger.debug("Lock could not be acquired (governor is being updated). Skipping the update.");
+                updateLock.lock();
                 updateLock.unlock();
             }
-            if (updated) {
-                notifyLastChanged();
-            }
-        } else {
-            // looks like the bluetooth manager is performing an update of this governor already,
-            // therefore no need to run another update, let's wait until the bluetooth manager finishes its update
-            logger.debug("Lock could not be acquired (governor is being updated). Skipping the update.");
-            updateLock.lock();
-            updateLock.unlock();
         }
     }
 
     public void reset() {
-        logger.debug("Resetting governor. Trying to acquire lock: {}", url);
-        try {
-            logger.trace("Lock acquired. Resetting governor now: {}", url);
-            if (bluetoothObject != null) {
-                forceReset(bluetoothObject);
+        if (state != GovernorState.RESET && state != GovernorState.DISPOSED) {
+            state = GovernorState.RESET;
+            logger.debug("Resetting governor. Descendants first: {}", url);
+            bluetoothManager.resetDescendants(url);
+            try {
+                if (bluetoothObject != null) {
+                    forceReset(bluetoothObject);
+                }
+                bluetoothObject = null;
+                logger.debug("Governor has been reset: {}", url);
+            } catch (Exception ex) {
+                logger.debug("Error occurred while resetting governor {}: {}", url, ex.getMessage());
             }
-            bluetoothObject = null;
-            logger.debug("Governor has been reset: {}", url);
-        } catch (Exception ex) {
-            logger.debug("Error occurred while resetting governor {}: {}", url, ex.getMessage());
         }
-        logger.debug("Resetting descendants: {}", url);
-        bluetoothManager.resetDescendants(url);
     }
 
     @Override
     public void dispose() {
-        logger.debug("Disposing governor: {}", url);
-        reset();
-        governorListeners.clear();
+        if (state != GovernorState.DISPOSED) {
+            logger.debug("Disposing governor: {}", url);
+            reset();
+            state = GovernorState.DISPOSED;
+            governorListeners.clear();
+        }
     }
 
     protected void scheduleUpdate() {
@@ -298,6 +306,7 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
                     logger.debug("Initializing governor with the new native object: {}", url);
                     init(bluetoothObject);
                     logger.trace("Initialization succeeded: {}", url);
+                    state = GovernorState.READY;
                     notifyReady(true);
                 } catch (Exception ex) {
                     logger.warn("Error occurred while initializing governor with a new native object: {} : {}",
