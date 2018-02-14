@@ -421,8 +421,8 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     @Override
     public void dispose() {
         logger.debug("Disposing combined device governor: {}", url);
-        setConnectionControl(false);
         bluetoothManager.removeAdapterDiscoveryListener(delegateRegistrar);
+        setConnectionControl(false);
         governors.values().forEach(DeviceGovernorHandler::dispose);
         governors.clear();
         governorListeners.clear();
@@ -502,21 +502,21 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
 
     private void registerDelegate(DiscoveredAdapter adapter) {
         URL delegateURL = url.copyWithAdapter(adapter.getURL().getAdapterAddress());
-        logger.debug("Delegates number: {}. A new delegate offered: {}.", governors.size(), delegateURL);
-        synchronized (governors) {
+        logger.trace("A new delegate offered: {}. Delegates number: {}. ", delegateURL, governors.size());
+        if (!COMBINED_ADDRESS.equals(delegateURL.getAdapterAddress())) {
             registerDelegate(delegateURL);
         }
     }
 
     private void registerDelegate(URL url) {
-        if (url.isDevice() && this.url.getDeviceAddress().equals(url.getDeviceAddress())
-                && !COMBINED_ADDRESS.equals(url.getAdapterAddress())) {
-            if (governorsCount.get() > 63) {
-                throw new IllegalStateException("Combined Device Governor can only span up to 63 device governors "
-                        + "(adapters).");
-            }
+        if (governorsCount.get() > 63) {
+            throw new IllegalStateException("Combined Device Governor can only span up to 63 device governors "
+                    + "(adapters).");
+        }
+        if (!governors.containsKey(url.copyWithProtocol(null))) {
+            // getting the governor outside of the synchronisation context to avoid deadlocks
+            DeviceGovernor deviceGovernor = bluetoothManager.getDeviceGovernor(url);
             governors.computeIfAbsent(url.copyWithProtocol(null), newUrl -> {
-                DeviceGovernor deviceGovernor = bluetoothManager.getDeviceGovernor(url);
                 int index = governorsCount.getAndIncrement();
                 logger.debug("Registering a new delegate: {} : {}", newUrl, index);
                 DeviceGovernorHandler handler = new DeviceGovernorHandler(deviceGovernor, index);
