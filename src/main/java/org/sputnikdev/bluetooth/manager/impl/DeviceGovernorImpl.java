@@ -105,7 +105,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     @Override
     void update(Device device) {
-        logger.debug("Updating device governor: {}", url);
+        logger.trace("Updating device governor: {}", url);
         AdapterGovernor adapterGovernor = bluetoothManager.getAdapterGovernor(getURL());
         boolean adapterReady = adapterGovernor.isReady();
         boolean adapterPowered = adapterGovernor.isPowered();

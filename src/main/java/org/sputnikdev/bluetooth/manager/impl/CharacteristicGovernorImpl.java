@@ -63,7 +63,7 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
 
     @Override
     void update(Characteristic characteristic) {
-        logger.debug("Updating characteristic governor: {}", url);
+        logger.trace("Updating characteristic governor: {}", url);
         if (canNotify) {
             boolean notifying = characteristic.isNotifying();
             logger.trace("Updating characteristic governor notifications state: {} : {} / {} / {}",
