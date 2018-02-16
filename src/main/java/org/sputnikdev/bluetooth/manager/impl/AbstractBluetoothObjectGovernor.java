@@ -232,7 +232,8 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
             return result;
         } catch (Exception ex) {
             boolean locked = updateLock.isLocked();
-            logger.warn("Error occurred while interacting ({}) with native object: {} : {}", name, url, locked);
+            logger.warn("Error occurred while interacting ({}) with native object: {} : {} : {}",
+                    name, url, locked, ex.getMessage());
             // no need to reset if it is locked in the update or reset method
             //TODO decide if it is needed
             //if (!locked) {
@@ -329,7 +330,7 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
         notifyReady(false);
         try {
             logger.trace("Disposing native object: {} / {}", url, Integer.toHexString(bluetoothObject.hashCode()));
-            bluetoothObject.dispose();
+            bluetoothManager.disposeBluetoothObject(bluetoothObject.getURL());
         } catch (Exception ex) {
             logger.trace("Could not dispose bluetooth object {}: {}", url, ex.getMessage());
         }

@@ -22,6 +22,8 @@ package org.sputnikdev.bluetooth.manager;
 
 import org.sputnikdev.bluetooth.URL;
 
+import java.util.Objects;
+
 
 /**
  * Objects of this class capture discovery results for Bluetooth devices.
@@ -38,6 +40,14 @@ public class DiscoveredDevice implements DiscoveredObject {
     private short rssi;
     private int bluetoothClass;
     private boolean bleEnabled;
+
+    /**
+     * Creates a new instance based on previously created object.
+     * @param device device to copy
+     */
+    public DiscoveredDevice(DiscoveredDevice device) {
+        this(device.url, device.name, device.alias, device.rssi, device.bluetoothClass, device.bleEnabled);
+    }
 
     /**
      * Creates a new object.
@@ -118,20 +128,16 @@ public class DiscoveredDevice implements DiscoveredObject {
         if (this == o) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if (!(o instanceof DiscoveredDevice)) {
             return false;
         }
-
         DiscoveredDevice that = (DiscoveredDevice) o;
-        return url.equals(that.url);
-
+        return Objects.equals(url, that.url);
     }
 
     @Override
     public int hashCode() {
-        int result = url.hashCode();
-        result = 31 * result + url.hashCode();
-        return result;
+        return Objects.hash(url);
     }
 
     @Override

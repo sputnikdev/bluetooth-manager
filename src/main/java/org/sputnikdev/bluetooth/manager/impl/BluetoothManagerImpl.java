@@ -43,6 +43,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -50,9 +51,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -63,6 +62,7 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     static final int REFRESH_RATE_SEC = 5;
     static final int DISCOVERY_RATE_SEC = 10;
+    static final long DISCOVERY_STALE_DEVICE_REMOVAL_TIMEOUT = 1000 * 60 * 10;
 
     private Logger logger = LoggerFactory.getLogger(BluetoothManagerImpl.class);
 
@@ -79,7 +79,7 @@ class BluetoothManagerImpl implements BluetoothManager {
     private final Set<ManagerListener> managerListeners = new CopyOnWriteArraySet<>();
 
     private final Map<URL, BluetoothObjectGovernor> governors = new ConcurrentHashMap<>();
-    private final Set<DiscoveredDevice> discoveredDevices = new CopyOnWriteArraySet<>();
+    private final Map<URL, DeviceDiscoveryHolder> discoveredDevices = new ConcurrentHashMap<>();
     private final Set<DiscoveredAdapter> discoveredAdapters = new CopyOnWriteArraySet<>();
 
     private boolean startDiscovering;
@@ -183,12 +183,12 @@ class BluetoothManagerImpl implements BluetoothManager {
                     return governor;
                 } else {
                     governor = governors.get(protocolLess);
-                    logger.trace("Returning an existing governor: {}", governor);
+                    logger.trace("Returning an existing governor: {}", governor.getURL());
                 }
             }
         }
         if (!governor.isReady()) {
-            logger.debug("Governor is not ready. Enforcing an explicit update: {}", governor);
+            logger.debug("Governor is not ready. Enforcing an explicit update: {}", governor.getURL());
             update(governor);
         }
         return governor;
@@ -227,10 +227,10 @@ class BluetoothManagerImpl implements BluetoothManager {
     public DeviceGovernor getDeviceGovernor(URL url, boolean forceConnect) {
         DeviceGovernor deviceGovernor = getDeviceGovernor(url);
         if (forceConnect) {
-            logger.debug("Forcing device governor to be connected: {}", deviceGovernor);
+            logger.debug("Forcing device governor to be connected: {}", deviceGovernor.getURL());
             deviceGovernor.setConnectionControl(true);
             if (!deviceGovernor.isReady() || !deviceGovernor.isConnected()) {
-                logger.debug("Governor is not connected. Enforcing an explicit update: {}", deviceGovernor);
+                logger.debug("Governor is not connected. Enforcing an explicit update: {}", deviceGovernor.getURL());
                 update((BluetoothObjectGovernor) deviceGovernor);
             }
         }
@@ -279,16 +279,16 @@ class BluetoothManagerImpl implements BluetoothManager {
     @Override
     public Set<DiscoveredDevice> getDiscoveredDevices() {
         if (combinedDevices) {
-            Map<URL, List<DiscoveredDevice>> groupedByDeviceAddress =
-                discoveredDevices.stream().collect(
-                    Collectors.groupingBy(t -> t.getURL().copyWithAdapter(CombinedGovernor.COMBINED_ADDRESS)));
-            return groupedByDeviceAddress.entrySet().stream().map(entry -> {
-                DiscoveredDevice discoveredDevice = entry.getValue().get(0);
-                return new DiscoveredDevice(entry.getKey(), discoveredDevice.getName(), discoveredDevice.getAlias(),
-                    discoveredDevice.getRSSI(), discoveredDevice.getBluetoothClass(), discoveredDevice.isBleEnabled());
-            }).collect(Collectors.toSet());
+            Map<URL, List<DeviceDiscoveryHolder>> groupedByDeviceAddress =
+                    discoveredDevices.entrySet().stream()
+                            .collect(Collectors.groupingBy(entry ->
+                                            entry.getKey().copyWithAdapter(CombinedGovernor.COMBINED_ADDRESS),
+                                    Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
+            return new HashSet<>(groupedByDeviceAddress.entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey,
+                            entry -> entry.getValue().stream().reduce(DeviceDiscoveryHolder::merge).get())).values());
         } else {
-            return Collections.unmodifiableSet(discoveredDevices);
+            return Collections.unmodifiableSet(new HashSet<>(discoveredDevices.values()));
         }
     }
 
@@ -412,6 +412,11 @@ class BluetoothManagerImpl implements BluetoothManager {
         return (T) bluetoothObject;
     }
 
+    void disposeBluetoothObject(URL url) {
+        logger.trace("Disposing native object: {}", url);
+        Optional.ofNullable(findFactory(url)).ifPresent(factory -> factory.dispose(url));
+    }
+
     BluetoothObjectGovernor createGovernor(URL url) {
         logger.debug("Creating a new governor: {}", url);
         if (CombinedGovernor.COMBINED_ADDRESS.equals(url.getAdapterAddress())) {
@@ -460,6 +465,12 @@ class BluetoothManagerImpl implements BluetoothManager {
         return Collections.unmodifiableSet(governors.keySet());
     }
 
+    boolean isGovernorRegistered(URL url) {
+        return governors.containsKey(url)
+                || governors.containsKey(url.copyWithProtocol(null))
+                || governors.containsKey(url.copyWithProtocol(null).copyWithAdapter(CombinedGovernor.COMBINED_ADDRESS));
+    }
+
     private void disposeGovernor(BluetoothObjectGovernor governor) {
         governorFutures.computeIfPresent(governor.getURL(), (url, future) -> {
             future.cancel(true);
@@ -489,9 +500,6 @@ class BluetoothManagerImpl implements BluetoothManager {
     private void notifyDeviceDiscovered(DiscoveredDevice device) {
         logger.debug("Notifying device discovery listeners (discovered): {} : {}",
                 device, deviceDiscoveryListeners.size());
-        if (discoveredDevices.contains(device) && !rediscover) {
-            return;
-        }
         BluetoothManagerUtils.safeForEachError(deviceDiscoveryListeners,
             listener -> {
                 if (!combinedDevices || listener instanceof CombinedDeviceGovernorImpl) {
@@ -520,7 +528,7 @@ class BluetoothManagerImpl implements BluetoothManager {
             }, logger, "Error in adapter discovery listener");
     }
 
-    private void handleDeviceLost(URL url) {
+    private void notifyDeviceLost(URL url) {
         logger.debug("Device has been lost: " + url);
         BluetoothManagerUtils.safeForEachError(deviceDiscoveryListeners,
             listener -> listener.deviceLost(url), logger, "Error in device discovery listener");
@@ -553,7 +561,7 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     private void update(BluetoothObjectGovernor governor) {
         try {
-            logger.debug("Updating governor: {}", governor.getURL());
+            logger.trace("Updating governor: {}", governor.getURL());
             governor.update();
         } catch (Exception ex) {
             logger.warn("Error occurred while updating governor: " + governor, ex);
@@ -567,6 +575,33 @@ class BluetoothManagerImpl implements BluetoothManager {
         } catch (Exception ex) {
             logger.warn("Error occurred while initializing governor: " + governor, ex);
         }
+    }
+
+    private static final class DeviceDiscoveryHolder extends DiscoveredDevice {
+        private long timestamp;
+
+        private DeviceDiscoveryHolder(DiscoveredDevice device, long timestamp) {
+            super(device);
+            this.timestamp = timestamp;
+        }
+
+        private DeviceDiscoveryHolder(URL url, String name, String alias, short rssi,
+                                 int bluetoothClass, boolean bleEnabled, long timestamp) {
+            super(url, name, alias, rssi, bluetoothClass, bleEnabled);
+            this.timestamp = timestamp;
+        }
+
+        private DeviceDiscoveryHolder merge(DiscoveredDevice device, long timestamp) {
+            return new DeviceDiscoveryHolder(getURL(), getName(),
+                    device.getAlias() != null ? device.getAlias() : getAlias(),
+                    device.getRSSI(), device.getBluetoothClass() > 0 ? device.getBluetoothClass() : getBluetoothClass(),
+                    device.isBleEnabled() ? true : isBleEnabled(), Math.max(this.timestamp, timestamp));
+        }
+
+        private DeviceDiscoveryHolder merge(DeviceDiscoveryHolder device) {
+            return merge(device, device.timestamp);
+        }
+
     }
 
     private final class DeviceDiscoveryJob implements Runnable {
@@ -587,20 +622,73 @@ class BluetoothManagerImpl implements BluetoothManager {
         }
 
         private void discoverDevices() {
-            Set<DiscoveredDevice> discovered = factory.getDiscoveredDevices().stream()
-                .filter(device -> device.getRSSI() != 0).collect(Collectors.toSet());
 
-            discovered.forEach(BluetoothManagerImpl.this::notifyDeviceDiscovered);
+            Set<DiscoveredDevice> discovered = factory.getDiscoveredDevices();
+            logger.debug("Transport [{}] reported {} discovered devices", factory.getProtocolName(), discovered.size());
 
-            Set<DiscoveredDevice> factoryDevices = discoveredDevices.stream()
+            Set<DiscoveredDevice> factoryDevices = discoveredDevices.values().stream()
                     .filter(device -> factory.getProtocolName().equals(device.getURL().getProtocol()))
                     .collect(Collectors.toSet());
 
-            Set<DiscoveredDevice> lostDevices = Sets.difference(factoryDevices, discovered);
-            lostDevices.forEach(lost -> handleDeviceLost(lost.getURL()));
+            Set<DiscoveredDevice> lost = Sets.difference(factoryDevices, discovered);
+            Set<DiscoveredDevice> newDevices = Sets.difference(discovered, factoryDevices);
+            Set<DiscoveredDevice> rediscovered = Sets.intersection(discovered, factoryDevices);
+            logger.debug("Lost: {}; New: {}; Rediscovered: {}", lost.size(), newDevices.size(), rediscovered.size());
 
-            discoveredDevices.removeAll(lostDevices);
-            discoveredDevices.addAll(discovered);
+            // notify listeners about lost devices and remove from discovered devises list
+            handleLost(lost);
+
+            // notify listeners about new devices and add them to the discovered devices list
+            handleNew(newDevices);
+
+            // check if new results are better than we have already (e.g. aliases resolved or bluetooth class etc)
+            // also try to detect stale results (devices that stopped advertising) preventing building them up
+            // also re-notify if "rediscover" is enabled
+            handleExisting(rediscovered);
+        }
+
+        private void handleLost(Set<DiscoveredDevice> lost) {
+            lost.forEach(device -> {
+                notifyDeviceLost(device.getURL());
+                discoveredDevices.remove(device.getURL());
+            });
+        }
+
+        private void handleNew(Set<DiscoveredDevice> newDevices) {
+            long current = System.currentTimeMillis();
+            newDevices.forEach(device -> {
+                if (device.getRSSI() == 0) {
+                    // we just started and the factory returned a stale device, remove it
+                    logger.debug("Removing stale device (initial): {}", device.getURL());
+                    factory.dispose(device.getURL());
+                }
+                notifyDeviceDiscovered(device);
+                discoveredDevices.put(device.getURL(), new DeviceDiscoveryHolder(device, current));
+            });
+        }
+
+        private void handleExisting(Set<DiscoveredDevice> rediscovered) {
+            long current = System.currentTimeMillis();
+            rediscovered.forEach(rediscoveredDevice -> {
+                discoveredDevices.compute(rediscoveredDevice.getURL(), (url, existingDevice) -> {
+                    // check if factory reports a device with the same RSSI for a long time
+                    // check if governor registered, we don't want to remove a device that is required by a governor
+                    // if both conditions are true, then remove stale device
+                    if (!isGovernorRegistered(url) && existingDevice.getRSSI() == rediscoveredDevice.getRSSI()) {
+                        if (current - existingDevice.timestamp > DISCOVERY_STALE_DEVICE_REMOVAL_TIMEOUT) {
+                            logger.debug("Removing stale device: {} : {} ",
+                                    existingDevice.getURL(), existingDevice.getRSSI());
+                            factory.dispose(existingDevice.getURL());
+                            return null;
+                        }
+                    }
+                    DeviceDiscoveryHolder merged = existingDevice.merge(rediscoveredDevice, current);
+                    if (rediscover) {
+                        notifyDeviceDiscovered(merged);
+                    }
+                    return merged;
+                });
+            });
         }
     }
 
@@ -622,7 +710,9 @@ class BluetoothManagerImpl implements BluetoothManager {
         }
 
         private void discoverAdapters() {
-            Set<DiscoveredAdapter> discovered = new HashSet<>(factory.getDiscoveredAdapters());
+            Set<DiscoveredAdapter> discovered = factory.getDiscoveredAdapters();
+            logger.debug("Transport [{}] reported {} discovered adapters",
+                    factory.getProtocolName(), discovered.size());
 
             discovered.forEach(adapter -> {
                 notifyAdapterDiscovered(adapter);

@@ -24,8 +24,8 @@ import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.DiscoveredAdapter;
 import org.sputnikdev.bluetooth.manager.DiscoveredDevice;
 
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * A root interface for all Bluetooth transport implementations.
@@ -60,13 +60,13 @@ public interface BluetoothObjectFactory {
      * Returns all discovered adapters by all registered transports.
      * @return all discovered adapters
      */
-    List<DiscoveredAdapter> getDiscoveredAdapters();
+    Set<DiscoveredAdapter> getDiscoveredAdapters();
 
     /**
      * Returns all discovered devices by all registered transports.
      * @return all discovered devices
      */
-    List<DiscoveredDevice> getDiscoveredDevices();
+    Set<DiscoveredDevice> getDiscoveredDevices();
 
     /**
      * Returns transport protocol name.
@@ -79,5 +79,11 @@ public interface BluetoothObjectFactory {
      * @param config configuration
      */
     void configure(Map<String, Object> config);
+
+    /**
+     * Disposes and removes registered object from the transport.
+     * @param url device to remove
+     */
+    void dispose(URL url);
 
 }
