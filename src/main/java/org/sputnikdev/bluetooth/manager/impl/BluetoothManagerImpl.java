@@ -592,7 +592,13 @@ class BluetoothManagerImpl implements BluetoothManager {
         }
 
         private DeviceDiscoveryHolder merge(DiscoveredDevice device, long timestamp) {
-            return new DeviceDiscoveryHolder(getURL(), getName(),
+            String name = getName();
+            // MAC address is 17 long string, e.g.
+            if (device.getName().length() != 17 && device.getName().chars().filter(c -> c == ':').count() != 5) {
+                name = device.getName();
+            }
+
+            return new DeviceDiscoveryHolder(getURL(), name,
                     device.getAlias() != null ? device.getAlias() : getAlias(),
                     device.getRSSI(), device.getBluetoothClass() > 0 ? device.getBluetoothClass() : getBluetoothClass(),
                     device.isBleEnabled() ? true : isBleEnabled(), Math.max(this.timestamp, timestamp));
@@ -674,19 +680,23 @@ class BluetoothManagerImpl implements BluetoothManager {
                     // check if factory reports a device with the same RSSI for a long time
                     // check if governor registered, we don't want to remove a device that is required by a governor
                     // if both conditions are true, then remove stale device
+                    DeviceDiscoveryHolder device;
                     if (!isGovernorRegistered(url) && existingDevice.getRSSI() == rediscoveredDevice.getRSSI()) {
                         if (current - existingDevice.timestamp > DISCOVERY_STALE_DEVICE_REMOVAL_TIMEOUT) {
                             logger.debug("Removing stale device: {} : {} ",
                                     existingDevice.getURL(), existingDevice.getRSSI());
                             factory.dispose(existingDevice.getURL());
+                            notifyDeviceLost(existingDevice.getURL());
                             return null;
                         }
+                        device = existingDevice;
+                    } else {
+                        device = existingDevice.merge(rediscoveredDevice, current);
                     }
-                    DeviceDiscoveryHolder merged = existingDevice.merge(rediscoveredDevice, current);
                     if (rediscover) {
-                        notifyDeviceDiscovered(merged);
+                        notifyDeviceDiscovered(device);
                     }
-                    return merged;
+                    return device;
                 });
             });
         }
