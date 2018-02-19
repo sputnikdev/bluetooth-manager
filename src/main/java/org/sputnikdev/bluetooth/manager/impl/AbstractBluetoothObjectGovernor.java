@@ -23,6 +23,8 @@ package org.sputnikdev.bluetooth.manager.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
+import org.sputnikdev.bluetooth.manager.BluetoothInteractionException;
 import org.sputnikdev.bluetooth.manager.GovernorListener;
 import org.sputnikdev.bluetooth.manager.GovernorState;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
@@ -31,6 +33,7 @@ import org.sputnikdev.bluetooth.manager.transport.BluetoothObject;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
@@ -91,6 +94,9 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
     private Date lastActivityNotified;
     private final List<GovernorListener> governorListeners = new CopyOnWriteArrayList<>();
     private GovernorState state = GovernorState.NEW;
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private final CompletableFutureService<AbstractBluetoothObjectGovernor> readyService =
+            new CompletableFutureService<>();
 
     private final ReentrantLock updateLock = new ReentrantLock();
 
@@ -169,6 +175,10 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
                     update(object);
                     logger.debug("Governor has been updated: {}", url);
                     updated = true;
+
+                    // handing completable futures
+                    readyService.complete(this);
+
                 } catch (Exception ex) {
                     logger.warn("Error occurred while updating governor: {} / {} : {}",
                             url, object != null ? Integer.toHexString(object.hashCode()) : null, ex.getMessage());
@@ -214,7 +224,14 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
             reset();
             state = GovernorState.DISPOSED;
             governorListeners.clear();
+            readyService.clear();
         }
+    }
+
+    @Override
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public <G extends BluetoothGovernor, V> CompletableFuture<V> whenReady(Function<G, V> function) {
+        return readyService.submit(this, (Function<AbstractBluetoothObjectGovernor, V>) function);
     }
 
     protected void scheduleUpdate() {
@@ -232,14 +249,15 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
             return result;
         } catch (Exception ex) {
             boolean locked = updateLock.isLocked();
-            logger.warn("Error occurred while interacting ({}) with native object: {} : {} : {}",
+            String message = String.format("Error occurred while interacting (%s) with native object: %s : %s : %s",
                     name, url, locked, ex.getMessage());
+            logger.warn(message);
             // no need to reset if it is locked in the update or reset method
             //TODO decide if it is needed
             //if (!locked) {
             reset();
             //}
-            throw ex;
+            throw new BluetoothInteractionException(message, ex);
         }
     }
 

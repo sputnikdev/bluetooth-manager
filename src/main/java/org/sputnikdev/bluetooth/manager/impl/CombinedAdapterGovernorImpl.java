@@ -26,6 +26,7 @@ import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.AdapterDiscoveryListener;
 import org.sputnikdev.bluetooth.manager.AdapterGovernor;
 import org.sputnikdev.bluetooth.manager.AdapterListener;
+import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
 import org.sputnikdev.bluetooth.manager.CombinedGovernor;
@@ -37,9 +38,11 @@ import org.sputnikdev.bluetooth.manager.NotReadyException;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 
 class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
         BluetoothObjectGovernor, AdapterDiscoveryListener {
@@ -47,6 +50,7 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
     private Logger logger = LoggerFactory.getLogger(CombinedAdapterGovernorImpl.class);
 
     private final Map<URL, AdapterGovernorHandler> governors = new ConcurrentHashMap<>();
+    private final CompletableFutureService<BluetoothObjectGovernor> readyService = new CompletableFutureService<>();
     private final BluetoothManagerImpl bluetoothManager;
     private final URL url;
 
@@ -166,6 +170,7 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
         governors.clear();
         governorListeners.clear();
         adapterListeners.clear();
+        readyService.clear();
     }
 
     @Override
@@ -220,6 +225,12 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
 
     @Override
     public void adapterLost(URL address) { /* do nothing */ }
+
+    @Override
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public <G extends BluetoothGovernor, V> CompletableFuture<V> whenReady(Function<G, V> function) {
+        return readyService.submit(this, (Function<BluetoothObjectGovernor, V>) function);
+    }
 
     private void registerGovernor(URL url) {
         if (governorsCount.get() > 63) {
@@ -282,6 +293,7 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
                 BluetoothManagerUtils.safeForEachError(governorListeners, listener -> {
                     listener.ready(newState);
                 }, logger, "Execution error of a governor listener: ready");
+                readyService.completeSilently(CombinedAdapterGovernorImpl.this);
             });
         }
 

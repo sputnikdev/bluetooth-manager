@@ -26,6 +26,7 @@ import org.sputnikdev.bluetooth.Filter;
 import org.sputnikdev.bluetooth.RssiKalmanFilter;
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.AdapterDiscoveryListener;
+import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
 import org.sputnikdev.bluetooth.manager.BluetoothSmartDeviceListener;
@@ -48,12 +49,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -78,6 +81,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     private final List<GovernorListener> governorListeners = new CopyOnWriteArrayList<>();
     private final List<GenericBluetoothDeviceListener> genericBluetoothDeviceListeners = new CopyOnWriteArrayList<>();
     private final List<BluetoothSmartDeviceListener> bluetoothSmartDeviceListeners = new CopyOnWriteArrayList<>();
+    private final CompletableFutureService<DeviceGovernor> readyService = new CompletableFutureService<>();
 
     // state bitmap fields
     private final ConcurrentBitMap ready = new ConcurrentBitMap();
@@ -200,6 +204,12 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     public Map<URL, byte[]> getServiceData() {
         DeviceGovernor governor = nearest;
         return governor != null ? governor.getServiceData() : Collections.emptyMap();
+    }
+
+    @Override
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public <G extends BluetoothGovernor, V> CompletableFuture<V> whenReady(Function<G, V> function) {
+        return readyService.submit(this, (Function<DeviceGovernor, V>) function);
     }
 
     private void updateConnectionTarget() {
@@ -426,6 +436,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
         governors.values().forEach(DeviceGovernorHandler::dispose);
         governors.clear();
         governorListeners.clear();
+        readyService.clear();
         genericBluetoothDeviceListeners.clear();
         bluetoothSmartDeviceListeners.clear();
         sortedByDistanceGovernors.clear();
@@ -769,6 +780,9 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
                 BluetoothManagerUtils.safeForEachError(governorListeners, listener -> {
                     listener.ready(newState);
                 }, logger, "Execution error of a governor listener: ready");
+                if (newState) {
+                    readyService.completeSilently(CombinedDeviceGovernorImpl.this);
+                }
             });
         }
 

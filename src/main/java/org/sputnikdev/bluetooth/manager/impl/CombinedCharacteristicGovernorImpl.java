@@ -38,7 +38,9 @@ import org.sputnikdev.bluetooth.manager.transport.CharacteristicAccessType;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Function;
 
 /**
  *
@@ -54,6 +56,7 @@ class CombinedCharacteristicGovernorImpl
     private CharacteristicGovernor delegate;
     private final List<ValueListener> valueListeners = new CopyOnWriteArrayList<>();
     private final List<GovernorListener> governorListeners = new CopyOnWriteArrayList<>();
+    private final CompletableFutureService<CharacteristicGovernor> readyService = new CompletableFutureService<>();
     private Date lastActivity;
     private final ManagerListener delegateListener = new DelegatesListener();
 
@@ -195,6 +198,13 @@ class CombinedCharacteristicGovernorImpl
         reset();
         governorListeners.clear();
         valueListeners.clear();
+        readyService.clear();
+    }
+
+    @Override
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public <G extends BluetoothGovernor, V> CompletableFuture<V> whenReady(Function<G, V> function) {
+        return readyService.submit(this, (Function<CharacteristicGovernor, V>) function);
     }
 
     private void installDelegate(CharacteristicGovernor delegate) {
@@ -207,6 +217,7 @@ class CombinedCharacteristicGovernorImpl
         if (delegate.isReady()) {
             BluetoothManagerUtils.safeForEachError(governorListeners, listener -> listener.ready(true), logger,
                     "Execution error of a governor listener: ready");
+            readyService.completeSilently(this);
         }
         BluetoothManagerUtils.safeForEachError(governorListeners,
                 listener -> listener.lastUpdatedChanged(lastActivity),

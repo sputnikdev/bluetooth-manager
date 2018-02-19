@@ -20,12 +20,14 @@ package org.sputnikdev.bluetooth.manager;
  * #L%
  */
 
-import java.util.Date;
-
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.transport.Adapter;
 import org.sputnikdev.bluetooth.manager.transport.Characteristic;
 import org.sputnikdev.bluetooth.manager.transport.Device;
+
+import java.util.Date;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 /**
  * An interface for all Bluetooth governors. Bluetooth governors are the central part of the system. They represent
@@ -107,5 +109,13 @@ public interface BluetoothGovernor {
      * @param listener a governor listener
      */
     void removeGovernorListener(GovernorListener listener);
+
+    /**
+     * Returns a completable future that gets completed when governor becomes ready.
+     * @param function a function that is invoked when governor becomes ready, the completable future is
+     *                 completed with the result of this function
+     * @return a completable future
+     */
+    <G extends BluetoothGovernor, V> CompletableFuture<V> whenReady(Function<G, V> function);
 
 }
