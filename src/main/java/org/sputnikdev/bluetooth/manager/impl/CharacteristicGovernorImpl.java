@@ -81,8 +81,9 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
         logger.debug("Resetting characteristic governor: {}", url);
         valueNotification = null;
         try {
-            // force notification to be disabled and ignore any error
-            characteristic.disableValueNotifications();
+            if (canNotify && characteristic.isNotifying()) {
+                characteristic.disableValueNotifications();
+            }
         } catch (Exception ex) {
             logger.warn("Error occurred while resetting characteristic: {} : {} ", url, ex.getMessage());
         }

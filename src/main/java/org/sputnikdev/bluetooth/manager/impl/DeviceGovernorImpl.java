@@ -606,7 +606,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     private void updateOnline(boolean online) {
         logger.trace("Updating device governor online state: {}", url);
         if (online != this.online) {
-            logger.debug("Updating online state: {} : {} (control) / {} (state)", url, this.online, online);
+            logger.debug("Updating online state: {} : {} (current) / {} (new)", url, this.online, online);
             notifyOnline(online);
         }
         this.online = online;
