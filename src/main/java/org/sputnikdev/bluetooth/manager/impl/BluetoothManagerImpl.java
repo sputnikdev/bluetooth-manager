@@ -53,6 +53,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Thread safe bluetooth manager implementation class.
@@ -278,17 +279,19 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     @Override
     public Set<DiscoveredDevice> getDiscoveredDevices() {
+        long current = System.currentTimeMillis();
+        Stream<Map.Entry<URL, DeviceDiscoveryHolder>> filtered = discoveredDevices.entrySet().stream()
+                .filter(entry -> isStale(entry.getValue(), current));
         if (combinedDevices) {
             Map<URL, List<DeviceDiscoveryHolder>> groupedByDeviceAddress =
-                    discoveredDevices.entrySet().stream()
-                            .collect(Collectors.groupingBy(entry ->
+                    filtered.collect(Collectors.groupingBy(entry ->
                                             entry.getKey().copyWithAdapter(CombinedGovernor.COMBINED_ADDRESS),
                                     Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
-            return new HashSet<>(groupedByDeviceAddress.entrySet().stream()
+            return Collections.unmodifiableSet(new HashSet<>(groupedByDeviceAddress.entrySet().stream()
                     .collect(Collectors.toMap(Map.Entry::getKey,
-                            entry -> entry.getValue().stream().reduce(DeviceDiscoveryHolder::merge).get())).values());
+                            entry -> entry.getValue().stream().reduce(DeviceDiscoveryHolder::merge).get())).values()));
         } else {
-            return Collections.unmodifiableSet(new HashSet<>(discoveredDevices.values()));
+            return Collections.unmodifiableSet(filtered.map(Map.Entry::getValue).collect(Collectors.toSet()));
         }
     }
 
@@ -628,7 +631,6 @@ class BluetoothManagerImpl implements BluetoothManager {
         }
 
         private void discoverDevices() {
-
             Set<DiscoveredDevice> discovered = factory.getDiscoveredDevices();
             logger.debug("Transport [{}] reported {} discovered devices", factory.getProtocolName(), discovered.size());
 
@@ -639,7 +641,6 @@ class BluetoothManagerImpl implements BluetoothManager {
             Set<DiscoveredDevice> lost = Sets.difference(factoryDevices, discovered);
             Set<DiscoveredDevice> newDevices = Sets.difference(discovered, factoryDevices);
             Set<DiscoveredDevice> rediscovered = Sets.intersection(discovered, factoryDevices);
-            logger.debug("Lost: {}; New: {}; Rediscovered: {}", lost.size(), newDevices.size(), rediscovered.size());
 
             // notify listeners about lost devices and remove from discovered devises list
             handleLost(lost);
@@ -651,6 +652,12 @@ class BluetoothManagerImpl implements BluetoothManager {
             // also try to detect stale results (devices that stopped advertising) preventing building them up
             // also re-notify if "rediscover" is enabled
             handleExisting(rediscovered);
+
+            long current = System.currentTimeMillis();
+            Set<DeviceDiscoveryHolder> stale = discoveredDevices.values().stream()
+                    .filter(device -> isStale(device, current)).collect(Collectors.toSet());
+            logger.debug("Lost: {}; New: {}; Rediscovered: {}; Stale: {}",
+                    lost.size(), newDevices.size(), rediscovered.size(), stale.size());
         }
 
         private void handleLost(Set<DiscoveredDevice> lost) {
@@ -682,24 +689,27 @@ class BluetoothManagerImpl implements BluetoothManager {
                     // if both conditions are true, then remove stale device
                     DeviceDiscoveryHolder device;
                     if (!isGovernorRegistered(url) && existingDevice.getRSSI() == rediscoveredDevice.getRSSI()) {
-                        if (current - existingDevice.timestamp > DISCOVERY_STALE_DEVICE_REMOVAL_TIMEOUT) {
+                        if (isStale(existingDevice, current)) {
                             logger.debug("Removing stale device: {} : {} ",
                                     existingDevice.getURL(), existingDevice.getRSSI());
                             factory.dispose(existingDevice.getURL());
                             notifyDeviceLost(existingDevice.getURL());
-                            return null;
                         }
                         device = existingDevice;
                     } else {
                         device = existingDevice.merge(rediscoveredDevice, current);
                     }
-                    if (rediscover) {
+                    if (rediscover && current - existingDevice.timestamp < DISCOVERY_STALE_DEVICE_REMOVAL_TIMEOUT) {
                         notifyDeviceDiscovered(device);
                     }
                     return device;
                 });
             });
         }
+    }
+
+    private static boolean isStale(DeviceDiscoveryHolder device, long current) {
+        return current - device.timestamp > DISCOVERY_STALE_DEVICE_REMOVAL_TIMEOUT;
     }
 
     private final class AdapterDiscoveryJob implements Runnable {
