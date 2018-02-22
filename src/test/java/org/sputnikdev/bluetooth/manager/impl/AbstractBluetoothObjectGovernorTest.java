@@ -16,7 +16,7 @@ import org.sputnikdev.bluetooth.manager.GovernorListener;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObject;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.function.Function;
 
 import static org.junit.Assert.assertEquals;
@@ -155,7 +155,7 @@ public class AbstractBluetoothObjectGovernorTest {
         inOrder.verify(governor).update(bluetoothObject);
         inOrder.verify(governorListener, never()).lastUpdatedChanged(any());
 
-        governor.updateLastChanged();
+        governor.updateLastInteracted();
         governor.update();
         inOrder.verify(governorListener).lastUpdatedChanged(any());
 
@@ -206,19 +206,19 @@ public class AbstractBluetoothObjectGovernorTest {
     public void testUpdateLastChanged() throws Exception {
         governor.addGovernorListener(governorListener);
 
-        Date lastChanged = governor.getLastActivity();
+        Instant lastChanged = governor.getLastInteracted();
         assertNull(lastChanged);
 
         Thread.sleep(1);
-        governor.updateLastChanged();
+        governor.updateLastInteracted();
 
-        lastChanged = governor.getLastActivity();
+        lastChanged = governor.getLastInteracted();
         assertNotNull(lastChanged);
 
         Thread.sleep(1);
-        governor.updateLastChanged();
+        governor.updateLastInteracted();
 
-        assertTrue(lastChanged.before(governor.getLastActivity()));
+        assertTrue(lastChanged.isBefore(governor.getLastInteracted()));
     }
 
     @Test
@@ -261,7 +261,7 @@ public class AbstractBluetoothObjectGovernorTest {
 
     @Test
     public void testNotifyLastChanged() {
-        Date date = new Date();
+        Instant date = Instant.now();
         Whitebox.setInternalState(governor, "lastActivity", date);
         governor.addGovernorListener(governorListener);
 
@@ -272,7 +272,7 @@ public class AbstractBluetoothObjectGovernorTest {
 
     @Test
     public void testNotifyLastChangedException() {
-        Date date = new Date();
+        Instant date = Instant.now();
         Whitebox.setInternalState(governor, "lastActivity", date);
         governor.addGovernorListener(governorListener);
         doThrow(Exception.class).when(governorListener).lastUpdatedChanged(any());

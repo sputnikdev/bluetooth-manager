@@ -42,14 +42,12 @@ import org.sputnikdev.bluetooth.manager.transport.Service;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -61,7 +59,8 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     private Logger logger = LoggerFactory.getLogger(DeviceGovernorImpl.class);
 
     static final int DEFAULT_RSSI_REPORTING_RATE = 1000;
-    static final int DEFAULT_ONLINE_TIMEOUT = 20;
+    static final int DEFAULT_ONLINE_TIMEOUT = 30;
+    static final int RUMP_UP_TIMEOUT = 60;
     static final short DEFAULT_TX_POWER = -55;
     static final double DEFAULT_SIGNAL_PROPAGATION_EXPONENT = 4.0; // indoors
 
@@ -82,10 +81,10 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     private Filter<Short> rssiFilter = new RssiKalmanFilter();
     private boolean rssiFilteringEnabled = true;
     private long rssiReportingRate = DEFAULT_RSSI_REPORTING_RATE;
-    private Date rssiLastNotified = new Date();
+    private Instant rssiLastNotified = Instant.now().minusSeconds(60);
     private short measuredTxPower;
     private double signalPropagationExponent;
-    private long lastAdvertised;
+    private Instant lastAdvertised;
 
     DeviceGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
         super(bluetoothManager, url);
@@ -123,12 +122,36 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
                 if (connected) {
                     logger.debug("Checking if device is still alive by getting its RSSI: {}", url);
                     notifyRSSIChanged(getRSSI());
-                    updateLastChanged();
+                    updateLastInteracted();
+                } else {
+                    // if not connected, there is not any easy way to check if the native object is still
+                    // alive simply because multiple adapters can be used and one of them is connected to the device,
+                    // hence other corresponding native devices (through other adapters) do not receive
+                    // any notifications and also do not receive any advertisements,
+                    // in other words they are dead but not exactly
+                    // There is a workaround in place to detect such state,
+                    // see {@link CombinedDeviceGovernorImpl#update()} method
                 }
             }
         }
         updateOnline(isOnline());
         logger.trace("Device governor update performed: {}", url);
+    }
+
+    /**
+     * This method is called by {@link CombinedDeviceGovernorImpl#update()} to check if all delegates are alive.
+     * Note: this is a trade off between bad design and stability.
+     * @return true if stale, false otherwise
+     */
+    boolean checkIfStale() {
+        if (isReady() && Instant.now().minusSeconds(RUMP_UP_TIMEOUT).isAfter(getReady())) {
+            AdapterGovernor adapterGovernor = bluetoothManager.getAdapterGovernor(getURL());
+            if (adapterGovernor.isDiscovering()) {
+                //TODO there might be a problem when client switches on discovery for adapter, devices will be reset
+                return lastAdvertised == null || !checkOnline(onlineTimeout * 2);
+            }
+        }
+        return false;
     }
 
     @Override
@@ -191,7 +214,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     @Override
     public void setAlias(String alias) throws NotReadyException {
-        interact("setAlias", (Consumer<Device>) device -> device.setAlias(alias));
+        interact("setAlias", Device::setAlias, alias);
     }
 
     @Override
@@ -237,9 +260,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     @Override
     public boolean isOnline() {
-        Date lastActivity = getLastActivity();
-        return lastActivity != null && Instant.now().minusSeconds(onlineTimeout)
-                .isBefore(getLastActivity().toInstant());
+        return checkOnline(onlineTimeout);
     }
 
     @Override
@@ -283,7 +304,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     }
 
     @Override
-    public long getLastAdvertised() {
+    public Instant getLastAdvertised() {
         return lastAdvertised;
     }
 
@@ -443,6 +464,11 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         });
     }
 
+    @Override
+    void notifyLastChanged() {
+        notifyLastChanged(BluetoothManagerUtils.max(getLastInteracted(), lastAdvertised));
+    }
+
     void notifyConnected(boolean connected) {
         logger.debug("Notifying device governor listener (connected): {} : {} : {}",
                 url, bluetoothSmartDeviceListeners.size(), connected);
@@ -484,7 +510,6 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     void updateRSSI(short next) {
         logger.trace("Updating RSSI: {} : {}", url, next);
-        lastAdvertised = System.currentTimeMillis();
         Filter<Short> filter = rssiFilter;
         if (rssiUpdateLock.tryLock()) {
             try {
@@ -502,11 +527,11 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     void notifyRSSIChanged(short next) {
         if (rssiReportingRate == 0
-                || System.currentTimeMillis() - rssiLastNotified.getTime() > rssiReportingRate) {
+                || System.currentTimeMillis() - rssiLastNotified.toEpochMilli() > rssiReportingRate) {
             BluetoothManagerUtils.safeForEachError(genericBluetoothDeviceListeners,
                     listener -> listener.rssiChanged(next), logger,
                     "Execution error of a RSSI listener");
-            rssiLastNotified = new Date();
+            rssiLastNotified = Instant.now();
         }
     }
 
@@ -521,6 +546,17 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
                     listener.offline();
                 }
             }, logger,"Execution error of an online listener");
+    }
+
+    void updateLastAdvertised() {
+        lastAdvertised = Instant.now();
+    }
+
+    private boolean checkOnline(int timeout) {
+        long advertised = lastAdvertised != null ? lastAdvertised.toEpochMilli() : 0;
+        long interacted = getLastInteracted() != null ? getLastInteracted().toEpochMilli() : 0;
+        return Instant.now().minusSeconds(timeout).isBefore(
+                Instant.ofEpochMilli(Math.max(advertised, interacted)));
     }
 
     private List<Characteristic> getAllCharacteristics() throws NotReadyException {
@@ -628,10 +664,13 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         if (connectionControl && !connected) {
             logger.debug("Connecting device: {}", url);
             connected = device.connect();
+            if (!connected) {
+                throw new NotReadyException("Could not connect to device: " + url);
+            }
         } else if (!connectionControl && connected) {
             logger.debug("Disconnecting device: {}", url);
-            device.disconnect();
             resetCharacteristics();
+            device.disconnect();
             connected = false;
         }
         return connected;
@@ -672,7 +711,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         public void notify(Boolean connected) {
             logger.debug("Connected (notification): {} : {}", url, connected);
             notifyConnected(connected);
-            updateLastChanged();
+            updateLastInteracted();
         }
     }
 
@@ -681,7 +720,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         public void notify(Boolean blocked) {
             logger.debug("Blocked (notification): {} : {}", url, blocked);
             notifyBlocked(blocked);
-            updateLastChanged();
+            updateLastInteracted();
         }
     }
 
@@ -696,12 +735,12 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
                 if (gattServices != null && !gattServices.isEmpty()) {
                     notifyServicesResolved(gattServices);
                 }
+                updateLastInteracted();
             } else {
                 logger.debug("Resetting characteristic governors due to services unresolved event: {}", url);
                 resetCharacteristics();
                 notifyServicesUnresolved();
             }
-            updateLastChanged();
         }
     }
 
@@ -709,7 +748,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         @Override
         public void notify(Short rssi) {
             updateRSSI(rssi);
-            updateLastChanged();
+            updateLastAdvertised();
         }
     }
 
@@ -721,7 +760,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
             BluetoothManagerUtils.safeForEachError(bluetoothSmartDeviceListeners,
                 listener -> listener.serviceDataChanged(convert(serviceData)), logger,
                     "Execution error of a service data listener");
-            updateLastChanged();
+            updateLastAdvertised();
         }
     }
 
@@ -733,7 +772,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
             BluetoothManagerUtils.safeForEachError(bluetoothSmartDeviceListeners,
                 listener -> listener.manufacturerDataChanged(manufacturerData), logger,
                     "Execution error of a manufacturer data listener");
-            updateLastChanged();
+            updateLastAdvertised();
         }
     }
 

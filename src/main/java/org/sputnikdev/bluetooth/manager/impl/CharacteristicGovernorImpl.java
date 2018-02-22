@@ -32,10 +32,10 @@ import org.sputnikdev.bluetooth.manager.transport.Characteristic;
 import org.sputnikdev.bluetooth.manager.transport.CharacteristicAccessType;
 import org.sputnikdev.bluetooth.manager.transport.Notification;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Function;
 
 /**
  *
@@ -49,6 +49,7 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
     private List<ValueListener> valueListeners = new CopyOnWriteArrayList<>();
     private ValueNotification valueNotification;
     private boolean canNotify;
+    private Instant lastNotified;
 
     CharacteristicGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
         super(bluetoothManager, url);
@@ -137,12 +138,12 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
 
     @Override
     public byte[] read() throws NotReadyException {
-        return interact("read", Characteristic::readValue);
+        return interact("read", Characteristic::readValue, true);
     }
 
     @Override
     public boolean write(byte[] data) throws NotReadyException {
-        return interact("write", (Function<Characteristic, Boolean>) characteristic -> characteristic.writeValue(data));
+        return interact("write", characteristic -> characteristic.writeValue(data), true);
     }
 
     @Override
@@ -158,6 +159,20 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
     @Override
     public void accept(BluetoothObjectVisitor visitor) throws Exception {
         visitor.visit(this);
+    }
+
+    @Override
+    public Instant getLastNotified() {
+        return lastNotified;
+    }
+
+    @Override
+    void notifyLastChanged() {
+        notifyLastChanged(BluetoothManagerUtils.max(getLastInteracted(), lastNotified));
+    }
+
+    private void updateLastNotified() {
+        lastNotified = Instant.now();
     }
 
     private void enableNotification(Characteristic characteristic) {
@@ -189,7 +204,8 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
         @Override
         public void notify(byte[] data) {
             logger.trace("Characteristic value changed (notification): {}", url);
-            updateLastChanged();
+            updateLastInteracted();
+            updateLastNotified();
             BluetoothManagerUtils.safeForEachError(valueListeners, listener -> listener.changed(data), logger,
                     "Execution error of a characteristic listener");
         }

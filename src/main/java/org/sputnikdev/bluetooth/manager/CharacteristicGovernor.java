@@ -22,6 +22,7 @@ package org.sputnikdev.bluetooth.manager;
 
 import org.sputnikdev.bluetooth.manager.transport.CharacteristicAccessType;
 
+import java.time.Instant;
 import java.util.Set;
 
 /**
@@ -98,5 +99,11 @@ public interface CharacteristicGovernor extends BluetoothGovernor {
      * @param valueListener a previously registered characteristic listener
      */
     void removeValueListener(ValueListener valueListener);
+
+    /**
+     * Returns the date/time of last known received notification.
+     * @return the date/time of last known received notification
+     */
+    Instant getLastNotified();
 
 }

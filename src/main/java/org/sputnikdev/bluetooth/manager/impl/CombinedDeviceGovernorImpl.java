@@ -41,12 +41,14 @@ import org.sputnikdev.bluetooth.manager.GenericBluetoothDeviceListener;
 import org.sputnikdev.bluetooth.manager.GovernorListener;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
@@ -102,10 +104,10 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     private long rssiReportingRate = DeviceGovernorImpl.DEFAULT_RSSI_REPORTING_RATE;
     private short measuredTxPower;
     private double signalPropagationExponent = DeviceGovernorImpl.DEFAULT_SIGNAL_PROPAGATION_EXPONENT;
-    private Date lastChanged;
+    private Instant lastInteracted;
 
     // some specifics for the nearest adapter detection
-    private final SortedSet<DeviceGovernorHandler> sortedByDistanceGovernors = new TreeSet<>(new DistanceComparator());
+    private final Set<DeviceGovernorHandler> activeGovernors = new HashSet<>();
     private DeviceGovernor nearest;
     private final ReentrantLock rssiLock = new ReentrantLock();
 
@@ -296,7 +298,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     }
 
     @Override
-    public long getLastAdvertised() {
+    public Instant getLastAdvertised() {
         DeviceGovernor nearest = this.nearest;
         return nearest.getLastAdvertised();
     }
@@ -403,8 +405,8 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     }
 
     @Override
-    public Date getLastActivity() {
-        return lastChanged;
+    public Instant getLastInteracted() {
+        return lastInteracted;
     }
 
     @Override
@@ -422,6 +424,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
 
     @Override
     public void update() {
+        checkStaleDelegates();
         updateConnectionTarget();
     }
 
@@ -439,7 +442,8 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
         readyService.clear();
         genericBluetoothDeviceListeners.clear();
         bluetoothSmartDeviceListeners.clear();
-        sortedByDistanceGovernors.clear();
+        activeGovernors.clear();
+        governorsCount.set(64);
         logger.debug("Combined device governor disposed: {}", url);
     }
 
@@ -506,6 +510,22 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
         return isConnected() && deviceGovernor != null ? deviceGovernor.getURL() : null;
     }
 
+    private void checkStaleDelegates() {
+        if (!isConnected()) {
+            governors.values().forEach(governor -> {
+                DeviceGovernorImpl deviceGovernor = (DeviceGovernorImpl) governor.delegate;
+                if (deviceGovernor.isReady()) {
+                    logger.trace("Checking if a delegate is stale: {}", deviceGovernor.url);
+                    if (deviceGovernor.checkIfStale()) {
+                        logger.warn("Possible stale object detected: {}", url);
+                        deviceGovernor.reset();
+                        deviceGovernor.update();
+                    }
+                }
+            });
+        }
+    }
+
     private DeviceGovernor getGovernor(int index) {
         return governors.values().stream().filter(handler -> handler.index == index)
                 .map(handler ->handler.delegate).findFirst().orElse(null);
@@ -537,9 +557,9 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
         }
     }
 
-    private void updateLastUpdated(Date lastActivity) {
-        if (lastChanged == null || lastChanged.before(lastActivity)) {
-            lastChanged = lastActivity;
+    private void updateLastInteracted(Instant lastActivity) {
+        if (lastInteracted == null || lastInteracted.isBefore(lastActivity)) {
+            lastInteracted = lastActivity;
             BluetoothManagerUtils.safeForEachError(governorListeners, listener -> {
                 listener.lastUpdatedChanged(lastActivity);
             }, logger, "Execution error of a governor listener: last changed");
@@ -559,7 +579,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
         private final DeviceGovernor delegate;
         private final int index;
         private double distance = Double.MAX_VALUE;
-        private long lastAdvertised;
+        private Instant lastAdvertised = Instant.now();
         private boolean inited;
 
         private DeviceGovernorHandler(DeviceGovernor delegate, int index) {
@@ -591,9 +611,9 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
             delegate.setSignalPropagationExponent(signalPropagationExponent);
             delegate.setMeasuredTxPower(measuredTxPower);
 
-            Date lastActivity = delegate.getLastActivity();
+            Instant lastActivity = delegate.getLastInteracted();
             if (lastActivity != null) {
-                updateLastUpdated(lastActivity);
+                updateLastInteracted(lastActivity);
             }
         }
 
@@ -699,12 +719,13 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
 
         @Override
         public void online() {
+            activeGovernors.add(this);
             notifyIfChangedOnline(true);
         }
 
         @Override
         public void offline() {
-            sortedByDistanceGovernors.remove(this);
+            activeGovernors.remove(this);
             notifyIfChangedOnline(false);
         }
 
@@ -718,16 +739,19 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
             try {
                 if (rssiLock.tryLock(50, TimeUnit.MILLISECONDS)) {
                     try {
-                        sortedByDistanceGovernors.remove(this);
                         lastAdvertised = delegate.getLastAdvertised();
                         distance = delegate.getEstimatedDistance();
-                        sortedByDistanceGovernors.add(this);
-                        DeviceGovernor newNearest = sortedByDistanceGovernors.first().delegate;
-                        logger.debug("Calculating nearest delegate (current / new): {} / {}",
-                                nearest != null ? nearest.getURL() : null, newNearest.getURL());
-                        nearest = newNearest;
-                        if (delegate == nearest) {
-                            updateRssi(newRssi);
+                        SortedSet<DeviceGovernorHandler> sorted = new TreeSet<>(new DistanceComparator());
+                        sorted.addAll(activeGovernors);
+                        if (!sorted.isEmpty()) {
+                            DeviceGovernor newNearest = sorted.first().delegate;
+                            sorted.clear();
+                            logger.debug("Calculating nearest delegate (current / new): {} / {}",
+                                    nearest != null ? nearest.getURL() : null, newNearest.getURL());
+                            nearest = newNearest;
+                            if (delegate == nearest) {
+                                updateRssi(newRssi);
+                            }
                         }
                     } finally {
                         rssiLock.unlock();
@@ -743,15 +767,16 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
             logger.debug("Delegate changed ready state: {} : {}", delegate.getURL(), isReady);
             if (isReady) {
                 initUnsafe();
+                activeGovernors.add(this);
             } else {
-                sortedByDistanceGovernors.remove(this);
+                activeGovernors.remove(this);
             }
             notifyIfChangedReady(isReady);
         }
 
         @Override
-        public void lastUpdatedChanged(Date lastActivity) {
-            updateLastUpdated(lastActivity);
+        public void lastUpdatedChanged(Instant lastActivity) {
+            updateLastInteracted(lastActivity);
         }
 
         private void dispose() {
@@ -868,13 +893,17 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
 
         @Override
         public int compare(DeviceGovernorHandler first, DeviceGovernorHandler second) {
-            long current = System.currentTimeMillis();
-            boolean firstStale = current - first.lastAdvertised > STALE_TIMEOUT;
-            boolean secondStale = current - second.lastAdvertised > STALE_TIMEOUT;
+            Instant current = Instant.now();
+            boolean firstStale = current.toEpochMilli() - getEpoch(first) > STALE_TIMEOUT;
+            boolean secondStale = current.toEpochMilli() - getEpoch(second) > STALE_TIMEOUT;
             double firstWeighedValue = first.distance * (firstStale ? 1 : 1000);
             double secondWeighedValue = second.distance * (secondStale ? 1 : 1000);
 
             return Double.compare(firstWeighedValue, secondWeighedValue);
+        }
+
+        private long getEpoch(DeviceGovernorHandler handler) {
+            return handler.lastAdvertised != null ? handler.lastAdvertised.toEpochMilli() : 0;
         }
     }
 }

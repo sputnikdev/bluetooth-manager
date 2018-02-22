@@ -196,25 +196,6 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     @Override
-    public void disposeGovernor(URL url) {
-        logger.debug("Explicitly disposing governor: {}", url);
-        synchronized (governors) {
-            URL protocolLess = url.copyWithProtocol(null);
-            if (governors.containsKey(protocolLess)) {
-                BluetoothObjectGovernor governor = governors.get(protocolLess);
-                disposeGovernor(governor);
-                governors.remove(protocolLess);
-            }
-        }
-    }
-
-    @Override
-    public void disposeDescendantGovernors(URL url) {
-        logger.debug("Explicitly disposing descendant governors: {}", url);
-        computeForEachDescendantGovernorAndRemove(url, this::disposeGovernor);
-    }
-
-    @Override
     public AdapterGovernor getAdapterGovernor(URL url) {
         return (AdapterGovernor) getGovernor(url.getAdapterURL());
     }
@@ -325,6 +306,23 @@ class BluetoothManagerImpl implements BluetoothManager {
     @Override
     public void removeManagerListener(ManagerListener listener) {
         managerListeners.remove(listener);
+    }
+
+    protected void disposeDescendantGovernors(URL url) {
+        logger.debug("Explicitly disposing descendant governors: {}", url);
+        computeForEachDescendantGovernorAndRemove(url, this::disposeGovernor);
+    }
+
+    protected void disposeGovernor(URL url) {
+        logger.debug("Explicitly disposing governor: {}", url);
+        synchronized (governors) {
+            URL protocolLess = url.copyWithProtocol(null);
+            if (governors.containsKey(protocolLess)) {
+                BluetoothObjectGovernor governor = governors.get(protocolLess);
+                disposeGovernor(governor);
+                governors.remove(protocolLess);
+            }
+        }
     }
 
     protected void scheduleUpdate(BluetoothObjectGovernor governor) {
@@ -670,11 +668,6 @@ class BluetoothManagerImpl implements BluetoothManager {
         private void handleNew(Set<DiscoveredDevice> newDevices) {
             long current = System.currentTimeMillis();
             newDevices.forEach(device -> {
-                if (device.getRSSI() == 0) {
-                    // we just started and the factory returned a stale device, remove it
-                    logger.debug("Removing stale device (initial): {}", device.getURL());
-                    factory.dispose(device.getURL());
-                }
                 notifyDeviceDiscovered(device);
                 discoveredDevices.put(device.getURL(), new DeviceDiscoveryHolder(device, current));
             });
@@ -690,7 +683,7 @@ class BluetoothManagerImpl implements BluetoothManager {
                     DeviceDiscoveryHolder device;
                     if (!isGovernorRegistered(url) && existingDevice.getRSSI() == rediscoveredDevice.getRSSI()) {
                         if (isStale(existingDevice, current)) {
-                            logger.debug("Removing stale device: {} : {} ",
+                            logger.warn("Removing stale device: {} : {} ",
                                     existingDevice.getURL(), existingDevice.getRSSI());
                             factory.dispose(existingDevice.getURL());
                             notifyDeviceLost(existingDevice.getURL());

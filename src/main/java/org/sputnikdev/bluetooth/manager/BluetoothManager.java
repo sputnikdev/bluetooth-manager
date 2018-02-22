@@ -167,18 +167,6 @@ public interface BluetoothManager {
     CharacteristicGovernor getCharacteristicGovernor(URL url, boolean forceConnect);
 
     /**
-     * Disposes/ shuts down a governor by its URL.
-     * @param url a URL of a bluetooth object (adapter, device, characteristic)
-     */
-    void disposeGovernor(URL url);
-
-    /**
-     * Disposes/ shuts down descendant governors by provided URL ({@link URL#isDescendant(URL)}).
-     * @param url a URL of a bluetooth object (adapter, device, characteristic)
-     */
-    void disposeDescendantGovernors(URL url);
-
-    /**
      * Disposes/ shuts down the bluetooth manager and its governors.
      */
     void dispose();

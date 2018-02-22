@@ -35,7 +35,7 @@ import org.sputnikdev.bluetooth.manager.DiscoveredAdapter;
 import org.sputnikdev.bluetooth.manager.GovernorListener;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -57,7 +57,7 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
     private final List<GovernorListener> governorListeners = new CopyOnWriteArrayList<>();
     private final List<AdapterListener> adapterListeners = new CopyOnWriteArrayList<>();
 
-    private Date lastChanged;
+    private Instant lastInteracted;
 
     private boolean poweredControl = true;
     private boolean discoveringControl = true;
@@ -189,8 +189,8 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
     }
 
     @Override
-    public Date getLastActivity() {
-        return lastChanged;
+    public Instant getLastInteracted() {
+        return lastInteracted;
     }
 
     @Override
@@ -244,9 +244,9 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
         }
     }
 
-    private void updateLastUpdated(Date lastActivity) {
-        if (lastChanged == null || lastChanged.before(lastActivity)) {
-            lastChanged = lastActivity;
+    private void updateLastInteracted(Instant lastActivity) {
+        if (lastInteracted == null || lastInteracted.isBefore(lastActivity)) {
+            lastInteracted = lastActivity;
             BluetoothManagerUtils.safeForEachError(governorListeners, listener -> {
                 listener.lastUpdatedChanged(lastActivity);
             }, logger, "Execution error of a governor listener: last changed");
@@ -298,8 +298,8 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
         }
 
         @Override
-        public void lastUpdatedChanged(Date lastActivity) {
-            updateLastUpdated(lastActivity);
+        public void lastUpdatedChanged(Instant lastActivity) {
+            updateLastInteracted(lastActivity);
         }
 
     }

@@ -35,7 +35,7 @@ import org.sputnikdev.bluetooth.manager.NotReadyException;
 import org.sputnikdev.bluetooth.manager.ValueListener;
 import org.sputnikdev.bluetooth.manager.transport.CharacteristicAccessType;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -57,7 +57,8 @@ class CombinedCharacteristicGovernorImpl
     private final List<ValueListener> valueListeners = new CopyOnWriteArrayList<>();
     private final List<GovernorListener> governorListeners = new CopyOnWriteArrayList<>();
     private final CompletableFutureService<CharacteristicGovernor> readyService = new CompletableFutureService<>();
-    private Date lastActivity;
+    private Instant lastInteracted;
+    private Instant lastNotified;
     private final ManagerListener delegateListener = new DelegatesListener();
 
     CombinedCharacteristicGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
@@ -134,8 +135,13 @@ class CombinedCharacteristicGovernorImpl
     }
 
     @Override
-    public Date getLastActivity() {
-        return delegate != null ? delegate.getLastActivity() : lastActivity;
+    public Instant getLastInteracted() {
+        return delegate != null ? delegate.getLastInteracted() : lastInteracted;
+    }
+
+    @Override
+    public Instant getLastNotified() {
+        return delegate != null ? delegate.getLastNotified() : lastNotified;
     }
 
     @Override
@@ -212,7 +218,8 @@ class CombinedCharacteristicGovernorImpl
             this.delegate = delegate;
             governorListeners.forEach(delegate::addGovernorListener);
             valueListeners.forEach(delegate::addValueListener);
-            lastActivity = delegate.getLastActivity();
+            lastInteracted = delegate.getLastInteracted();
+            lastNotified = delegate.getLastNotified();
         }
         if (delegate.isReady()) {
             BluetoothManagerUtils.safeForEachError(governorListeners, listener -> listener.ready(true), logger,
@@ -220,7 +227,7 @@ class CombinedCharacteristicGovernorImpl
             readyService.completeSilently(this);
         }
         BluetoothManagerUtils.safeForEachError(governorListeners,
-                listener -> listener.lastUpdatedChanged(lastActivity),
+                listener -> listener.lastUpdatedChanged(lastInteracted),
                 logger,"Execution error of a governor listener: lastUpdatedChanged");
     }
 
@@ -230,7 +237,8 @@ class CombinedCharacteristicGovernorImpl
             synchronized (delegateListener) {
                 governorListeners.forEach(delegate::removeGovernorListener);
                 valueListeners.forEach(delegate::removeValueListener);
-                lastActivity = delegate.getLastActivity();
+                lastInteracted = delegate.getLastInteracted();
+                lastNotified = delegate.getLastNotified();
             }
         }
         this.delegate = null;

@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObject;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -73,6 +74,19 @@ final class BluetoothManagerUtils {
                 errorHandler.accept(ex);
             }
         });
+    }
+
+    static Instant max(Instant first, Instant second) {
+        if (first == null && second == null) {
+            return null;
+        }
+        if (first != null && second == null) {
+            return first;
+        }
+        if (first == null) {
+            return second;
+        }
+        return first.isAfter(second) ? first : second;
     }
 
 }

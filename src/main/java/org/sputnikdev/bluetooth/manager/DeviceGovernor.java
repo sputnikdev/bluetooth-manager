@@ -23,6 +23,7 @@ package org.sputnikdev.bluetooth.manager;
 import org.sputnikdev.bluetooth.Filter;
 import org.sputnikdev.bluetooth.URL;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -183,12 +184,6 @@ public interface DeviceGovernor extends BluetoothGovernor {
     long getRssiReportingRate();
 
     /**
-     * Returns epoch timestamp when the device was last advertised.
-     * @return last advertised epoch timestamp
-     */
-    long getLastAdvertised();
-
-    /**
      * Returns actual (manufacturer defined) TX power of the device. Some bluetooth devices do not advertise
      * its TX power, in this case the returning value is 0.
      * <br>TX power is used in distance calculation ({@link #getEstimatedDistance()}).
@@ -316,5 +311,11 @@ public interface DeviceGovernor extends BluetoothGovernor {
      * @return advertised service data
      */
     Map<URL, byte[]> getServiceData();
+
+    /**
+     * Returns the date/time of last known advertised packet.
+     * @return the date/time of last known advertised packet
+     */
+    Instant getLastAdvertised();
 
 }

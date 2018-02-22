@@ -25,7 +25,7 @@ import org.sputnikdev.bluetooth.manager.transport.Adapter;
 import org.sputnikdev.bluetooth.manager.transport.Characteristic;
 import org.sputnikdev.bluetooth.manager.transport.Device;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -86,10 +86,10 @@ public interface BluetoothGovernor {
     BluetoothObjectType getType();
 
     /**
-     * Returns the last known date of the bluetooth object activity.
-     * @return the last known date of the bluetooth object activity
+     * Returns the date/time of last known successful interaction with the corresponding native object.
+     * @return the date/time of last known successful interaction with the corresponding native object
      */
-    Date getLastActivity();
+    Instant getLastInteracted();
 
     /**
      * An accept method of the visitor pattern to process different bluetooth governors at once.

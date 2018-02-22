@@ -11,7 +11,6 @@ import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.internal.util.reflection.Whitebox;
 import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.sputnikdev.bluetooth.Filter;
 import org.sputnikdev.bluetooth.RssiKalmanFilter;
@@ -218,11 +217,11 @@ public class DeviceGovernorImplTest {
         // not connected
         when(device.isConnected()).thenReturn(false);
         governor.setConnectionControl(false);
-        Date lastChanged = governor.getLastActivity();
+        Instant lastChanged = governor.getLastInteracted();
         assertNull(lastChanged);
         governor.update(device);
         // nothing should be changed
-        lastChanged = governor.getLastActivity();
+        lastChanged = governor.getLastInteracted();
         assertNull(lastChanged);
         verify(device, never()).getRSSI();
         verify(genericDeviceListener, never()).rssiChanged(rssi);
@@ -232,7 +231,7 @@ public class DeviceGovernorImplTest {
         when(device.isConnected()).thenReturn(true);
         governor.setConnectionControl(true);
         governor.update(device);
-        lastChanged = governor.getLastActivity();
+        lastChanged = governor.getLastInteracted();
         assertNotNull(lastChanged);
         // when connected, "lastChanged" should always be updated
         verify(device, times(1)).getRSSI();
@@ -905,12 +904,12 @@ public class DeviceGovernorImplTest {
 
         verify(bluetoothSmartDeviceListener, times(1)).connected();
         verify(governor, times(1)).notifyConnected(true);
-        verify(governor, times(1)).updateLastChanged();
+        verify(governor, times(1)).updateLastInteracted();
 
         notificationCaptor.getValue().notify(Boolean.FALSE);
         verify(bluetoothSmartDeviceListener, times(1)).disconnected();
         verify(governor, times(1)).notifyConnected(false);
-        verify(governor, times(2)).updateLastChanged();
+        verify(governor, times(2)).updateLastInteracted();
     }
 
     @Test
@@ -931,7 +930,7 @@ public class DeviceGovernorImplTest {
 
         verify(bluetoothSmartDeviceListener, never()).servicesResolved(any());
         verify(governor, never()).notifyServicesResolved(any());
-        verify(governor, times(2)).updateLastChanged();
+        verify(governor, times(2)).updateLastInteracted();
         verify(bluetoothManager, times(1)).updateDescendants(URL);
 
         when(governor.getResolvedServices()).thenReturn(tmp);
@@ -939,13 +938,13 @@ public class DeviceGovernorImplTest {
 
         verify(bluetoothSmartDeviceListener, times(1)).servicesResolved(any());
         verify(governor, times(1)).notifyServicesResolved(any());
-        verify(governor, times(3)).updateLastChanged();
+        verify(governor, times(3)).updateLastInteracted();
         verify(bluetoothManager, times(2)).updateDescendants(URL);
 
         notificationCaptor.getValue().notify(Boolean.FALSE);
         verify(bluetoothSmartDeviceListener, times(1)).servicesUnresolved();
         verify(governor, times(1)).notifyServicesUnresolved();
-        verify(governor, times(4)).updateLastChanged();
+        verify(governor, times(4)).updateLastInteracted();
         verify(bluetoothManager, times(2)).updateDescendants(URL);
         verify(bluetoothManager, times(1)).resetDescendants(URL);
     }
@@ -965,7 +964,7 @@ public class DeviceGovernorImplTest {
 
         verify(genericDeviceListener, times(1)).rssiChanged(RSSI);
         verify(governor, times(1)).updateRSSI(RSSI);
-        verify(governor, times(1)).updateLastChanged();
+        verify(governor, times(1)).updateLastInteracted();
     }
 
     @Test
@@ -983,13 +982,13 @@ public class DeviceGovernorImplTest {
 
         verify(genericDeviceListener, times(1)).blocked(true);
         verify(governor, times(1)).notifyBlocked(true);
-        verify(governor, times(1)).updateLastChanged();
+        verify(governor, times(1)).updateLastInteracted();
 
         notificationCaptor.getValue().notify(false);
 
         verify(genericDeviceListener, times(1)).blocked(false);
         verify(governor, times(1)).notifyBlocked(false);
-        verify(governor, times(2)).updateLastChanged();
+        verify(governor, times(2)).updateLastInteracted();
     }
 
     @Test

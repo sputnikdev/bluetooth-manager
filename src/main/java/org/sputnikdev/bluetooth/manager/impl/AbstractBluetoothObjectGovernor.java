@@ -30,12 +30,13 @@ import org.sputnikdev.bluetooth.manager.GovernorState;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObject;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -90,8 +91,9 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
     protected final URL url;
     private T bluetoothObject;
     private String transport;
-    private Date lastActivity;
-    private Date lastActivityNotified;
+    private Instant lastInteracted;
+    private Instant lastChangedNotified;
+    private Instant ready;
     private final List<GovernorListener> governorListeners = new CopyOnWriteArrayList<>();
     private GovernorState state = GovernorState.NEW;
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -126,8 +128,8 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
     }
 
     @Override
-    public Date getLastActivity() {
-        return lastActivity;
+    public Instant getLastInteracted() {
+        return lastInteracted;
     }
 
     @Override
@@ -178,7 +180,6 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
 
                     // handing completable futures
                     readyService.complete(this);
-
                 } catch (Exception ex) {
                     logger.warn("Error occurred while updating governor: {} / {} : {}",
                             url, object != null ? Integer.toHexString(object.hashCode()) : null, ex.getMessage());
@@ -203,8 +204,10 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
     public void reset() {
         if (state != GovernorState.RESET && state != GovernorState.DISPOSED) {
             state = GovernorState.RESET;
-            logger.debug("Resetting governor. Descendants first: {}", url);
-            bluetoothManager.resetDescendants(url);
+            if (!url.isCharacteristic()) {
+                logger.debug("Resetting governor. Descendants first: {}", url);
+                bluetoothManager.resetDescendants(url);
+            }
             try {
                 if (bluetoothObject != null) {
                     forceReset(bluetoothObject);
@@ -239,13 +242,19 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
     }
 
     protected <R> R interact(String name, Function<T, R> delegate) {
+        return interact(name, delegate, false);
+    }
+
+    protected <R> R interact(String name, Function<T, R> delegate, boolean update) {
         try {
             T object = getBluetoothObject();
             logger.trace("Interacting with native object ({}): {} / {}",
                     name, url, Integer.toHexString(object.hashCode()));
             R result = delegate.apply(object);
             logger.trace("Interaction completed ({}): {} / {}", name, url, Integer.toHexString(object.hashCode()));
-            updateLastChanged();
+            if (update) {
+                updateLastInteracted();
+            }
             return result;
         } catch (Exception ex) {
             boolean locked = updateLock.isLocked();
@@ -259,6 +268,13 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
             //}
             throw new BluetoothInteractionException(message, ex);
         }
+    }
+
+    protected <V> void interact(String name, BiConsumer<T, V> delegate, V value) {
+        interact(name, (Function<T, V>) object -> {
+            delegate.accept(object, value);
+            return null;
+        }, true);
     }
 
     protected void interact(String name, Consumer<T> delegate) {
@@ -291,8 +307,8 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
 
     abstract void reset(T object);
 
-    void updateLastChanged() {
-        lastActivity = new Date();
+    void updateLastInteracted() {
+        lastInteracted = Instant.now();
     }
 
     void notifyReady(boolean ready) {
@@ -302,13 +318,20 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
     }
 
     void notifyLastChanged() {
-        Date lastChanged = lastActivity;
-        if (lastChanged != null && !lastChanged.equals(lastActivityNotified)) {
+        notifyLastChanged(lastInteracted);
+    }
+
+    void notifyLastChanged(Instant time) {
+        if (time != null && !time.equals(lastChangedNotified)) {
             BluetoothManagerUtils.safeForEachError(governorListeners, listener -> listener
-                            .lastUpdatedChanged(lastChanged), logger,
+                            .lastUpdatedChanged(time), logger,
                     "Execution error of a governor listener: last changed");
-            lastActivityNotified = lastChanged;
+            lastChangedNotified = time;
         }
+    }
+
+    Instant getReady() {
+        return ready;
     }
 
     private T getOrFindBluetoothObject() {
@@ -318,6 +341,7 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
             bluetoothObject = bluetoothManager.getBluetoothObject(
                     transport != null ? url.copyWithProtocol(transport) : url);
             if (bluetoothObject != null) {
+                ready = Instant.now();
                 logger.debug("A new native object has been acquired: {}", url);
                 // update internal cache so that next time acquiring "native" object will be faster
                 transport = bluetoothObject.getURL().getProtocol();

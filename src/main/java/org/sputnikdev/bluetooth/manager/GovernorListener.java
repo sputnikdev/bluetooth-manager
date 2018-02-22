@@ -1,6 +1,6 @@
 package org.sputnikdev.bluetooth.manager;
 
-import java.util.Date;
+import java.time.Instant;
 
 /*-
  * #%L
@@ -41,6 +41,6 @@ public interface GovernorListener {
      * Reports when a device/governor was last active (receiving events, sending commands etc).
      * @param lastActivity a date when a device was last active
      */
-    default void lastUpdatedChanged(Date lastActivity) { }
+    default void lastUpdatedChanged(Instant lastActivity) { }
 
 }

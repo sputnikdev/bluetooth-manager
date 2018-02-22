@@ -442,7 +442,7 @@ public class AdapterGovernorImplTest {
 
         verify(listener, times(1)).powered(true);
         verify(governor, times(1)).notifyPowered(true);
-        verify(governor, times(1)).updateLastChanged();
+        verify(governor, times(1)).updateLastInteracted();
     }
 
     @Test
@@ -462,7 +462,7 @@ public class AdapterGovernorImplTest {
 
         verify(listener, times(1)).discovering(true);
         verify(governor, times(1)).notifyDiscovering(true);
-        verify(governor, times(1)).updateLastChanged();
+        verify(governor, times(1)).updateLastInteracted();
     }
 
     private static Device mockDevice(URL url, String name) {

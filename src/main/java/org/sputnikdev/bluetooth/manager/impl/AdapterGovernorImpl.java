@@ -34,7 +34,6 @@ import org.sputnikdev.bluetooth.manager.transport.Notification;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -71,7 +70,7 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
         if (adapter.isPowered()) {
             updateDiscovering(adapter);
         }
-        updateLastChanged();
+        updateLastInteracted();
         logger.trace("Adapter governor update performed: {}", url);
     }
 
@@ -131,7 +130,7 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
 
     @Override
     public void setAlias(String alias) throws NotReadyException {
-        interact("setAlias", (Consumer<Adapter>) adapter -> adapter.setAlias(alias));
+        interact("setAlias", Adapter::setAlias, alias);
     }
 
     @Override
@@ -268,7 +267,7 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
         @Override
         public void notify(Boolean powered) {
             notifyPowered(powered);
-            updateLastChanged();
+            updateLastInteracted();
         }
     }
 
@@ -276,7 +275,7 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
         @Override
         public void notify(Boolean discovering) {
             notifyDiscovering(discovering);
-            updateLastChanged();
+            updateLastInteracted();
         }
     }
 }
