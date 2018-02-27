@@ -21,6 +21,13 @@ public class CompletableFutureService<G extends BluetoothGovernor> {
     <V> CompletableFuture<V> submit(G governor, Function<G, V> function) {
         DeferredCompletableFuture<G, V> future = new DeferredCompletableFuture<>(function);
 
+        if (!governor.isReady()) {
+            logger.debug("Governor is not ready, pushing the future to be completed when it is ready : {}",
+                    governor.getURL());
+            futures.add(future);
+            return future;
+        }
+
         logger.debug("Trying to complete future immediately: {}", governor.getURL());
         try {
             future.complete(function.apply(governor));

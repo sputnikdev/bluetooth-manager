@@ -47,10 +47,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -68,6 +70,8 @@ class BluetoothManagerImpl implements BluetoothManager {
     private Logger logger = LoggerFactory.getLogger(BluetoothManagerImpl.class);
 
     private final Map<String, BluetoothObjectFactory> factories = new ConcurrentHashMap<>();
+
+    private final ExecutorService notificationService = Executors.newCachedThreadPool();
 
     private final ScheduledExecutorService discoveryScheduler = Executors.newScheduledThreadPool(6);
     private final ScheduledExecutorService governorScheduler = Executors.newScheduledThreadPool(5);
@@ -241,6 +245,8 @@ class BluetoothManagerImpl implements BluetoothManager {
     public void dispose() {
         logger.debug("Disposing Bluetooth manager: {}", Integer.toHexString(hashCode()));
 
+        notificationService.shutdownNow();
+
         cancelAllFutures(true);
 
         governorScheduler.shutdown();
@@ -331,6 +337,28 @@ class BluetoothManagerImpl implements BluetoothManager {
         }
     }
 
+    protected void notify(Runnable runnable) {
+        if (!notificationService.isShutdown()) {
+            notificationService.submit(runnable);
+        }
+    }
+
+    protected <V> void notify(Consumer<V> consumer, V value) {
+        if (!notificationService.isShutdown()) {
+            notificationService.submit(() -> {
+                consumer.accept(value);
+            });
+        }
+    }
+
+    protected <T, V> void notify(List<T> listeners, BiConsumer<T, V> consumer, V value, Logger lgr, String errorLogMessage) {
+        if (!notificationService.isShutdown()) {
+            notificationService.submit(() -> {
+                BluetoothManagerUtils.forEachSilently(listeners, consumer, value, lgr, errorLogMessage);
+            });
+        }
+    }
+
     BluetoothObjectFactory getFactory(String protocolName) {
         logger.trace("Getting registered transport (factory): {}", protocolName);
         BluetoothObjectFactory factory = factories.get(protocolName);
@@ -363,7 +391,7 @@ class BluetoothManagerImpl implements BluetoothManager {
     protected void notifyGovernorReady(BluetoothGovernor governor, boolean ready) {
         logger.debug("Notifying manager listeners (governor ready): {} : {}",
                 managerListeners.size(), ready);
-        BluetoothManagerUtils.safeForEachError(managerListeners, listener -> listener.ready(governor, ready), logger,
+        BluetoothManagerUtils.forEachSilently(managerListeners, listener -> listener.ready(governor, ready), logger,
                 "Error in manager listener: ready");
     }
 
@@ -501,7 +529,7 @@ class BluetoothManagerImpl implements BluetoothManager {
     private void notifyDeviceDiscovered(DiscoveredDevice device) {
         logger.debug("Notifying device discovery listeners (discovered): {} : {}",
                 device, deviceDiscoveryListeners.size());
-        BluetoothManagerUtils.safeForEachError(deviceDiscoveryListeners,
+        BluetoothManagerUtils.forEachSilently(deviceDiscoveryListeners,
             listener -> {
                 if (!combinedDevices || listener instanceof CombinedDeviceGovernorImpl) {
                     listener.discovered(device);
@@ -518,7 +546,7 @@ class BluetoothManagerImpl implements BluetoothManager {
         if (discoveredAdapters.contains(adapter) && !rediscover) {
             return;
         }
-        BluetoothManagerUtils.safeForEachError(adapterDiscoveryListeners,
+        BluetoothManagerUtils.forEachSilently(adapterDiscoveryListeners,
             listener -> {
                 if (!combinedAdapters || listener instanceof CombinedAdapterGovernorImpl) {
                     listener.discovered(adapter);
@@ -531,14 +559,14 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     private void notifyDeviceLost(URL url) {
         logger.debug("Device has been lost: " + url);
-        BluetoothManagerUtils.safeForEachError(deviceDiscoveryListeners,
-            listener -> listener.deviceLost(url), logger, "Error in device discovery listener");
+        BluetoothManagerUtils.forEachSilently(deviceDiscoveryListeners, DeviceDiscoveryListener::deviceLost, url,
+                logger, "Error in device discovery listener");
     }
 
     private void handleAdapterLost(URL url) {
         logger.debug("Adapter has been lost: " + url);
-        BluetoothManagerUtils.safeForEachError(adapterDiscoveryListeners,
-            listener -> listener.adapterLost(url), logger, "Error in adapter discovery listener");
+        BluetoothManagerUtils.forEachSilently(adapterDiscoveryListeners, AdapterDiscoveryListener::adapterLost, url,
+                logger, "Error in adapter discovery listener");
         reset((BluetoothObjectGovernor) getAdapterGovernor(url));
     }
 
@@ -594,11 +622,9 @@ class BluetoothManagerImpl implements BluetoothManager {
 
         private DeviceDiscoveryHolder merge(DiscoveredDevice device, long timestamp) {
             String name = getName();
-            // MAC address is 17 long string, e.g.
-            if (device.getName().length() != 17 && device.getName().chars().filter(c -> c == ':').count() != 5) {
+            if (!BluetoothManagerUtils.isMacAddress(device.getName())) {
                 name = device.getName();
             }
-
             return new DeviceDiscoveryHolder(getURL(), name,
                     device.getAlias() != null ? device.getAlias() : getAlias(),
                     device.getRSSI(), device.getBluetoothClass() > 0 ? device.getBluetoothClass() : getBluetoothClass(),

@@ -221,14 +221,15 @@ class CombinedCharacteristicGovernorImpl
             lastInteracted = delegate.getLastInteracted();
             lastNotified = delegate.getLastNotified();
         }
-        if (delegate.isReady()) {
-            BluetoothManagerUtils.safeForEachError(governorListeners, listener -> listener.ready(true), logger,
-                    "Execution error of a governor listener: ready");
-            readyService.completeSilently(this);
-        }
-        BluetoothManagerUtils.safeForEachError(governorListeners,
-                listener -> listener.lastUpdatedChanged(lastInteracted),
-                logger,"Execution error of a governor listener: lastUpdatedChanged");
+        bluetoothManager.notify(() -> {
+            if (delegate.isReady()) {
+                BluetoothManagerUtils.forEachSilently(governorListeners, GovernorListener::ready, true, logger,
+                        "Execution error of a governor listener: ready");
+                readyService.completeSilently(this);
+            }
+            BluetoothManagerUtils.forEachSilently(governorListeners, GovernorListener::lastUpdatedChanged,
+                    lastInteracted, logger,"Execution error of a governor listener: lastUpdatedChanged");
+        });
     }
 
     private void uninstallDelegate() {

@@ -40,14 +40,19 @@ import org.sputnikdev.bluetooth.manager.transport.Device;
 import org.sputnikdev.bluetooth.manager.transport.Notification;
 import org.sputnikdev.bluetooth.manager.transport.Service;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -58,7 +63,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     private Logger logger = LoggerFactory.getLogger(DeviceGovernorImpl.class);
 
-    static final int DEFAULT_RSSI_REPORTING_RATE = 1000;
+    static final int DEFAULT_RSSI_REPORTING_RATE = 0;
     static final int DEFAULT_ONLINE_TIMEOUT = 30;
     static final int RUMP_UP_TIMEOUT = 60;
     static final short DEFAULT_TX_POWER = -55;
@@ -66,6 +71,9 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     private final List<GenericBluetoothDeviceListener> genericBluetoothDeviceListeners = new CopyOnWriteArrayList<>();
     private final List<BluetoothSmartDeviceListener> bluetoothSmartDeviceListeners = new CopyOnWriteArrayList<>();
+    private final CompletableFutureService<DeviceGovernor> servicesResolvedService =
+            new CompletableFutureService<>();
+
     private ConnectionNotification connectionNotification;
     private BlockedNotification blockedNotification;
     private ServicesResolvedNotification servicesResolvedNotification;
@@ -147,8 +155,19 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         if (isReady() && Instant.now().minusSeconds(RUMP_UP_TIMEOUT).isAfter(getReady())) {
             AdapterGovernor adapterGovernor = bluetoothManager.getAdapterGovernor(getURL());
             if (adapterGovernor.isDiscovering()) {
+                int staleTimeout = onlineTimeout * 2;
+                boolean stale = lastAdvertised == null || !checkOnline(staleTimeout);
+                String lastAdvertisedFmt = Optional.ofNullable(lastAdvertised)
+                        .map(advertised -> Math.abs(Duration.between(Instant.now(), advertised).getSeconds()) + "s")
+                        .orElse("never");
+                String lastInteractedFmt = Optional.ofNullable(getLastInteracted())
+                        .map(interacted -> Math.abs(Duration.between(Instant.now(), interacted).getSeconds()) + "s")
+                        .orElse("never");
+                logger.warn("Device {} last advertised ({}) ago and last interacted ({}) ago. "
+                                + "Stale timeout: {}s. Device is considered stale: {}",
+                        url, lastAdvertisedFmt, lastInteractedFmt, staleTimeout, stale);
                 //TODO there might be a problem when client switches on discovery for adapter, devices will be reset
-                return lastAdvertised == null || !checkOnline(onlineTimeout * 2);
+                return stale;
             }
         }
         return false;
@@ -367,6 +386,12 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     }
 
     @Override
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public <G extends DeviceGovernor, V> CompletableFuture<V> whenServicesResolved(Function<G, V> function) {
+        return servicesResolvedService.submit(this, (Function<DeviceGovernor, V>) function);
+    }
+
+    @Override
     public void removeBluetoothSmartDeviceListener(BluetoothSmartDeviceListener bluetoothSmartDeviceListener) {
         bluetoothSmartDeviceListeners.remove(bluetoothSmartDeviceListener);
     }
@@ -488,22 +513,23 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     void notifyBlocked(boolean blocked) {
         logger.debug("Notifying device governor listener (blocked): {} : {} : {}",
                 url, genericBluetoothDeviceListeners.size(), blocked);
-        BluetoothManagerUtils.safeForEachError(genericBluetoothDeviceListeners,
+        BluetoothManagerUtils.forEachSilently(genericBluetoothDeviceListeners,
                 listener -> listener.blocked(blocked), logger,"Execution error of a blocked listener");
     }
 
     void notifyServicesResolved(List<GattService> services) {
         logger.debug("Notifying device governor listener (services resolved): {} : {} : {}",
                 url, bluetoothSmartDeviceListeners.size(), services.size());
-        BluetoothManagerUtils.safeForEachError(bluetoothSmartDeviceListeners, listener -> listener
-                        .servicesResolved(services), logger,
+        BluetoothManagerUtils.forEachSilently(bluetoothSmartDeviceListeners,
+                BluetoothSmartDeviceListener::servicesResolved, services, logger,
                 "Execution error of a service resolved listener");
+        servicesResolvedService.complete(this);
     }
 
     void notifyServicesUnresolved() {
         logger.debug("Notifying device governor listener (services unresolved): {} : {}",
                 url, bluetoothSmartDeviceListeners.size());
-        BluetoothManagerUtils.safeForEachError(bluetoothSmartDeviceListeners,
+        BluetoothManagerUtils.forEachSilently(bluetoothSmartDeviceListeners,
                 BluetoothSmartDeviceListener::servicesUnresolved, logger,
                 "Execution error of a service unresolved listener");
     }
@@ -528,7 +554,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     void notifyRSSIChanged(short next) {
         if (rssiReportingRate == 0
                 || System.currentTimeMillis() - rssiLastNotified.toEpochMilli() > rssiReportingRate) {
-            BluetoothManagerUtils.safeForEachError(genericBluetoothDeviceListeners,
+            BluetoothManagerUtils.forEachSilently(genericBluetoothDeviceListeners,
                     listener -> listener.rssiChanged(next), logger,
                     "Execution error of a RSSI listener");
             rssiLastNotified = Instant.now();
@@ -538,7 +564,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     void notifyOnline(boolean online) {
         logger.debug("Notifying device governor listener (online): {} : {} : {}",
                 url, genericBluetoothDeviceListeners.size(), online);
-        BluetoothManagerUtils.safeForEachError(genericBluetoothDeviceListeners,
+        BluetoothManagerUtils.forEachSilently(genericBluetoothDeviceListeners,
             listener -> {
                 if (online) {
                     listener.online();
@@ -757,7 +783,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         public void notify(Map<String, byte[]> serviceData) {
             logger.debug("Services data changed (notification): {} : {} : {}",
                     url, bluetoothSmartDeviceListeners.size(), serviceData.size());
-            BluetoothManagerUtils.safeForEachError(bluetoothSmartDeviceListeners,
+            BluetoothManagerUtils.forEachSilently(bluetoothSmartDeviceListeners,
                 listener -> listener.serviceDataChanged(convert(serviceData)), logger,
                     "Execution error of a service data listener");
             updateLastAdvertised();
@@ -769,7 +795,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         public void notify(Map<Short, byte[]> manufacturerData) {
             logger.debug("Manufacturer data changed (notification): {} : {} : {}",
                     url, bluetoothSmartDeviceListeners.size(), manufacturerData.size());
-            BluetoothManagerUtils.safeForEachError(bluetoothSmartDeviceListeners,
+            BluetoothManagerUtils.forEachSilently(bluetoothSmartDeviceListeners,
                 listener -> listener.manufacturerDataChanged(manufacturerData), logger,
                     "Execution error of a manufacturer data listener");
             updateLastAdvertised();

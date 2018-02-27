@@ -27,6 +27,7 @@ import org.sputnikdev.bluetooth.manager.transport.Notification;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 import static org.junit.Assert.assertEquals;
@@ -246,7 +247,7 @@ public class AdapterGovernorImplTest {
         governor.setAlias(newAlias);
 
         verify(adapter, times(1)).setAlias(newAlias);
-        verify(governor).interact(eq("setAlias"), any(Function.class));
+        verify(governor).interact(eq("setAlias"), any(BiConsumer.class), eq(newAlias));
 
         verifyNoMoreInteractions(adapter);
     }

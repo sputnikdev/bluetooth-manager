@@ -39,4 +39,6 @@ public interface Characteristic extends BluetoothObject {
     boolean writeValue(byte[] data);
 
     void enableValueNotifications(Notification<byte[]> notification);
+
+    boolean isNotificationConfigurable();
 }

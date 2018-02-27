@@ -206,7 +206,7 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
     void notifyPowered(boolean powered) {
         logger.debug("Notifying adapter governor listener (powered): {} : {} : {}",
                 url, adapterListeners.size(), powered);
-        BluetoothManagerUtils.safeForEachError(adapterListeners,
+        BluetoothManagerUtils.forEachSilently(adapterListeners,
                 listener -> listener.powered(powered), logger,
                 "Execution error of a powered listener: " + powered);
     }
@@ -214,7 +214,7 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
     void notifyDiscovering(boolean discovering) {
         logger.debug("Notifying adapter governor listener (discovering): {} : {} : {}",
                 url, adapterListeners.size(), discovering);
-        BluetoothManagerUtils.safeForEachError(adapterListeners,
+        BluetoothManagerUtils.forEachSilently(adapterListeners,
                 listener -> listener.discovering(discovering), logger,
                 "Execution error of a discovering listener: " + discovering);
     }

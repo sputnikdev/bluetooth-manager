@@ -177,9 +177,10 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
                     update(object);
                     logger.debug("Governor has been updated: {}", url);
                     updated = true;
-
-                    // handing completable futures
-                    readyService.complete(this);
+                    // handling completable futures
+                    bluetoothManager.notify(() -> {
+                        readyService.complete(this);
+                    });
                 } catch (Exception ex) {
                     logger.warn("Error occurred while updating governor: {} / {} : {}",
                             url, object != null ? Integer.toHexString(object.hashCode()) : null, ex.getMessage());
@@ -191,12 +192,6 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
                 if (updated) {
                     notifyLastChanged();
                 }
-            } else {
-                // looks like the bluetooth manager is performing an update of this governor already,
-                // therefore no need to run another update, let's wait until the bluetooth manager finishes its update
-                logger.debug("Lock could not be acquired (governor is being updated). Skipping the update.");
-                updateLock.lock();
-                updateLock.unlock();
             }
         }
     }
@@ -312,9 +307,11 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
     }
 
     void notifyReady(boolean ready) {
-        BluetoothManagerUtils.safeForEachError(governorListeners, listener -> listener.ready(ready), logger,
-                "Execution error of a governor listener: ready");
-        bluetoothManager.notifyGovernorReady(this, ready);
+        bluetoothManager.notify(() -> {
+            BluetoothManagerUtils.forEachSilently(governorListeners, GovernorListener::ready, ready, logger,
+                    "Execution error of a governor listener: ready");
+            bluetoothManager.notifyGovernorReady(this, ready);
+        });
     }
 
     void notifyLastChanged() {
@@ -323,8 +320,7 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
 
     void notifyLastChanged(Instant time) {
         if (time != null && !time.equals(lastChangedNotified)) {
-            BluetoothManagerUtils.safeForEachError(governorListeners, listener -> listener
-                            .lastUpdatedChanged(time), logger,
+            bluetoothManager.notify(governorListeners, GovernorListener::lastUpdatedChanged, time, logger,
                     "Execution error of a governor listener: last changed");
             lastChangedNotified = time;
         }

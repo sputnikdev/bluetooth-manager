@@ -29,13 +29,17 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 /**
  * Utility class.
  * @author Vlad Kolotov
  */
 final class BluetoothManagerUtils {
+
+    private static final Pattern MAC_PATTERN = Pattern.compile("(\\w\\w:){5}\\w\\w");
 
     private BluetoothManagerUtils() { }
 
@@ -47,29 +51,35 @@ final class BluetoothManagerUtils {
         return Collections.unmodifiableList(urls);
     }
 
-    static <T> void safeForEachError(Collection<T> listeners, Consumer<T> func, Logger logger, String error) {
-        safeForEach(listeners, func, ex -> {
+    static <T> void forEachSilently(Collection<T> listeners, Consumer<T> consumer,
+                                       Logger logger, String error) {
+        forEachSilently(listeners, consumer, ex -> {
             logger.error(error, ex);
         });
     }
 
-    static <T> void safeForEachInfo(Collection<T> listeners, Consumer<T> func, Logger logger, String info) {
-        safeForEach(listeners, func, ex -> {
-            logger.warn(info, ex);
+    static <T, V> void forEachSilently(Collection<T> listeners, BiConsumer<T, V> consumer, V value,
+                                       Logger logger, String error) {
+        forEachSilently(listeners, consumer, value, ex -> {
+            logger.error(error, ex);
         });
     }
 
-    static <T> void safeForEachWarn(Collection<T> listeners, Consumer<T> func, Logger logger, String warn) {
-        safeForEach(listeners, func, ex -> {
-            logger.warn(warn, ex);
-        });
-    }
-
-
-    static <T> void safeForEach(Collection<T> objects, Consumer<T> func, Consumer<Exception> errorHandler) {
+    static <T> void forEachSilently(Collection<T> objects, Consumer<T> func, Consumer<Exception> errorHandler) {
         objects.forEach(deviceDiscoveryListener -> {
             try {
                 func.accept(deviceDiscoveryListener);
+            } catch (Exception ex) {
+                errorHandler.accept(ex);
+            }
+        });
+    }
+
+    static <T, V> void forEachSilently(Collection<T> objects, BiConsumer<T, V> func, V value,
+                                               Consumer<Exception> errorHandler) {
+        objects.forEach(deviceDiscoveryListener -> {
+            try {
+                func.accept(deviceDiscoveryListener, value);
             } catch (Exception ex) {
                 errorHandler.accept(ex);
             }
@@ -87,6 +97,10 @@ final class BluetoothManagerUtils {
             return second;
         }
         return first.isAfter(second) ? first : second;
+    }
+
+    static boolean isMacAddress(String name) {
+        return name != null && MAC_PATTERN.matcher(name).matches();
     }
 
 }

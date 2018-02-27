@@ -247,7 +247,7 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
     private void updateLastInteracted(Instant lastActivity) {
         if (lastInteracted == null || lastInteracted.isBefore(lastActivity)) {
             lastInteracted = lastActivity;
-            BluetoothManagerUtils.safeForEachError(governorListeners, listener -> {
+            BluetoothManagerUtils.forEachSilently(governorListeners, listener -> {
                 listener.lastUpdatedChanged(lastActivity);
             }, logger, "Execution error of a governor listener: last changed");
         }
@@ -272,27 +272,24 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
         @Override
         public void powered(boolean newState) {
             powered.cumulativeSet(index, newState, () -> {
-                BluetoothManagerUtils.safeForEachError(adapterListeners, listener -> {
-                    listener.powered(newState);
-                }, logger, "Execution error of a Powered listener");
+                BluetoothManagerUtils.forEachSilently(adapterListeners, AdapterListener::powered, newState,
+                        logger, "Execution error of a Powered listener");
             });
         }
 
         @Override
         public void discovering(boolean newState) {
             discovering.cumulativeSet(index, newState, () -> {
-                BluetoothManagerUtils.safeForEachError(adapterListeners, listener -> {
-                    listener.discovering(newState);
-                }, logger, "Execution error of a Discovering listener");
+                BluetoothManagerUtils.forEachSilently(adapterListeners, AdapterListener::discovering, newState,
+                        logger, "Execution error of a Discovering listener");
             });
         }
 
         @Override
         public void ready(boolean newState) {
             ready.cumulativeSet(index, newState, () -> {
-                BluetoothManagerUtils.safeForEachError(governorListeners, listener -> {
-                    listener.ready(newState);
-                }, logger, "Execution error of a governor listener: ready");
+                BluetoothManagerUtils.forEachSilently(governorListeners, GovernorListener::ready, newState,
+                        logger, "Execution error of a governor listener: ready");
                 readyService.completeSilently(CombinedAdapterGovernorImpl.this);
             });
         }

@@ -9,6 +9,7 @@ import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
+import org.mockito.internal.util.MockUtil;
 import org.mockito.internal.util.reflection.Whitebox;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.modules.junit4.PowerMockRunner;
@@ -163,6 +164,8 @@ public class DeviceGovernorImplTest {
         governor.setRssiReportingRate(0);
 
         PowerMockito.when(governor, "createFilter", any(Class.class)).thenReturn(rssiFilter);
+
+        MockUtils.mockImplicitNotifications(bluetoothManager);
     }
 
     @Test
@@ -346,7 +349,7 @@ public class DeviceGovernorImplTest {
         governor.update(device);
         verify(genericDeviceListener, times(0)).offline();
 
-        Whitebox.setInternalState(governor, "lastActivity", Date.from(Instant.now().minusSeconds(onlineTimeout)));
+        Whitebox.setInternalState(governor, "lastInteracted", Instant.now().minusSeconds(onlineTimeout));
         governor.setBlockedControl(true);
         when(device.isBlocked()).thenReturn(true);
 
@@ -453,7 +456,7 @@ public class DeviceGovernorImplTest {
         verify(device, times(1)).setAlias(newAlias);
 
         verifyNoMoreInteractions(device);
-        verify(governor).interact(eq("setAlias"), any(Function.class));
+        verify(governor).interact(eq("setAlias"), any(), eq(newAlias));
     }
 
     @Test
@@ -507,10 +510,10 @@ public class DeviceGovernorImplTest {
         int onlineTimeout = 20;
         governor.setOnlineTimeout(onlineTimeout);
 
-        Whitebox.setInternalState(governor, "lastActivity", Date.from(Instant.now()));
+        Whitebox.setInternalState(governor, "lastInteracted", Instant.now());
         assertTrue(governor.isOnline());
 
-        Whitebox.setInternalState(governor, "lastActivity", Date.from(Instant.now().minusSeconds(onlineTimeout)));
+        Whitebox.setInternalState(governor, "lastInteracted", Instant.now().minusSeconds(onlineTimeout));
         assertFalse(governor.isOnline());
     }
 
@@ -925,12 +928,12 @@ public class DeviceGovernorImplTest {
 
         List<GattService> tmp = governor.getResolvedServices();
 
-        when(governor.getResolvedServices()).thenReturn(Collections.EMPTY_LIST);
+        doReturn(Collections.EMPTY_LIST).when(governor).getResolvedServices();
         notificationCaptor.getValue().notify(Boolean.TRUE);
 
         verify(bluetoothSmartDeviceListener, never()).servicesResolved(any());
         verify(governor, never()).notifyServicesResolved(any());
-        verify(governor, times(2)).updateLastInteracted();
+        verify(governor, times(1)).updateLastInteracted();
         verify(bluetoothManager, times(1)).updateDescendants(URL);
 
         when(governor.getResolvedServices()).thenReturn(tmp);
@@ -938,13 +941,13 @@ public class DeviceGovernorImplTest {
 
         verify(bluetoothSmartDeviceListener, times(1)).servicesResolved(any());
         verify(governor, times(1)).notifyServicesResolved(any());
-        verify(governor, times(3)).updateLastInteracted();
+        verify(governor, times(2)).updateLastInteracted();
         verify(bluetoothManager, times(2)).updateDescendants(URL);
 
         notificationCaptor.getValue().notify(Boolean.FALSE);
         verify(bluetoothSmartDeviceListener, times(1)).servicesUnresolved();
         verify(governor, times(1)).notifyServicesUnresolved();
-        verify(governor, times(4)).updateLastInteracted();
+        verify(governor, times(2)).updateLastInteracted();
         verify(bluetoothManager, times(2)).updateDescendants(URL);
         verify(bluetoothManager, times(1)).resetDescendants(URL);
     }
@@ -964,7 +967,7 @@ public class DeviceGovernorImplTest {
 
         verify(genericDeviceListener, times(1)).rssiChanged(RSSI);
         verify(governor, times(1)).updateRSSI(RSSI);
-        verify(governor, times(1)).updateLastInteracted();
+        verify(governor, times(1)).updateLastAdvertised();
     }
 
     @Test

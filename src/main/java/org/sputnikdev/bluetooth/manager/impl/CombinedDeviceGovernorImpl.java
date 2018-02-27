@@ -41,6 +41,7 @@ import org.sputnikdev.bluetooth.manager.GenericBluetoothDeviceListener;
 import org.sputnikdev.bluetooth.manager.GovernorListener;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -48,6 +49,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -84,6 +86,8 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     private final List<GenericBluetoothDeviceListener> genericBluetoothDeviceListeners = new CopyOnWriteArrayList<>();
     private final List<BluetoothSmartDeviceListener> bluetoothSmartDeviceListeners = new CopyOnWriteArrayList<>();
     private final CompletableFutureService<DeviceGovernor> readyService = new CompletableFutureService<>();
+    private final CompletableFutureService<DeviceGovernor> servicesResolvedService =
+            new CompletableFutureService<>();
 
     // state bitmap fields
     private final ConcurrentBitMap ready = new ConcurrentBitMap();
@@ -105,6 +109,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     private short measuredTxPower;
     private double signalPropagationExponent = DeviceGovernorImpl.DEFAULT_SIGNAL_PROPAGATION_EXPONENT;
     private Instant lastInteracted;
+    private Instant lastConnectedStateChanged;
 
     // some specifics for the nearest adapter detection
     private final Set<DeviceGovernorHandler> activeGovernors = new HashSet<>();
@@ -147,6 +152,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
 
     @Override
     public void setAlias(String alias) throws NotReadyException {
+        this.alias = alias;
         governors.values().forEach(deviceGovernorHandler -> {
             if (deviceGovernorHandler.delegate.isReady()) {
                 deviceGovernorHandler.delegate.setAlias(alias);
@@ -193,7 +199,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     @Override
     public List<GattService> getResolvedServices() throws NotReadyException {
         DeviceGovernor deviceGovernor = getGovernor(servicesResolved.getUniqueIndex());
-        return deviceGovernor != null ? deviceGovernor.getResolvedServices() : null;
+        return deviceGovernor != null ? convert(deviceGovernor.getResolvedServices()) : null;
     }
 
     @Override
@@ -347,6 +353,12 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     @Override
     public void addBluetoothSmartDeviceListener(BluetoothSmartDeviceListener listener) {
         bluetoothSmartDeviceListeners.add(listener);
+    }
+
+    @Override
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public <G extends DeviceGovernor, V> CompletableFuture<V> whenServicesResolved(Function<G, V> function) {
+        return servicesResolvedService.submit(this, (Function<DeviceGovernor, V>) function);
     }
 
     @Override
@@ -511,7 +523,10 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     }
 
     private void checkStaleDelegates() {
-        if (!isConnected()) {
+        boolean connected = isConnected();
+        boolean recentlyDisconnected = isRecentlyDisconnected();
+        logger.debug("Checking if delegates are stale: {} / {} / {}", url, connected, recentlyDisconnected);
+        if (!connected && !recentlyDisconnected) {
             governors.values().forEach(governor -> {
                 DeviceGovernorImpl deviceGovernor = (DeviceGovernorImpl) governor.delegate;
                 if (deviceGovernor.isReady()) {
@@ -524,6 +539,12 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
                 }
             });
         }
+    }
+
+    private boolean isRecentlyDisconnected() {
+        return Optional.ofNullable(lastConnectedStateChanged)
+                .map(lastChanged -> Duration.between(lastChanged, Instant.now()).getSeconds() <= onlineTimeout)
+                .orElse(false);
     }
 
     private DeviceGovernor getGovernor(int index) {
@@ -560,18 +581,38 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     private void updateLastInteracted(Instant lastActivity) {
         if (lastInteracted == null || lastInteracted.isBefore(lastActivity)) {
             lastInteracted = lastActivity;
-            BluetoothManagerUtils.safeForEachError(governorListeners, listener -> {
-                listener.lastUpdatedChanged(lastActivity);
-            }, logger, "Execution error of a governor listener: last changed");
+            bluetoothManager.notify(governorListeners, GovernorListener::lastUpdatedChanged, lastActivity,
+                    logger, "Execution error of a governor listener: last interacted");
         }
     }
 
     private void updateRssi(short newRssi) {
         rssi = newRssi;
-        BluetoothManagerUtils.safeForEachError(genericBluetoothDeviceListeners, listener -> {
-            listener.rssiChanged(newRssi);
-        }, logger, "Execution error of a RSSI listener");
+        bluetoothManager.notify(genericBluetoothDeviceListeners, GenericBluetoothDeviceListener::rssiChanged, newRssi,
+                logger, "Execution error of a RSSI listener");
     }
+
+    private static List<GattService> convert(List<GattService> services) {
+        List<GattService> combinedServices = new ArrayList<>(services.size());
+        services.forEach(service -> {
+            List<GattCharacteristic> combinedCharacteristics =
+                    new ArrayList<>(service.getCharacteristics().size());
+
+            service.getCharacteristics().forEach(characteristic -> {
+                GattCharacteristic combinedCharacteristic = new GattCharacteristic(
+                        characteristic.getURL().copyWithProtocol(null).copyWithAdapter(COMBINED_ADDRESS),
+                        characteristic.getFlags());
+                combinedCharacteristics.add(combinedCharacteristic);
+            });
+
+            GattService combinedService = new GattService(
+                    service.getURL().copyWithProtocol(null).copyWithAdapter(COMBINED_ADDRESS),
+                    combinedCharacteristics);
+            combinedServices.add(combinedService);
+        });
+        return Collections.unmodifiableList(combinedServices);
+    }
+
 
     private final class DeviceGovernorHandler
         implements GovernorListener, BluetoothSmartDeviceListener, GenericBluetoothDeviceListener {
@@ -599,17 +640,18 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
             delegate.addGenericBluetoothDeviceListener(this);
             delegate.addGovernorListener(this);
 
-            notifyIfChangedOnline(delegate.isOnline());
-
             if (!(delegate.getRssiFilter() instanceof RssiKalmanFilter)) {
                 delegate.setRssiFilter(RssiKalmanFilter.class);
             }
             delegate.setOnlineTimeout(onlineTimeout);
             delegate.setBlockedControl(blockedControl);
+            delegate.setConnectionControl(false);
             delegate.setRssiFilteringEnabled(rssiFilteringEnabled);
             delegate.setRssiReportingRate(rssiReportingRate);
             delegate.setSignalPropagationExponent(signalPropagationExponent);
             delegate.setMeasuredTxPower(measuredTxPower);
+
+            notifyIfChangedOnline(delegate.isOnline());
 
             Instant lastActivity = delegate.getLastInteracted();
             if (lastActivity != null) {
@@ -628,24 +670,31 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
                         notifyIfChangedReady(true);
                         // any of the following operations can produce NotReadyException
                         try {
-                            notifyIfChangedBlocked(delegate.isBlocked());
-                            notifyIfChangedConnected(delegate.isConnected());
-                            if (delegate.isServicesResolved()) {
-                                servicesResolved(delegate.getResolvedServices());
-                            }
-
                             int deviceBluetoothClass = delegate.getBluetoothClass();
                             if (deviceBluetoothClass != 0) {
                                 bluetoothClass = deviceBluetoothClass;
                             }
                             bleEnabled |= delegate.isBleEnabled();
 
-                            name = delegate.getName();
-                            String deviceAlias = delegate.getAlias();
-                            if (deviceAlias != null) {
-                                alias = deviceAlias;
+                            String deviceName = delegate.getName();
+                            if (!BluetoothManagerUtils.isMacAddress(deviceName)) {
+                                name = deviceName;
+                            }
+
+                            if (alias != null) {
+                                delegate.setAlias(alias);
+                            } else {
+                                String deviceAlias = delegate.getAlias();
+                                if (deviceAlias != null) {
+                                    alias = deviceAlias;
+                                }
                             }
                             rssiChanged(delegate.getRSSI());
+                            notifyIfChangedBlocked(delegate.isBlocked());
+                            notifyIfChangedConnected(delegate.isConnected());
+                            if (delegate.isServicesResolved()) {
+                                servicesResolved(delegate.getResolvedServices());
+                            }
                             inited = true;
                             logger.debug("Initializing unsafe operations successfully completed: {}",
                                     delegate.getURL());
@@ -675,10 +724,14 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
             logger.debug("Services resolved (listener): {} : {}", url, gattServices.size());
             servicesResolved.exclusiveSet(index, true,
                 () -> {
-                    notifyServicesResolved(gattServices);
+                    bluetoothManager.notify(() -> {
+                        notifyServicesResolved(gattServices);
+                    });
                 }, () -> {
-                    notifyServicesUnresolved();
-                    notifyServicesResolved(gattServices);
+                    bluetoothManager.notify(() -> {
+                        notifyServicesUnresolved();
+                        notifyServicesResolved(gattServices);
+                    });
                 }
             );
         }
@@ -687,9 +740,9 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
         public void servicesUnresolved() {
             logger.debug("Services unresolved (listener): {}", url);
             servicesResolved.exclusiveSet(index, false, () -> {
-                BluetoothManagerUtils.safeForEachError(bluetoothSmartDeviceListeners,
-                    BluetoothSmartDeviceListener::servicesUnresolved,
-                    logger, "Execution error of a service resolved listener");
+                BluetoothManagerUtils.forEachSilently(bluetoothSmartDeviceListeners,
+                        BluetoothSmartDeviceListener::servicesUnresolved,
+                        logger, "Execution error of a service resolved listener");
             });
         }
 
@@ -697,24 +750,25 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
         public void serviceDataChanged(Map<URL, byte[]> serviceData) {
             logger.debug("Services data changed (listener): {} : {} : {}",
                     url, serviceData.size(), delegate == nearest);
-            if (delegate == nearest) {
-                BluetoothManagerUtils.safeForEachError(bluetoothSmartDeviceListeners,
-                        listener -> listener.serviceDataChanged(serviceData.entrySet().stream()
-                                .collect(Collectors.toMap(entry -> entry.getKey().copyWithAdapter(COMBINED_ADDRESS),
-                                        Map.Entry::getValue))),
-                        logger, "Execution error of a service resolved listener");
-            }
+            //if (delegate == nearest) {
+            Map<URL, byte[]> converted = serviceData.entrySet().stream()
+                    .collect(Collectors.toMap(entry -> entry.getKey().copyWithAdapter(COMBINED_ADDRESS),
+                            Map.Entry::getValue));
+            BluetoothManagerUtils.forEachSilently(bluetoothSmartDeviceListeners,
+                    BluetoothSmartDeviceListener::serviceDataChanged, converted,
+                    logger, "Execution error of a service resolved listener");
+            //}
         }
 
         @Override
         public void manufacturerDataChanged(Map<Short, byte[]> manufacturerData) {
             logger.debug("Manufacturer data changed (listener): {} : {} : {}",
                     url, manufacturerData.size(), delegate == nearest);
-            if (delegate == nearest) {
-                BluetoothManagerUtils.safeForEachError(bluetoothSmartDeviceListeners,
-                        listener -> listener.manufacturerDataChanged(manufacturerData),
-                        logger, "Execution error of a service resolved listener");
-            }
+            //if (delegate == nearest) {
+            BluetoothManagerUtils.forEachSilently(bluetoothSmartDeviceListeners,
+                    BluetoothSmartDeviceListener::manufacturerDataChanged, manufacturerData,
+                    logger, "Execution error of a service resolved listener");
+            //}
         }
 
         @Override
@@ -739,6 +793,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
             try {
                 if (rssiLock.tryLock(50, TimeUnit.MILLISECONDS)) {
                     try {
+                        activeGovernors.add(this);
                         lastAdvertised = delegate.getLastAdvertised();
                         distance = delegate.getEstimatedDistance();
                         SortedSet<DeviceGovernorHandler> sorted = new TreeSet<>(new DistanceComparator());
@@ -789,80 +844,72 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
         private void notifyIfChangedOnline(boolean newState) {
             logger.debug("Setting online: {} : {} / {}", url, online.get(), newState);
             online.cumulativeSet(index, newState, () -> {
-                BluetoothManagerUtils.safeForEachError(genericBluetoothDeviceListeners, listener -> {
-                    if (newState) {
-                        listener.online();
-                    } else {
-                        listener.offline();
-                    }
-                }, logger, "Execution error of an online listener");
+                bluetoothManager.notify(() -> {
+                    BluetoothManagerUtils.forEachSilently(genericBluetoothDeviceListeners, listener -> {
+                        if (newState) {
+                            listener.online();
+                        } else {
+                            listener.offline();
+                        }
+                    }, logger, "Execution error of an online listener");
+                });
             });
         }
 
         private void notifyIfChangedReady(boolean newState) {
             logger.debug("Setting ready: {} : {} / {}", url, ready.get(), newState);
             ready.cumulativeSet(index, newState, () -> {
-                BluetoothManagerUtils.safeForEachError(governorListeners, listener -> {
-                    listener.ready(newState);
-                }, logger, "Execution error of a governor listener: ready");
-                if (newState) {
-                    readyService.completeSilently(CombinedDeviceGovernorImpl.this);
-                }
+                bluetoothManager.notify(() -> {
+                    BluetoothManagerUtils.forEachSilently(governorListeners, GovernorListener::ready, newState,
+                            logger, "Execution error of a governor listener: ready");
+                    if (newState) {
+                        readyService.completeSilently(CombinedDeviceGovernorImpl.this);
+                    }
+                });
             });
         }
 
         private void notifyIfChangedConnected(boolean newState) {
             logger.debug("Setting connected: {} : {} / {}", url, connected.get(), newState);
             connected.exclusiveSet(index, newState, () -> {
-                BluetoothManagerUtils.safeForEachError(bluetoothSmartDeviceListeners, listener -> {
-                    if (newState) {
-                        listener.connected();
-                    } else {
-                        listener.disconnected();
-                    }
-                }, logger, "Execution error of a connection listener");
+                lastConnectedStateChanged = Instant.now();
+                bluetoothManager.notify(() -> {
+                    BluetoothManagerUtils.forEachSilently(bluetoothSmartDeviceListeners, listener -> {
+                        if (newState) {
+                            listener.connected();
+                        } else {
+                            listener.disconnected();
+                        }
+                    }, logger, "Execution error of a connection listener");
+                });
             });
         }
 
         private void notifyIfChangedBlocked(boolean newState) {
             logger.debug("Setting blocked: {} : {} / {}", url, blocked.get(), newState);
             blocked.cumulativeSet(index, newState, () -> {
-                BluetoothManagerUtils.safeForEachError(genericBluetoothDeviceListeners, listener -> {
-                    listener.blocked(newState);
-                }, logger, "Execution error of a Blocked listener");
+                bluetoothManager.notify(genericBluetoothDeviceListeners, GenericBluetoothDeviceListener::blocked,
+                        newState, logger, "Execution error of a Blocked listener");
             });
         }
 
         private void notifyServicesResolved(List<GattService> services) {
             logger.debug("Notify service resolved: {} : {} : {}",
                     url, bluetoothSmartDeviceListeners.size(), services.size());
-            List<GattService> combinedServices = new ArrayList<>(services.size());
-            services.forEach(service -> {
-                List<GattCharacteristic> combinedCharacteristics =
-                        new ArrayList<>(service.getCharacteristics().size());
-
-                service.getCharacteristics().forEach(characteristic -> {
-                    GattCharacteristic combinedCharacteristic = new GattCharacteristic(
-                            characteristic.getURL().copyWithProtocol(null).copyWithAdapter(COMBINED_ADDRESS),
-                            characteristic.getFlags());
-                    combinedCharacteristics.add(combinedCharacteristic);
-                });
-
-                GattService combinedService = new GattService(
-                        service.getURL().copyWithProtocol(null).copyWithAdapter(COMBINED_ADDRESS),
-                        combinedCharacteristics);
-                combinedServices.add(combinedService);
-            });
-            BluetoothManagerUtils.safeForEachError(bluetoothSmartDeviceListeners, listener -> {
-                listener.servicesResolved(combinedServices);
-            }, logger, "Execution error of a service resolved listener");
+            if (!bluetoothSmartDeviceListeners.isEmpty()) {
+                List<GattService> combinedServices = convert(services);
+                BluetoothManagerUtils.forEachSilently(bluetoothSmartDeviceListeners,
+                        BluetoothSmartDeviceListener::servicesResolved, combinedServices,
+                        logger, "Execution error of a service resolved listener");
+            }
+            servicesResolvedService.complete(CombinedDeviceGovernorImpl.this);
         }
 
         private void notifyServicesUnresolved() {
             logger.debug("Notify service resolved: {} : {}", url, bluetoothSmartDeviceListeners.size());
-            BluetoothManagerUtils.safeForEachError(bluetoothSmartDeviceListeners,
+            BluetoothManagerUtils.forEachSilently(bluetoothSmartDeviceListeners,
                 BluetoothSmartDeviceListener::servicesUnresolved,
-                logger, "Execution error of a service resolved listener");
+                    logger, "Execution error of a service resolved listener");
         }
     }
 

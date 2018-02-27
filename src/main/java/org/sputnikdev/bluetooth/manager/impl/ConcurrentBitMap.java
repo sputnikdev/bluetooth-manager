@@ -20,8 +20,9 @@
 
 package org.sputnikdev.bluetooth.manager.impl;
 
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.LongUnaryOperator;
 
 /**
  * A utility class that can accommodate 63 boolean flags. It is similar to {@link java.util.BitSet}
@@ -31,6 +32,7 @@ import java.util.function.LongUnaryOperator;
 class ConcurrentBitMap {
 
     private final AtomicLong bits = new AtomicLong();
+    private final Queue<Runnable> notifications = new ConcurrentLinkedQueue<>();
 
     /**
      * Sets a new cumulative state for the bitmap field.
@@ -81,9 +83,18 @@ class ConcurrentBitMap {
         if (index < 0 || index > 63) {
             throw new IllegalStateException("Invalid index, must be between 0 and 63: " + index);
         }
-        set(current -> {
-            return newState ? current | (1 << index) : current & ~(1 << index);
-        }, changed, notChanged);
+        bits.getAndUpdate(current -> {
+            long updated = newState ? current | (1L << index) : current & ~(1L << index);
+            if (updated > 0 && current == 0 || updated == 0 && current > 0) {
+                if (changed != null) {
+                    notifications.add(changed);
+                }
+            } else if (notChanged != null) {
+                notifications.add(notChanged);
+            }
+            return updated;
+        });
+        handleNotifications();
     }
 
     /**
@@ -97,9 +108,18 @@ class ConcurrentBitMap {
         if (index < 0 || index > 63) {
             throw new IllegalStateException("Invalid index, must be between 0 and 63: " + index);
         }
-        set(current -> {
-            return newState ? (1 << index) : current & ~(1 << index);
-        }, changed, notChanged);
+        bits.getAndUpdate(current -> {
+            long updated = newState ? (1L << index) : current & ~(1L << index);
+            if (updated > 0 && current == 0 || updated == 0 && current > 0) {
+                if (changed != null) {
+                    notifications.add(changed);
+                }
+            } else if (notChanged != null) {
+                notifications.add(notChanged);
+            }
+            return updated;
+        });
+        handleNotifications();
     }
 
     /**
@@ -123,17 +143,11 @@ class ConcurrentBitMap {
         return Long.numberOfTrailingZeros(state);
     }
 
-    private void set(LongUnaryOperator operator, Runnable changed, Runnable notChanged) {
-        synchronized (bits) {
-            long oldState = bits.getAndUpdate(operator);
-            if (bits.get() > 0 && oldState == 0 || bits.get() == 0 && oldState > 0) {
-                if (changed != null) {
-                    changed.run();
-                }
-            } else if (notChanged != null) {
-                notChanged.run();
-            }
-        }
+    private void handleNotifications() {
+        notifications.removeIf(notification -> {
+            notification.run();
+            return true;
+        });
     }
 
 }

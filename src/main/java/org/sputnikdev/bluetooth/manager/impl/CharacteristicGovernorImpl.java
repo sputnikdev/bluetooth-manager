@@ -206,7 +206,7 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
             logger.trace("Characteristic value changed (notification): {}", url);
             updateLastInteracted();
             updateLastNotified();
-            BluetoothManagerUtils.safeForEachError(valueListeners, listener -> listener.changed(data), logger,
+            BluetoothManagerUtils.forEachSilently(valueListeners, ValueListener::changed, data, logger,
                     "Execution error of a characteristic listener");
         }
     }

@@ -10,10 +10,10 @@ import org.mockito.Spy;
 import org.mockito.internal.util.reflection.Whitebox;
 import org.mockito.runners.MockitoJUnitRunner;
 import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.BluetoothInteractionException;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
 import org.sputnikdev.bluetooth.manager.GovernorListener;
-import org.sputnikdev.bluetooth.manager.NotReadyException;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObject;
 
 import java.time.Instant;
@@ -71,6 +71,8 @@ public class AbstractBluetoothObjectGovernorTest {
     public void setUp() {
         when(bluetoothObject.getURL()).thenReturn(URL.copyWithProtocol("tinyb"));
         when(bluetoothManager.getBluetoothObject(URL)).thenReturn(bluetoothObject);
+
+        MockUtils.mockImplicitNotifications(bluetoothManager);
     }
 
     @Test
@@ -91,7 +93,7 @@ public class AbstractBluetoothObjectGovernorTest {
         inOrder.verify(function).apply(bluetoothObject);
     }
 
-    @Test(expected = NotReadyException.class)
+    @Test(expected = BluetoothInteractionException.class)
     public void testInteractNotReady() {
         when(governor.isReady()).thenReturn(false);
         governor.interact("test", (obj) -> true);
@@ -262,7 +264,7 @@ public class AbstractBluetoothObjectGovernorTest {
     @Test
     public void testNotifyLastChanged() {
         Instant date = Instant.now();
-        Whitebox.setInternalState(governor, "lastActivity", date);
+        Whitebox.setInternalState(governor, "lastInteracted", date);
         governor.addGovernorListener(governorListener);
 
         governor.notifyLastChanged();
@@ -273,7 +275,7 @@ public class AbstractBluetoothObjectGovernorTest {
     @Test
     public void testNotifyLastChangedException() {
         Instant date = Instant.now();
-        Whitebox.setInternalState(governor, "lastActivity", date);
+        Whitebox.setInternalState(governor, "lastInteracted", date);
         governor.addGovernorListener(governorListener);
         doThrow(Exception.class).when(governorListener).lastUpdatedChanged(any());
 

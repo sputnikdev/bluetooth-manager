@@ -26,6 +26,8 @@ import org.sputnikdev.bluetooth.URL;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 
 /**
@@ -317,5 +319,13 @@ public interface DeviceGovernor extends BluetoothGovernor {
      * @return the date/time of last known advertised packet
      */
     Instant getLastAdvertised();
+
+    /**
+     * Returns a completable future that gets completed when services become resolved.
+     * @param function a function that is invoked when services become resolved, the completable future is
+     *                 completed with the result of this function
+     * @return a completable future
+     */
+    <G extends DeviceGovernor, V> CompletableFuture<V> whenServicesResolved(Function<G, V> function);
 
 }
