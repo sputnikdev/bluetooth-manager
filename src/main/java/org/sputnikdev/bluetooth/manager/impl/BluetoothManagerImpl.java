@@ -718,7 +718,7 @@ class BluetoothManagerImpl implements BluetoothManager {
                     } else {
                         device = existingDevice.merge(rediscoveredDevice, current);
                     }
-                    if (rediscover && current - existingDevice.timestamp < DISCOVERY_STALE_DEVICE_REMOVAL_TIMEOUT) {
+                    if (rediscover && !isStale(existingDevice, current)) {
                         notifyDeviceDiscovered(device);
                     }
                     return device;

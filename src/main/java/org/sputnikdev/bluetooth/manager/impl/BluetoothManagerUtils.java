@@ -39,7 +39,7 @@ import java.util.regex.Pattern;
  */
 final class BluetoothManagerUtils {
 
-    private static final Pattern MAC_PATTERN = Pattern.compile("(\\w\\w:){5}\\w\\w");
+    private static final Pattern MAC_PATTERN = Pattern.compile("(\\w\\w[:-]){5}\\w\\w");
 
     private BluetoothManagerUtils() { }
 

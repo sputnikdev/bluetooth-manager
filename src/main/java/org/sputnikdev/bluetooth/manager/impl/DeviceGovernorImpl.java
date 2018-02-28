@@ -163,7 +163,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
                 String lastInteractedFmt = Optional.ofNullable(getLastInteracted())
                         .map(interacted -> Math.abs(Duration.between(Instant.now(), interacted).getSeconds()) + "s")
                         .orElse("never");
-                logger.warn("Device {} last advertised ({}) ago and last interacted ({}) ago. "
+                logger.debug("Device {} last advertised ({}) ago and last interacted ({}) ago. "
                                 + "Stale timeout: {}s. Device is considered stale: {}",
                         url, lastAdvertisedFmt, lastInteractedFmt, staleTimeout, stale);
                 //TODO there might be a problem when client switches on discovery for adapter, devices will be reset
