@@ -59,11 +59,13 @@ public interface BluetoothSmartDeviceListener {
     /**
      * Fires when the device advertises service data. The key is service UUID (16, 32 or 128 bit),
      * the value is advertised data.
+     * @param serviceData service data
      */
     default void serviceDataChanged(Map<URL, byte[]> serviceData) { }
 
     /**
      * Fires when the device advertises manufacturer data. The key is manufacturer ID, the value is advertised data.
+     * @param manufacturerData manufacturer data
      */
     default void manufacturerDataChanged(Map<Short, byte[]> manufacturerData) { }
 

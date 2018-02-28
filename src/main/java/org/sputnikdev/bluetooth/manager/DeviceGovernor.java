@@ -122,7 +122,7 @@ public interface DeviceGovernor extends BluetoothGovernor {
 
     /**
      * Checks whether the device is online.
-     * A device is "online" if the device has shown its activity (see {@link BluetoothGovernor#getLastActivity()})
+     * A device is "online" if the device has shown its activity (see {@link BluetoothGovernor#getLastInteracted()})
      * within configured "online timeout" setting (see {@link #getOnlineTimeout()}).
      * @return true if online, false otherwise
      */
@@ -324,6 +324,8 @@ public interface DeviceGovernor extends BluetoothGovernor {
      * Returns a completable future that gets completed when services become resolved.
      * @param function a function that is invoked when services become resolved, the completable future is
      *                 completed with the result of this function
+     * @param <G> bluetooth governor
+     * @param <V> returned value
      * @return a completable future
      */
     <G extends DeviceGovernor, V> CompletableFuture<V> whenServicesResolved(Function<G, V> function);

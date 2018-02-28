@@ -21,6 +21,7 @@ package org.sputnikdev.bluetooth.manager;
  */
 
 import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.impl.BluetoothManagerBuilder;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObjectFactory;
 
 import java.util.Set;
@@ -145,6 +146,7 @@ public interface BluetoothManager {
      * If the provided boolean argument is set to true, then the connection control
      * ({@link DeviceGovernor#setConnectionControl(boolean)}) is enabled for the governor.
      * @param url a URL of a bluetooth device
+     * @param forceConnect if set to true, governor is forced to establish connection to the device
      * @return an device governor
      */
     DeviceGovernor getDeviceGovernor(URL url, boolean forceConnect);
@@ -173,13 +175,14 @@ public interface BluetoothManager {
 
     /**
      * Checks whether the bluetooth manager is in the "combine adapters" mode
-     * ({@link #enableCombinedAdapters(boolean)}}).
+     * ({@link BluetoothManagerBuilder#withCombinedAdapters(boolean)}.
      * @return true if the "combined adapters" mode is enabled
      */
     boolean isCombinedAdaptersEnabled();
 
     /**
-     * Checks whether the bluetooth manager is in the "combine devices" mode ({@link #enableCombinedDevices(boolean)}}).
+     * Checks whether the bluetooth manager is in the "combine devices" mode
+     * ({@link BluetoothManagerBuilder#withCombinedDevices(boolean)}}).
      * @return true if the "combined devices" mode is enabled
      */
     boolean isCombinedDevicesEnabled();

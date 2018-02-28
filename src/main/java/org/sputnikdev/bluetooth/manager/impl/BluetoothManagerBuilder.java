@@ -55,6 +55,7 @@ public class BluetoothManagerBuilder {
      * Sets how frequent the discovery process should update its state.
      * Note: discovery rate must be set before calling {@link BluetoothManager#start} method
      * @param seconds discovery rate in seconds
+     * @return the same builder instance
      */
     public BluetoothManagerBuilder withDiscoveryRate(int seconds) {
         discoveryRate = seconds;
@@ -67,6 +68,7 @@ public class BluetoothManagerBuilder {
      * {@link DeviceDiscoveryListener#discovered(DiscoveredDevice)}) about discovered devices every update step.
      * See {@link #withDiscoveryRate(int)} to set discovery rate
      * @param rediscover controls whether clients
+     * @return the same builder instance
      */
     public BluetoothManagerBuilder withRediscover(boolean rediscover) {
         this.rediscover = rediscover;
@@ -77,6 +79,7 @@ public class BluetoothManagerBuilder {
      * Sets the refresh rate which controls how often bluetooth devices are checked/updated.
      * Restart is required if the manager is already started.
      * @param refreshRate refresh rate
+     * @return the same builder instance
      */
     public BluetoothManagerBuilder withRefreshRate(int refreshRate) {
         this.refreshRate = refreshRate;
@@ -87,6 +90,7 @@ public class BluetoothManagerBuilder {
      * If set to true all discovered adapters are combined into a single adapter and therefore can be controlled as
      * a single unit.
      * @param combinedAdapters if true, all discovered adapters are combined into a single adapter
+     * @return the same builder instance
      */
     public BluetoothManagerBuilder withCombinedAdapters(boolean combinedAdapters) {
         this.combinedAdapters = combinedAdapters;
@@ -97,6 +101,7 @@ public class BluetoothManagerBuilder {
      * If set to true, all discovered devices with the same address (but discovered through different adapters)
      * are combined into a single device and therefore can be controlled as a single unit.
      * @param combinedDevices if true, all discovered devices with the same address are combined into a single device
+     * @return the same builder instance
      */
     public BluetoothManagerBuilder withCombinedDevices(boolean combinedDevices) {
         this.combinedDevices = combinedDevices;
@@ -106,6 +111,7 @@ public class BluetoothManagerBuilder {
     /**
      * Is set to true, TinyB transport is registered (if found in the classpath).
      * @param tinybTransport register TinyB transport
+     * @return the same builder instance
      */
     public BluetoothManagerBuilder withTinyBTransport(boolean tinybTransport) {
         this.tinybTransport = tinybTransport;
@@ -129,6 +135,7 @@ public class BluetoothManagerBuilder {
      *  <li>Default regular expression is to match nothing: (?!)</li>
      * </ul>
      * @param bluegigaRegex BlueGiga serial port regular expression
+     * @return the same builder instance
      */
     public BluetoothManagerBuilder withBlueGigaTransport(String bluegigaRegex) {
         this.bluegigaRegex = bluegigaRegex;
@@ -138,6 +145,7 @@ public class BluetoothManagerBuilder {
     /**
      * If set to true, bluetooth manager will be started.
      * @param started if true, bluetooth manager will be started
+     * @return the same builder instance
      */
     public BluetoothManagerBuilder withStarted(boolean started) {
         this.started = started;
@@ -147,9 +155,20 @@ public class BluetoothManagerBuilder {
     /**
      * If set to true, the discovery process will be enabled.
      * @param discovering if true, the discovery process will be enabled
+     * @return the same builder instance
      */
     public BluetoothManagerBuilder withDiscovering(boolean discovering) {
         this.discovering = discovering;
+        return this;
+    }
+
+    /**
+     * If set to true, initialization errors for the transport factories are ignored.
+     * @param ignoreTransportInitErrors ignore initialization errors for transports
+     * @return the same builder instance
+     */
+    public BluetoothManagerBuilder withIgnoreTransportInitErrors(boolean ignoreTransportInitErrors) {
+        this.ignoreTransportInitErrors = ignoreTransportInitErrors;
         return this;
     }
 
@@ -177,15 +196,6 @@ public class BluetoothManagerBuilder {
         Runtime.getRuntime().addShutdownHook(new Thread(manager::dispose));
 
         return manager;
-    }
-
-    /**
-     * If set to true, initialization errors for the transport factories are ignored.
-     * @param ignoreTransportInitErrors ignore initialization errors for transports
-     */
-    public BluetoothManagerBuilder withIgnoreTransportInitErrors(boolean ignoreTransportInitErrors) {
-        this.ignoreTransportInitErrors = ignoreTransportInitErrors;
-        return this;
     }
 
     private void loadTinyBTransport(BluetoothManager bluetoothManager) {

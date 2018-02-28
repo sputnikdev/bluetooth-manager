@@ -114,6 +114,8 @@ public interface BluetoothGovernor {
      * Returns a completable future that gets completed when governor becomes ready.
      * @param function a function that is invoked when governor becomes ready, the completable future is
      *                 completed with the result of this function
+     * @param <G> bluetooth governor
+     * @param <V> returned value
      * @return a completable future
      */
     <G extends BluetoothGovernor, V> CompletableFuture<V> whenReady(Function<G, V> function);
