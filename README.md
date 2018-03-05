@@ -78,8 +78,13 @@ There are two implementations of the BT Transport currently:
 
 ## Troubleshooting
 
-* Adapters are not getting discovered.
-  * Make sure your user has got permissions to access adapters in OS (e.g. `sudo adduser <username> dialout`)
+* [BlueGiga adapters are not getting discovered](https://github.com/sputnikdev/eclipse-smarthome-bluetooth-binding/issues/6)
+* [Generic adapters (TinyB transport) are not getting discovered](https://github.com/sputnikdev/eclipse-smarthome-bluetooth-binding/issues/7)
+* [Battery service does not get resolved](https://github.com/sputnikdev/eclipse-smarthome-bluetooth-binding/issues/8)
+* [I've added an adapter, but I can't see any bluetooth devices](https://github.com/sputnikdev/eclipse-smarthome-bluetooth-binding/issues/11)
+* Nothing happens and I have errors in the log file:<br/>
+    - [GDBus.Error:org.freedesktop.DBus.Error.AccessDenied](https://github.com/sputnikdev/eclipse-smarthome-bluetooth-binding/issues/9)
+    - [org.sputnikdev.bluetooth.manager.NotReadyException: Could not power adapter](https://github.com/sputnikdev/eclipse-smarthome-bluetooth-binding/issues/10)
 
 ## Using Bluetooth Manager
 
@@ -104,32 +109,36 @@ The example below shows how to set up the Bluetooth Manager and read a character
 
 ```java
 import org.sputnikdev.bluetooth.URL;
-import org.sputnikdev.bluetooth.manager.BluetoothManager;
+import org.sputnikdev.bluetooth.manager.CharacteristicGovernor;
 import org.sputnikdev.bluetooth.manager.impl.BluetoothManagerBuilder;
 
-public class BluetoothManagerSimpleTest {
+public final class BluetoothManagerSimpleTest {
 
-    public static void main(String args[]) {
-        System.out.println("Battery level: " +
-                new BluetoothManagerBuilder()
+    public static void main(String[] args) throws Exception {
+        new BluetoothManagerBuilder()
                 .withTinyBTransport(true)
                 .withBlueGigaTransport("^*.$")
                 .build()
-                .getCharacteristicGovernor(new URL("/XX:XX:XX:XX:XX:XX/F7:EC:62:B9:CF:1F/" +
-                        "0000180f-0000-1000-8000-00805f9b34fb/00002a19-0000-1000-8000-00805f9b34fb"), true)
-                .read()[0]);
+                .getCharacteristicGovernor(new URL("/XX:XX:XX:XX:XX:XX/F7:EC:62:B9:CF:1F/" 
+                        + "0000180f-0000-1000-8000-00805f9b34fb/00002a19-0000-1000-8000-00805f9b34fb"), true)
+                .whenReady(CharacteristicGovernor::read)
+                .thenAccept(data -> {
+                    System.out.println("Battery level: " + data[0]);   
+                }).get();
     }
+    
 }
 ```
-//TODO add explanation what's happening behind the scene, e.g.:
-    - loading native libraries
-    - setting up bluetooth manager
-    - choosing the nearest bluetooth adapter
-    - connecting to the bluetooth device
-    - resolving GATT services and characteristics
-    - reading the "Battery Level" chracteristic
+Here is what happening behind the scene in the example above:
+* detecting what adapters are installed in the system (Generic and BlueGiga)
+* automatically loading native libraries for the current architecture type (CPU type and OS type)
+* setting up bluetooth manager
+* choosing the nearest bluetooth adapter
+* connecting to the bluetooth device
+* resolving GATT services and characteristics
+* reading the "Battery Level" characteristic
 
-### Receiving characteristic notifications (preferable approach)
+### Receiving characteristic notifications
 
 ```java
 import org.sputnikdev.bluetooth.URL;
@@ -156,6 +165,8 @@ public class BluetoothManagerSimpleTest {
     }
 }
 ```
+
+More examples here: [bluetooth-cli](https://github.com/sputnikdev/bluetooth-cli/tree/master/src/main/java/org/sputnikdev/bluetooth/examples)
 
 ---
 ## Contribution
