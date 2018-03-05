@@ -39,6 +39,7 @@ import org.sputnikdev.bluetooth.manager.transport.BluetoothObject;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObjectFactory;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -68,6 +69,10 @@ class BluetoothManagerImpl implements BluetoothManager {
     static final long DISCOVERY_STALE_DEVICE_REMOVAL_TIMEOUT = 1000 * 60 * 10;
 
     private Logger logger = LoggerFactory.getLogger(BluetoothManagerImpl.class);
+    private static final Comparator<Map.Entry<URL, BluetoothObjectGovernor>> GOVERNORS_DESCENDING_COMPARATOR =
+            (first, second) -> second.getKey().compareTo(first.getKey());
+    private static final Comparator<Map.Entry<URL, BluetoothObjectGovernor>> GOVERNORS_ASCENDING_COMPARATOR =
+            Comparator.comparing(Map.Entry::getKey);
 
     private final Map<String, BluetoothObjectFactory> factories = new ConcurrentHashMap<>();
 
@@ -243,25 +248,33 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     @Override
     public void dispose() {
-        logger.debug("Disposing Bluetooth manager: {}", Integer.toHexString(hashCode()));
+        logger.warn("Disposing Bluetooth manager: {}", Integer.toHexString(hashCode()));
 
-        notificationService.shutdownNow();
-
+        shutdownAndWait(notificationService);
+        shutdownAndWait(discoveryScheduler);
+        shutdownAndWait(governorScheduler);
         cancelAllFutures(true);
-
-        governorScheduler.shutdown();
-        discoveryScheduler.shutdown();
 
         deviceDiscoveryListeners.clear();
         adapterDiscoveryListeners.clear();
 
-        factories.clear();
-
-        Map<URL, BluetoothObjectGovernor> tmp = new HashMap<>(governors);
+        governors.entrySet().stream().sorted(GOVERNORS_DESCENDING_COMPARATOR)
+                .map(Map.Entry::getValue).forEach(this::dispose);
         governors.clear();
-        tmp.values().forEach(this::dispose);
+
+        BluetoothManagerUtils.forEachSilently(managerListeners, ManagerListener::disposed, logger,
+                "Error occurred when notifying that manager is destroyed");
+        factories.clear();
+        managerListeners.clear();
 
         logger.debug("Bluetooth manager has been disposed: {}", Integer.toHexString(hashCode()));
+    }
+
+    private static void shutdownAndWait(ExecutorService executorService) {
+        executorService.shutdown();
+        try {
+            executorService.awaitTermination(5, TimeUnit.SECONDS);
+        } catch (InterruptedException ignore) { /* do nothing */ }
     }
 
     @Override
@@ -312,11 +325,6 @@ class BluetoothManagerImpl implements BluetoothManager {
     @Override
     public void removeManagerListener(ManagerListener listener) {
         managerListeners.remove(listener);
-    }
-
-    protected void disposeDescendantGovernors(URL url) {
-        logger.debug("Explicitly disposing descendant governors: {}", url);
-        computeForEachDescendantGovernorAndRemove(url, this::disposeGovernor);
     }
 
     protected void disposeGovernor(URL url) {
@@ -401,18 +409,20 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     void updateDescendants(URL parent) {
-        computeForEachDescendantGovernor(parent, this::update);
+        computeForEachDescendantGovernor(GOVERNORS_ASCENDING_COMPARATOR, parent, this::update);
     }
 
     void resetDescendants(URL parent) {
         if (parent.isProtocol()) {
             // reset all governors that belongs to the transport specified in the argument
-            governors.values().stream().filter(governor -> governor instanceof AbstractBluetoothObjectGovernor)
-                .map(governor -> (AbstractBluetoothObjectGovernor) governor)
-                .filter(governor -> parent.getProtocol().equals(governor.getTransport()))
-                .forEach(this::reset);
+            governors.entrySet().stream()
+                    .filter(entry -> entry.getValue() instanceof AbstractBluetoothObjectGovernor)
+                    .sorted(GOVERNORS_DESCENDING_COMPARATOR)
+                    .map(entry -> (AbstractBluetoothObjectGovernor) entry.getValue())
+                    .filter(governor -> parent.getProtocol().equals(governor.getTransport()))
+                    .forEach(this::reset);
         } else {
-            computeForEachDescendantGovernor(parent, this::reset);
+            computeForEachDescendantGovernor(GOVERNORS_DESCENDING_COMPARATOR, parent, this::reset);
         }
     }
 
@@ -774,20 +784,13 @@ class BluetoothManagerImpl implements BluetoothManager {
         }
     }
 
-    private void computeForEachDescendantGovernorAndRemove(URL url, Consumer<BluetoothObjectGovernor> consumer) {
+    private void computeForEachDescendantGovernor(Comparator<Map.Entry<URL, BluetoothObjectGovernor>> comparator,
+                                                  URL url, Consumer<BluetoothObjectGovernor> consumer) {
         URL protocolLess = url.copyWithProtocol(null);
-        governors.entrySet().removeIf(entry -> {
-            if (entry.getKey().isDescendant(protocolLess)) {
-                consumer.accept(entry.getValue());
-                return true;
-            }
-            return false;
-        });
-    }
-
-    private void computeForEachDescendantGovernor(URL url, Consumer<BluetoothObjectGovernor> consumer) {
-        URL protocolLess = url.copyWithProtocol(null);
-        governors.values().stream().filter(governor -> governor.getURL().isDescendant(protocolLess)).forEach(consumer);
+        governors.entrySet().stream()
+                .filter(entry -> entry.getKey().isDescendant(protocolLess))
+                .sorted(comparator)
+                .forEach(entry -> consumer.accept(entry.getValue()));
     }
 
     private void scheduleDiscovery(BluetoothObjectFactory factory) {

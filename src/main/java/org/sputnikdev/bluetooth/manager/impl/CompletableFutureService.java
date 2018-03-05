@@ -10,18 +10,26 @@ import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
-public class CompletableFutureService<G extends BluetoothGovernor> {
+class CompletableFutureService<G extends BluetoothGovernor> {
 
     private Logger logger = LoggerFactory.getLogger(CompletableFutureService.class);
 
+    private final G governor;
+    private final Predicate<G> predicate;
     private final ConcurrentLinkedQueue<DeferredCompletableFuture<G, ?>> futures =
             new ConcurrentLinkedQueue<>();
 
-    <V> CompletableFuture<V> submit(G governor, Function<G, V> function) {
+    CompletableFutureService(G governor, Predicate<G> predicate) {
+        this.governor = governor;
+        this.predicate = predicate;
+    }
+
+    <V> CompletableFuture<V> submit(Function<G, V> function) {
         DeferredCompletableFuture<G, V> future = new DeferredCompletableFuture<>(function);
 
-        if (!governor.isReady()) {
+        if (!predicate.test(governor)) {
             logger.debug("Governor is not ready, pushing the future to be completed when it is ready : {}",
                     governor.getURL());
             futures.add(future);
@@ -44,17 +52,23 @@ public class CompletableFutureService<G extends BluetoothGovernor> {
         return future;
     }
 
-    void completeSilently(G governor) {
+    void completeSilently() {
         try {
-            complete(governor);
+            complete();
         } catch (Exception ex) {
             logger.warn("Error occurred while completing (silently) futures: {}", ex.getMessage());
         }
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    void complete(G governor) throws BluetoothInteractionException, NotReadyException {
+    void complete() throws BluetoothInteractionException, NotReadyException {
         logger.debug("Trying to complete futures: {} : {}", governor.getURL(), futures.size());
+
+        if (!predicate.test(governor)) {
+            logger.debug("Governor is not ready to complete the futures: {}: {}", governor.getURL(), futures.size());
+            return;
+        }
+
         for (Iterator<DeferredCompletableFuture<G, ?>> iterator = futures.iterator();
              iterator.hasNext(); ) {
             DeferredCompletableFuture next = iterator.next();

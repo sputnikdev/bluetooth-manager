@@ -72,7 +72,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     private final List<GenericBluetoothDeviceListener> genericBluetoothDeviceListeners = new CopyOnWriteArrayList<>();
     private final List<BluetoothSmartDeviceListener> bluetoothSmartDeviceListeners = new CopyOnWriteArrayList<>();
     private final CompletableFutureService<DeviceGovernor> servicesResolvedService =
-            new CompletableFutureService<>();
+            new CompletableFutureService<>(this, DeviceGovernor::isServicesResolved);
 
     private ConnectionNotification connectionNotification;
     private BlockedNotification blockedNotification;
@@ -388,7 +388,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public <G extends DeviceGovernor, V> CompletableFuture<V> whenServicesResolved(Function<G, V> function) {
-        return servicesResolvedService.submit(this, (Function<DeviceGovernor, V>) function);
+        return servicesResolvedService.submit((Function<DeviceGovernor, V>) function);
     }
 
     @Override
@@ -523,7 +523,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         BluetoothManagerUtils.forEachSilently(bluetoothSmartDeviceListeners,
                 BluetoothSmartDeviceListener::servicesResolved, services, logger,
                 "Execution error of a service resolved listener");
-        servicesResolvedService.complete(this);
+        servicesResolvedService.completeSilently();
     }
 
     void notifyServicesUnresolved() {

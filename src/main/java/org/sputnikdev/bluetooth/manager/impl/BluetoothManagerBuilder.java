@@ -23,13 +23,16 @@ package org.sputnikdev.bluetooth.manager.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.manager.AdapterDiscoveryListener;
+import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
 import org.sputnikdev.bluetooth.manager.BluetoothManager;
 import org.sputnikdev.bluetooth.manager.DeviceDiscoveryListener;
 import org.sputnikdev.bluetooth.manager.DiscoveredAdapter;
 import org.sputnikdev.bluetooth.manager.DiscoveredDevice;
+import org.sputnikdev.bluetooth.manager.ManagerListener;
 import org.sputnikdev.bluetooth.manager.transport.BluetoothObjectFactory;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 
 /**
  * Bluetooth Manager instance builder.
@@ -205,7 +208,9 @@ public class BluetoothManagerBuilder {
             boolean loaded = (boolean) tinybFactoryClass.getDeclaredMethod("loadNativeLibraries")
                     .invoke(tinybFactoryClass);
             if (loaded) {
-                bluetoothManager.registerFactory((BluetoothObjectFactory) tinybFactoryClass.newInstance());
+                BluetoothObjectFactory tinyBFactory = (BluetoothObjectFactory) tinybFactoryClass.newInstance();
+                bluetoothManager.registerFactory(tinyBFactory);
+                bluetoothManager.addManagerListener(new DisposeListener(tinyBFactory));
             } else {
                 if (ignoreTransportInitErrors) {
                     logger.warn("Native libraries for TinyB transport could not be loaded.");
@@ -227,7 +232,9 @@ public class BluetoothManagerBuilder {
             Class<?> bluegigaFactoryClass =
                     Class.forName("org.sputnikdev.bluetooth.manager.transport.bluegiga.BluegigaFactory");
             Constructor<?> constructor = bluegigaFactoryClass.getConstructor(String.class);
+            BluetoothObjectFactory bluegigaFactory = (BluetoothObjectFactory) constructor.newInstance(bluegigaRegex);
             bluetoothManager.registerFactory((BluetoothObjectFactory) constructor.newInstance(bluegigaRegex));
+            bluetoothManager.addManagerListener(new DisposeListener(bluegigaFactory));
         } catch (Exception ex) {
             if (ignoreTransportInitErrors) {
                 logger.warn("Could not initialize BlueGiga transport: {}", ex.getMessage());
@@ -237,4 +244,24 @@ public class BluetoothManagerBuilder {
         }
     }
 
+    private static class DisposeListener implements ManagerListener {
+        private final BluetoothObjectFactory factory;
+
+        DisposeListener(BluetoothObjectFactory factory) {
+            this.factory = factory;
+        }
+
+        @Override
+        public void ready(BluetoothGovernor governor, boolean ready) { }
+
+        @Override
+        public void disposed() {
+            try {
+                factory.getClass().getMethod("dispose").invoke(factory);
+            } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                throw new IllegalStateException("Could not invoke " + factory.getClass().getSimpleName()
+                        + ".dispose method", e);
+            }
+        }
+    }
 }

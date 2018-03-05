@@ -98,7 +98,7 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
     private GovernorState state = GovernorState.NEW;
     @SuppressWarnings({"unchecked", "rawtypes"})
     private final CompletableFutureService<AbstractBluetoothObjectGovernor> readyService =
-            new CompletableFutureService<>();
+            new CompletableFutureService<>(this, BluetoothGovernor::isReady);
 
     private final ReentrantLock updateLock = new ReentrantLock();
 
@@ -178,9 +178,7 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
                     logger.debug("Governor has been updated: {}", url);
                     updated = true;
                     // handling completable futures
-                    bluetoothManager.notify(() -> {
-                        readyService.complete(this);
-                    });
+                    bluetoothManager.notify(readyService::complete);
                 } catch (Exception ex) {
                     logger.warn("Error occurred while updating governor: {} / {} : {}",
                             url, object != null ? Integer.toHexString(object.hashCode()) : null, ex.getMessage());
@@ -229,7 +227,7 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public <G extends BluetoothGovernor, V> CompletableFuture<V> whenReady(Function<G, V> function) {
-        return readyService.submit(this, (Function<AbstractBluetoothObjectGovernor, V>) function);
+        return readyService.submit((Function<AbstractBluetoothObjectGovernor, V>) function);
     }
 
     protected void scheduleUpdate() {

@@ -56,7 +56,8 @@ class CombinedCharacteristicGovernorImpl
     private CharacteristicGovernor delegate;
     private final List<ValueListener> valueListeners = new CopyOnWriteArrayList<>();
     private final List<GovernorListener> governorListeners = new CopyOnWriteArrayList<>();
-    private final CompletableFutureService<CharacteristicGovernor> readyService = new CompletableFutureService<>();
+    private final CompletableFutureService<CharacteristicGovernor> readyService =
+            new CompletableFutureService<>(this, BluetoothGovernor::isReady);
     private Instant lastInteracted;
     private Instant lastNotified;
     private final ManagerListener delegateListener = new DelegatesListener();
@@ -210,7 +211,7 @@ class CombinedCharacteristicGovernorImpl
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public <G extends BluetoothGovernor, V> CompletableFuture<V> whenReady(Function<G, V> function) {
-        return readyService.submit(this, (Function<CharacteristicGovernor, V>) function);
+        return readyService.submit((Function<CharacteristicGovernor, V>) function);
     }
 
     private void installDelegate(CharacteristicGovernor delegate) {
@@ -225,7 +226,7 @@ class CombinedCharacteristicGovernorImpl
             if (delegate.isReady()) {
                 BluetoothManagerUtils.forEachSilently(governorListeners, GovernorListener::ready, true, logger,
                         "Execution error of a governor listener: ready");
-                readyService.completeSilently(this);
+                readyService.completeSilently();
             }
             BluetoothManagerUtils.forEachSilently(governorListeners, GovernorListener::lastUpdatedChanged,
                     lastInteracted, logger,"Execution error of a governor listener: lastUpdatedChanged");

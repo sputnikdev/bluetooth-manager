@@ -85,9 +85,10 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     private final List<GovernorListener> governorListeners = new CopyOnWriteArrayList<>();
     private final List<GenericBluetoothDeviceListener> genericBluetoothDeviceListeners = new CopyOnWriteArrayList<>();
     private final List<BluetoothSmartDeviceListener> bluetoothSmartDeviceListeners = new CopyOnWriteArrayList<>();
-    private final CompletableFutureService<DeviceGovernor> readyService = new CompletableFutureService<>();
+    private final CompletableFutureService<DeviceGovernor> readyService =
+            new CompletableFutureService<>(this, BluetoothGovernor::isReady);
     private final CompletableFutureService<DeviceGovernor> servicesResolvedService =
-            new CompletableFutureService<>();
+            new CompletableFutureService<>(this, DeviceGovernor::isServicesResolved);
 
     // state bitmap fields
     private final ConcurrentBitMap ready = new ConcurrentBitMap();
@@ -217,7 +218,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public <G extends BluetoothGovernor, V> CompletableFuture<V> whenReady(Function<G, V> function) {
-        return readyService.submit(this, (Function<DeviceGovernor, V>) function);
+        return readyService.submit((Function<DeviceGovernor, V>) function);
     }
 
     private void updateConnectionTarget() {
@@ -358,7 +359,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public <G extends DeviceGovernor, V> CompletableFuture<V> whenServicesResolved(Function<G, V> function) {
-        return servicesResolvedService.submit(this, (Function<DeviceGovernor, V>) function);
+        return servicesResolvedService.submit((Function<DeviceGovernor, V>) function);
     }
 
     @Override
@@ -863,7 +864,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
                     BluetoothManagerUtils.forEachSilently(governorListeners, GovernorListener::ready, newState,
                             logger, "Execution error of a governor listener: ready");
                     if (newState) {
-                        readyService.completeSilently(CombinedDeviceGovernorImpl.this);
+                        readyService.completeSilently();
                     }
                 });
             });
@@ -902,7 +903,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
                         BluetoothSmartDeviceListener::servicesResolved, combinedServices,
                         logger, "Execution error of a service resolved listener");
             }
-            servicesResolvedService.complete(CombinedDeviceGovernorImpl.this);
+            servicesResolvedService.completeSilently();
         }
 
         private void notifyServicesUnresolved() {

@@ -86,7 +86,7 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
                 characteristic.disableValueNotifications();
             }
         } catch (Exception ex) {
-            logger.warn("Error occurred while resetting characteristic: {} : {} ", url, ex.getMessage());
+            logger.debug("Error occurred while resetting characteristic: {} : {} ", url, ex.getMessage());
         }
     }
 
@@ -138,11 +138,17 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
 
     @Override
     public byte[] read() throws NotReadyException {
+        if (!isReadable()) {
+            throw new IllegalStateException("Characteristic is not readable: {}" + url);
+        }
         return interact("read", Characteristic::readValue, true);
     }
 
     @Override
     public boolean write(byte[] data) throws NotReadyException {
+        if (!isWritable()) {
+            throw new IllegalStateException("Characteristic is not writable: {}" + url);
+        }
         return interact("write", characteristic -> characteristic.writeValue(data), true);
     }
 
