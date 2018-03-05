@@ -26,6 +26,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -198,7 +199,7 @@ public class CombinedDeviceGovernorImplTest {
 
         // check if listeners are triggered
         verify(governorListener).ready(true);
-        verify(governorListener).lastUpdatedChanged(any());
+        verify(governorListener, atLeastOnce()).lastUpdatedChanged(any());
 
         verify(bluetoothSmartDeviceListener).connected();
         verify(bluetoothSmartDeviceListener).servicesResolved(any());
