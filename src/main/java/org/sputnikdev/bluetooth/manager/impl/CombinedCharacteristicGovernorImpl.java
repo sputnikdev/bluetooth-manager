@@ -104,19 +104,21 @@ class CombinedCharacteristicGovernorImpl
 
     @Override
     public void addValueListener(ValueListener valueListener) {
-        valueListeners.add(valueListener);
-        CharacteristicGovernor delegate = this.delegate;
-        if (delegate != null) {
-            delegate.addValueListener(valueListener);
+        synchronized (delegateListener) {
+            valueListeners.add(valueListener);
+            if (delegate != null) {
+                delegate.addValueListener(valueListener);
+            }
         }
     }
 
     @Override
     public void removeValueListener(ValueListener valueListener) {
-        valueListeners.remove(valueListener);
-        CharacteristicGovernor delegate = this.delegate;
-        if (delegate != null) {
-            delegate.removeValueListener(valueListener);
+        synchronized (delegateListener) {
+            valueListeners.remove(valueListener);
+            if (delegate != null) {
+                delegate.removeValueListener(valueListener);
+            }
         }
     }
 
@@ -154,19 +156,21 @@ class CombinedCharacteristicGovernorImpl
 
     @Override
     public void addGovernorListener(GovernorListener listener) {
-        governorListeners.add(listener);
-        CharacteristicGovernor delegate = this.delegate;
-        if (delegate != null) {
-            delegate.addGovernorListener(listener);
+        synchronized (delegateListener) {
+            governorListeners.add(listener);
+            if (delegate != null) {
+                delegate.addGovernorListener(listener);
+            }
         }
     }
 
     @Override
     public void removeGovernorListener(GovernorListener listener) {
-        governorListeners.remove(listener);
-        CharacteristicGovernor delegate = this.delegate;
-        if (delegate != null) {
-            delegate.removeGovernorListener(listener);
+        synchronized (delegateListener) {
+            governorListeners.remove(listener);
+            if (delegate != null) {
+                delegate.removeGovernorListener(listener);
+            }
         }
     }
 
