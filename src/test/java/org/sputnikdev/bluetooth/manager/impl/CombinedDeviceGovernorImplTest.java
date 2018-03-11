@@ -205,7 +205,7 @@ public class CombinedDeviceGovernorImplTest {
         verify(bluetoothSmartDeviceListener).servicesResolved(any());
 
         verify(genericBluetoothDeviceListener).online();
-        verify(genericBluetoothDeviceListener).rssiChanged(BLUEGIGA_RSSI);
+        verify(genericBluetoothDeviceListener).rssiChanged(TINYB_RSSI);
         verify(genericBluetoothDeviceListener, never()).blocked(false);
     }
 
@@ -247,7 +247,8 @@ public class CombinedDeviceGovernorImplTest {
         verify(deviceGovernor).setOnlineTimeout(ONLINE_TIMEOUT);
         verify(deviceGovernor).setRssiFilteringEnabled(RSSI_FILTERING_ENABLED);
         verify(deviceGovernor).setRssiFilter(RssiKalmanFilter.class);
-        verify(deviceGovernor).setRssiReportingRate(RSSI_REPORTING_RATE);
+        // must be set to 0 to allow proper calculation of the nearest adapter
+        verify(deviceGovernor).setRssiReportingRate(0);
         verify(deviceGovernor).setSignalPropagationExponent(SIGNAL_PROPAGATION_EXPONENT);
 
         verify(deviceGovernor, never()).setAlias(any());

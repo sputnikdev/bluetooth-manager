@@ -107,6 +107,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     private KalmanFilterProxy rssiFilter = new KalmanFilterProxy();
     private boolean rssiFilteringEnabled = true;
     private long rssiReportingRate = DeviceGovernorImpl.DEFAULT_RSSI_REPORTING_RATE;
+    private Instant rssiLastNotified = Instant.now().minusSeconds(60);
     private short measuredTxPower;
     private double signalPropagationExponent = DeviceGovernorImpl.DEFAULT_SIGNAL_PROPAGATION_EXPONENT;
     private Instant lastInteracted;
@@ -589,8 +590,12 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
 
     private void updateRssi(short newRssi) {
         rssi = newRssi;
-        bluetoothManager.notify(genericBluetoothDeviceListeners, GenericBluetoothDeviceListener::rssiChanged, newRssi,
-                logger, "Execution error of a RSSI listener");
+        if (rssiReportingRate == 0
+                || System.currentTimeMillis() - rssiLastNotified.toEpochMilli() > rssiReportingRate) {
+            BluetoothManagerUtils.forEachSilently(genericBluetoothDeviceListeners,
+                    listener -> listener.rssiChanged(newRssi), logger,"Execution error of a RSSI listener");
+            rssiLastNotified = Instant.now();
+        }
     }
 
     private static List<GattService> convert(List<GattService> services) {
@@ -648,7 +653,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
             delegate.setBlockedControl(blockedControl);
             delegate.setConnectionControl(false);
             delegate.setRssiFilteringEnabled(rssiFilteringEnabled);
-            delegate.setRssiReportingRate(rssiReportingRate);
+            delegate.setRssiReportingRate(0);
             delegate.setSignalPropagationExponent(signalPropagationExponent);
             delegate.setMeasuredTxPower(measuredTxPower);
 
