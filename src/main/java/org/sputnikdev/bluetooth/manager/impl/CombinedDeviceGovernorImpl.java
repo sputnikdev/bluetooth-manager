@@ -666,16 +666,16 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
         }
 
         private void initUnsafe() {
-            if (!inited) {
-                // this method can be called by different threads (notifications) so the synchronization is needed
-                synchronized (delegate) {
-                    // unsafe operations
-                    boolean delegateReady = delegate.isReady();
-                    logger.debug("Initializing unsafe operations: {} : {}", delegate.getURL(), delegateReady);
-                    if (delegateReady) {
-                        notifyIfChangedReady(true);
-                        // any of the following operations can produce NotReadyException
-                        try {
+            boolean delegateReady = delegate.isReady();
+            logger.debug("Initializing unsafe operations: {} : {}", delegate.getURL(), delegateReady);
+            if (delegateReady) {
+                // any of the following operations can produce NotReadyException
+                try {
+                    // this method can be called by different threads (notifications)
+                    // so the synchronization is needed
+                    synchronized (delegate) {
+                        if (!inited) {
+                            // unsafe operations
                             int deviceBluetoothClass = delegate.getBluetoothClass();
                             if (deviceBluetoothClass != 0) {
                                 bluetoothClass = deviceBluetoothClass;
@@ -696,21 +696,19 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
                                 }
                             }
                             rssiChanged(delegate.getRSSI());
-                            notifyIfChangedBlocked(delegate.isBlocked());
-                            notifyIfChangedConnected(delegate.isConnected());
-                            if (delegate.isServicesResolved()) {
-                                servicesResolved(delegate.getResolvedServices());
-                            }
                             inited = true;
                             logger.debug("Initializing unsafe operations successfully completed: {}",
                                     delegate.getURL());
-                        } catch (NotReadyException ex) {
-                            // the device has become not ready, that's fine it will be initialized again later
-                            // when it becomes ready, so just ignore it for now
-                            logger.warn("Error occurred while initializing unsafe operations: {} : {}",
-                                    url, ex.getMessage());
                         }
                     }
+                    notifyIfChangedReady(true);
+                    initState();
+                } catch (NotReadyException ex) {
+                    notifyIfChangedReady(false);
+                    // the device has become not ready, that's fine it will be initialized again later
+                    // when it becomes ready, so just ignore it for now
+                    logger.warn("Error occurred while initializing unsafe operations: {} : {}",
+                            url, ex.getMessage());
                 }
             }
         }
@@ -831,6 +829,8 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
                 activeGovernors.add(this);
             } else {
                 activeGovernors.remove(this);
+                servicesUnresolved();
+                notifyIfChangedConnected(false);
             }
             notifyIfChangedReady(isReady);
         }
@@ -845,6 +845,16 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
             delegate.removeBluetoothSmartDeviceListener(this);
             delegate.removeGenericBluetoothDeviceListener(this);
             delegate.removeGovernorListener(this);
+        }
+
+        private void initState() {
+            if (delegate.isReady()) {
+                notifyIfChangedBlocked(delegate.isBlocked());
+                notifyIfChangedConnected(delegate.isConnected());
+                if (delegate.isServicesResolved()) {
+                    servicesResolved(delegate.getResolvedServices());
+                }
+            }
         }
 
         private void notifyIfChangedOnline(boolean newState) {
