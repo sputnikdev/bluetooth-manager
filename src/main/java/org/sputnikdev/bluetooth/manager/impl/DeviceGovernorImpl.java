@@ -42,7 +42,6 @@ import org.sputnikdev.bluetooth.manager.transport.Service;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -93,6 +92,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     private short measuredTxPower;
     private double signalPropagationExponent;
     private Instant lastAdvertised;
+    private short txPower;
 
     DeviceGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
         super(bluetoothManager, url);
@@ -141,6 +141,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
                     // see {@link CombinedDeviceGovernorImpl#update()} method
                 }
             }
+            txPower = device.getTxPower();
         }
         updateOnline(isOnline());
         logger.trace("Device governor update performed: {}", url);
@@ -329,7 +330,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     @Override
     public short getTxPower() {
-        return interact("getTxPower", Device::getTxPower);
+        return txPower;
     }
 
     @Override
@@ -366,7 +367,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         }
         double estimated = Math.pow(10d,
                 ((double) getTxPowerInternal() - rssi) / (10 * getPropagationExponentInternal()));
-        logger.debug("Estimated distance: {} : {}", url, estimated);
+        logger.trace("Estimated distance: {} : {}", url, estimated);
         return estimated;
     }
 
@@ -690,7 +691,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         if (connectionControl && !connected) {
             logger.debug("Connecting device: {}", url);
             connected = device.connect();
-            if (!connected) {
+            if (!connected || !device.isConnected()) {
                 throw new NotReadyException("Could not connect to device: " + url);
             }
         } else if (!connectionControl && connected) {
@@ -737,6 +738,9 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         public void notify(Boolean connected) {
             logger.debug("Connected (notification): {} : {}", url, connected);
             notifyConnected(connected);
+            if (!connected) {
+                resetCharacteristics();
+            }
             updateLastInteracted();
         }
     }
@@ -757,10 +761,10 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
             if (serviceResolved) {
                 List<GattService> gattServices = getResolvedServices();
-                updateCharacteristics();
                 if (gattServices != null && !gattServices.isEmpty()) {
                     notifyServicesResolved(gattServices);
                 }
+                updateCharacteristics();
                 updateLastInteracted();
             } else {
                 logger.debug("Resetting characteristic governors due to services unresolved event: {}", url);
@@ -781,7 +785,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     private class ServiceDataNotification implements Notification<Map<String, byte[]>> {
         @Override
         public void notify(Map<String, byte[]> serviceData) {
-            logger.debug("Services data changed (notification): {} : {} : {}",
+            logger.trace("Services data changed (notification): {} : {} : {}",
                     url, bluetoothSmartDeviceListeners.size(), serviceData.size());
             BluetoothManagerUtils.forEachSilently(bluetoothSmartDeviceListeners,
                 listener -> listener.serviceDataChanged(convert(serviceData)), logger,
