@@ -504,6 +504,15 @@ class BluetoothManagerImpl implements BluetoothManager {
         return Collections.unmodifiableSet(governors.keySet());
     }
 
+    Set<BluetoothObjectGovernor> getRegisteredDescendantGovernors(URL url) {
+        URL protocolLess = url.copyWithProtocol(null);
+        return governors.entrySet().stream()
+                .filter(entry -> entry.getKey().isDescendant(protocolLess))
+                .sorted(GOVERNORS_ASCENDING_COMPARATOR)
+                .map(Map.Entry::getValue)
+                .collect(Collectors.toSet());
+    }
+
     boolean isGovernorRegistered(URL url) {
         return governors.containsKey(url)
                 || governors.containsKey(url.copyWithProtocol(null))

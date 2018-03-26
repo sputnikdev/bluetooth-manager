@@ -23,6 +23,7 @@ package org.sputnikdev.bluetooth.manager.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.BluetoothFatalException;
 import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
 import org.sputnikdev.bluetooth.manager.BluetoothInteractionException;
 import org.sputnikdev.bluetooth.manager.GovernorListener;
@@ -179,6 +180,11 @@ abstract class AbstractBluetoothObjectGovernor<T extends BluetoothObject> implem
                     updated = true;
                     // handling completable futures
                     bluetoothManager.notify(readyService::complete);
+                } catch (BluetoothFatalException fatal) {
+                    logger.warn("A fatal error occurred while updating governor, a higher level governor "
+                            + "must be forced to reset: {} : {}", url, fatal.getMessage());
+                    //bluetoothManager.scheduleReset(url.getParent());
+                    reset();
                 } catch (Exception ex) {
                     logger.warn("Error occurred while updating governor: {} / {} : {}",
                             url, object != null ? Integer.toHexString(object.hashCode()) : null, ex.getMessage());
