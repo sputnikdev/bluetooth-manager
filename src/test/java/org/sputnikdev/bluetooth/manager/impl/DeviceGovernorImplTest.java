@@ -273,7 +273,7 @@ public class DeviceGovernorImplTest {
         verify(device).disconnect();
 
         // not connected and control == true
-        when(device.isConnected()).thenReturn(false);
+        when(device.isConnected()).thenReturn(false, true);
         governor.setConnectionControl(true);
         governor.update(device);
         verify(device).connect();
@@ -308,7 +308,7 @@ public class DeviceGovernorImplTest {
         verify(device, never()).connect();
         verify(device).disconnect();
 
-        when(device.isConnected()).thenReturn(false);
+        when(device.isConnected()).thenReturn(false, true);
         governor.setConnectionControl(true);
         governor.update(device);
         verify(device).connect();
@@ -1098,11 +1098,13 @@ public class DeviceGovernorImplTest {
         assertEquals(1.0, governor.getEstimatedDistance(), 0.001);
 
         when(device.getTxPower()).thenReturn((short) -60);
+        governor.update(device);
         governor.setMeasuredTxPower((short) 0);
         assertEquals(0.562, governor.getEstimatedDistance(), 0.001);
 
         // measured Tx Power should get precedence
         when(device.getTxPower()).thenReturn((short) -60);
+        governor.update(device);
         governor.setMeasuredTxPower((short) -65);
         assertEquals(0.316, governor.getEstimatedDistance(), 0.001);
     }
