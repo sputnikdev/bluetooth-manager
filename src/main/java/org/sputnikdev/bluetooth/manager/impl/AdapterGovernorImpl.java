@@ -82,7 +82,6 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
             adapter.disableDiscoveringNotifications();
             // force stop discovery and ignore any error
             adapter.stopDiscovery();
-            adapter.setPowered(false);
         } catch (Exception ex) {
             logger.warn("Error occurred while resetting adapter native object: {} : {}", url, ex.getMessage());
         }
