@@ -155,7 +155,7 @@ public class CombinedDeviceGovernorImplTest {
         doNothing().when(tinybGovernor).addGenericBluetoothDeviceListener(tinybGenericBluetoothListenerDelegateCaptor.capture());
         doNothing().when(bluegigaGovernor).addGenericBluetoothDeviceListener(bluegigaGenericBluetoothListenerDelegateCaptor.capture());
 
-        // performing the invocation to be tested
+        // actual method call
         governor.init();
 
         // check if corresponding listeners are installed into each delegate
@@ -258,7 +258,7 @@ public class CombinedDeviceGovernorImplTest {
         verify(deviceGovernor, never()).getName();
         verify(deviceGovernor, never()).getRSSI();
         verify(deviceGovernor, never()).isBlocked();
-        verify(deviceGovernor, never()).isConnected();
+        //verify(deviceGovernor, never()).isConnected();
         verify(deviceGovernor, never()).isServicesResolved();
 
     }

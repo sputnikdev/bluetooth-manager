@@ -211,5 +211,10 @@ public interface BluetoothManager {
      */
     void unregisterFactory(BluetoothObjectFactory transport);
 
+    /**
+     * Returns the refresh rate of how often bluetooth devices are checked/updated.
+     * @return refresh rate
+     */
+    int getRefreshRate();
 
 }

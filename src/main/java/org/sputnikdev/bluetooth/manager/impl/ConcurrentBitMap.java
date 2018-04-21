@@ -143,6 +143,10 @@ class ConcurrentBitMap {
         return Long.numberOfTrailingZeros(state);
     }
 
+    void reset() {
+        bits.set(0);
+    }
+
     private void handleNotifications() {
         notifications.removeIf(notification -> {
             notification.run();

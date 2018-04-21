@@ -22,11 +22,13 @@ package org.sputnikdev.bluetooth.manager;
 
 import org.sputnikdev.bluetooth.Filter;
 import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.auth.AuthenticationProvider;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 
@@ -320,6 +322,10 @@ public interface DeviceGovernor extends BluetoothGovernor {
      */
     Instant getLastAdvertised();
 
+    void setAuthenticationProvider(AuthenticationProvider authenticationProvider);
+
+    boolean isAuthenticated();
+
     /**
      * Returns a completable future that gets completed when services become resolved.
      * @param function a function that is invoked when services become resolved, the completable future is
@@ -328,6 +334,21 @@ public interface DeviceGovernor extends BluetoothGovernor {
      * @param <V> returned value
      * @return a completable future
      */
-    <G extends DeviceGovernor, V> CompletableFuture<V> whenServicesResolved(Function<G, V> function);
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    default <G extends DeviceGovernor, V> CompletableFuture<V> whenServicesResolved(Function<G, V> function) {
+        return when(DeviceGovernor::isServicesResolved, function);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    default <G extends DeviceGovernor, V> CompletableFuture<V> whenAuthenticated(Function<G, V> function) {
+        return when(DeviceGovernor::isAuthenticated, function);
+    }
+
+    default <G extends DeviceGovernor> CompletableFuture<Void> doWhenAuthenticated(Consumer<G> consumer) {
+        return whenAuthenticated(g -> {
+            consumer.accept((G) this);
+            return null;
+        });
+    }
 
 }

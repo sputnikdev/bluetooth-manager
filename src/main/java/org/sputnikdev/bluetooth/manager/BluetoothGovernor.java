@@ -27,7 +27,9 @@ import org.sputnikdev.bluetooth.manager.transport.Device;
 
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * An interface for all Bluetooth governors. Bluetooth governors are the central part of the system. They represent
@@ -110,6 +112,17 @@ public interface BluetoothGovernor {
      */
     void removeGovernorListener(GovernorListener listener);
 
+
+    <G extends BluetoothGovernor, V> CompletableFuture<V> when(Predicate<G> condition, Function<G, V> function);
+
+    default <G extends BluetoothGovernor> CompletableFuture<Void> doWhen(Predicate<G> predicate,
+                                                                              Consumer<G> consumer) {
+        return when(predicate, g -> {
+            consumer.accept((G) this);
+            return null;
+        });
+    }
+
     /**
      * Returns a completable future that gets completed when governor becomes ready.
      * @param function a function that is invoked when governor becomes ready, the completable future is
@@ -118,6 +131,8 @@ public interface BluetoothGovernor {
      * @param <V> returned value
      * @return a completable future
      */
-    <G extends BluetoothGovernor, V> CompletableFuture<V> whenReady(Function<G, V> function);
+    default <G extends BluetoothGovernor, V> CompletableFuture<V> whenReady(Function<G, V> function) {
+        return when(BluetoothGovernor::isReady, function);
+    }
 
 }

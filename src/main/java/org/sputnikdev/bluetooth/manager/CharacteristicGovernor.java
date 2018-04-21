@@ -24,6 +24,9 @@ import org.sputnikdev.bluetooth.manager.transport.CharacteristicAccessType;
 
 import java.time.Instant;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Bluetooth characteristic governor ({@link BluetoothGovernor}).
@@ -105,5 +108,19 @@ public interface CharacteristicGovernor extends BluetoothGovernor {
      * @return the date/time of last known received notification
      */
     Instant getLastNotified();
+
+    boolean isAuthenticated();
+
+
+    default <G extends CharacteristicGovernor, V> CompletableFuture<V> whenAuthenticated(Function<G, V> function) {
+        return when(CharacteristicGovernor::isAuthenticated, function);
+    }
+
+    default <G extends CharacteristicGovernor> CompletableFuture<Void> whenAuthenticatedThanDo(Consumer<G> consumer) {
+        return whenAuthenticated(g -> {
+            consumer.accept((G) this);
+            return null;
+        });
+    }
 
 }

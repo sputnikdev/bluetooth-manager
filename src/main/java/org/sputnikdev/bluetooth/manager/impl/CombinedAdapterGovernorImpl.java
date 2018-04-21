@@ -43,6 +43,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
         BluetoothObjectGovernor, AdapterDiscoveryListener {
@@ -50,8 +51,7 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
     private Logger logger = LoggerFactory.getLogger(CombinedAdapterGovernorImpl.class);
 
     private final Map<URL, AdapterGovernorHandler> governors = new ConcurrentHashMap<>();
-    private final CompletableFutureService<BluetoothObjectGovernor> readyService =
-            new CompletableFutureService<>(this, BluetoothGovernor::isReady);
+    private final CompletableFutureService<BluetoothObjectGovernor> futureService = new CompletableFutureService<>();
     private final BluetoothManagerImpl bluetoothManager;
     private final URL url;
 
@@ -160,7 +160,9 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
     }
 
     @Override
-    public void update() { /* do nothing */ }
+    public void update() {
+        futureService.completeSilently(this);
+    }
 
     @Override
     public void reset() { /* do nothing */ }
@@ -171,7 +173,7 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
         governors.clear();
         governorListeners.clear();
         adapterListeners.clear();
-        readyService.clear();
+        futureService.clear();
     }
 
     @Override
@@ -229,8 +231,9 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
 
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public <G extends BluetoothGovernor, V> CompletableFuture<V> whenReady(Function<G, V> function) {
-        return readyService.submit((Function<BluetoothObjectGovernor, V>) function);
+    public <G extends BluetoothGovernor, V> CompletableFuture<V> when(Predicate<G> predicate, Function<G, V> function) {
+        return futureService.submit(this, (Predicate<BluetoothObjectGovernor>) predicate,
+                (Function<BluetoothObjectGovernor, V>) function);
     }
 
     private void registerGovernor(URL url) {
@@ -291,7 +294,6 @@ class CombinedAdapterGovernorImpl implements AdapterGovernor, CombinedGovernor,
             ready.cumulativeSet(index, newState, () -> {
                 BluetoothManagerUtils.forEachSilently(governorListeners, GovernorListener::ready, newState,
                         logger, "Execution error of a governor listener: ready");
-                readyService.completeSilently();
             });
         }
 

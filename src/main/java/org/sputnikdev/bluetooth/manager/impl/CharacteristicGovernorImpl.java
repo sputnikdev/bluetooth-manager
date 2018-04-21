@@ -46,6 +46,8 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
 
     private Logger logger = LoggerFactory.getLogger(CharacteristicGovernorImpl.class);
 
+    private boolean authenticated;
+
     private List<ValueListener> valueListeners = new CopyOnWriteArrayList<>();
     private ValueNotification valueNotification;
     private boolean canNotify;
@@ -65,6 +67,8 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
     @Override
     void update(Characteristic characteristic) {
         logger.trace("Updating characteristic governor: {}", url);
+        authenticated = bluetoothManager.getDeviceGovernor(url.getDeviceURL()).isAuthenticated();
+
         if (canNotify) {
             boolean notifying = characteristic.isNotifying();
             logger.trace("Updating characteristic governor notifications state: {} : {} / {} / {}",
@@ -88,6 +92,7 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
         } catch (Exception ex) {
             logger.debug("Error occurred while resetting characteristic: {} : {} ", url, ex.getMessage());
         }
+        authenticated = false;
     }
 
     @Override
@@ -101,6 +106,7 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
     @Override
     public void addValueListener(ValueListener valueListener) {
         valueListeners.add(valueListener);
+        bluetoothManager.scheduleUpdate(this);
     }
 
     @Override
@@ -170,6 +176,11 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
     @Override
     public Instant getLastNotified() {
         return lastNotified;
+    }
+
+    @Override
+    public boolean isAuthenticated() {
+        return authenticated;
     }
 
     @Override

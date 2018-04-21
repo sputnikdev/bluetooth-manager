@@ -23,12 +23,13 @@ package org.sputnikdev.bluetooth.manager.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.AdapterDiscoveryListener;
 import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
 import org.sputnikdev.bluetooth.manager.CharacteristicGovernor;
 import org.sputnikdev.bluetooth.manager.CombinedGovernor;
-import org.sputnikdev.bluetooth.manager.DeviceGovernor;
+import org.sputnikdev.bluetooth.manager.DiscoveredAdapter;
 import org.sputnikdev.bluetooth.manager.GovernorListener;
 import org.sputnikdev.bluetooth.manager.ManagerListener;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
@@ -36,11 +37,13 @@ import org.sputnikdev.bluetooth.manager.ValueListener;
 import org.sputnikdev.bluetooth.manager.transport.CharacteristicAccessType;
 
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  *
@@ -53,14 +56,16 @@ class CombinedCharacteristicGovernorImpl
 
     private BluetoothManagerImpl bluetoothManager;
     private final URL url;
+
+    private final ManagerListener delegateListener = new DelegatesListener();
+
     private CharacteristicGovernor delegate;
     private final List<ValueListener> valueListeners = new CopyOnWriteArrayList<>();
     private final List<GovernorListener> governorListeners = new CopyOnWriteArrayList<>();
-    private final CompletableFutureService<CharacteristicGovernor> readyService =
-            new CompletableFutureService<>(this, BluetoothGovernor::isReady);
+    private final CompletableFutureService<CharacteristicGovernor> futureService = new CompletableFutureService<>();
     private Instant lastInteracted;
     private Instant lastNotified;
-    private final ManagerListener delegateListener = new DelegatesListener();
+
 
     CombinedCharacteristicGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
         this.bluetoothManager = bluetoothManager;
@@ -176,31 +181,32 @@ class CombinedCharacteristicGovernorImpl
 
     @Override
     public void init() {
+        logger.debug("Initializing combined characteristic governor: {}", url);
         bluetoothManager.addManagerListener(delegateListener);
-
-        bluetoothManager.getRegisteredGovernors().stream()
-                .filter(registeredURL -> !COMBINED_ADDRESS.equals(registeredURL.getAdapterAddress())
-                        && registeredURL.copyWithProtocol(null).copyWithAdapter(COMBINED_ADDRESS).equals(url))
-                .map(registeredURL -> bluetoothManager.getGovernor(registeredURL))
-                .filter(BluetoothGovernor::isReady)
-                .reduce((a, b) -> { throw new IllegalStateException("multiple 'ready' characteristics found"); })
-                .ifPresent(governor -> installDelegate((CharacteristicGovernor) governor));
+        update();
+        logger.debug("Combined characteristic governor initialization completed: {}", url);
     }
 
     @Override
     public void update() {
+        logger.debug("Updating combined characteristic governor: {}", url);
         if (delegate == null) {
-            // try to find and register delegate
-            bluetoothManager.getRegisteredGovernors().stream()
-                    .filter(this::targetDevice)
-                    .forEach(this::registerTargetCharacteristic);
-            // do nothing else, bluetooth manager takes care of installing the delegate through the ManagerListener
+            bluetoothManager.getDiscoveredAdapters().stream()
+                    .filter(CombinedCharacteristicGovernorImpl::notCombined)
+                    .map(this::getDelegate)
+                    .filter(BluetoothGovernor::isReady)
+                    .findFirst()
+                    .ifPresent(this::installDelegate);
         }
+        futureService.completeSilently(this);
+        logger.debug("Combined characteristic governor update completed: {}", url);
     }
 
     @Override
     public void reset() {
-        uninstallDelegate();
+        if (delegate != null) {
+            uninstallDelegate(delegate.getURL());
+        }
     }
 
     @Override
@@ -209,45 +215,57 @@ class CombinedCharacteristicGovernorImpl
         reset();
         governorListeners.clear();
         valueListeners.clear();
-        readyService.clear();
+        futureService.clear();
     }
 
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public <G extends BluetoothGovernor, V> CompletableFuture<V> whenReady(Function<G, V> function) {
-        return readyService.submit((Function<CharacteristicGovernor, V>) function);
+    public <G extends BluetoothGovernor, V> CompletableFuture<V> when(Predicate<G> predicate, Function<G, V> function) {
+        return futureService.submit(this, (Predicate<CharacteristicGovernor>) predicate,
+                (Function<CharacteristicGovernor, V>) function);
+    }
+
+    @Override
+    public boolean isAuthenticated() {
+        return delegate != null && delegate.isAuthenticated();
     }
 
     private void installDelegate(CharacteristicGovernor delegate) {
         synchronized (delegateListener) {
-            this.delegate = delegate;
-            governorListeners.forEach(delegate::addGovernorListener);
-            valueListeners.forEach(delegate::addValueListener);
-            lastInteracted = delegate.getLastInteracted();
-            lastNotified = delegate.getLastNotified();
+            if (this.delegate == null) {
+                logger.debug("Installing delegate: {}", delegate.getURL());
+                this.delegate = delegate;
+                governorListeners.forEach(delegate::addGovernorListener);
+                valueListeners.forEach(delegate::addValueListener);
+                lastInteracted = delegate.getLastInteracted();
+                lastNotified = delegate.getLastNotified();
+            } else if (!this.delegate.equals(delegate)) {
+                throw new IllegalStateException("Delegate un-ready event has been missed: " + url);
+            } else {
+                logger.debug("Skipping delegate as it has been installed already: " + url);
+            }
         }
         bluetoothManager.notify(() -> {
             if (delegate.isReady()) {
                 BluetoothManagerUtils.forEachSilently(governorListeners, GovernorListener::ready, true, logger,
                         "Execution error of a governor listener: ready");
-                readyService.completeSilently();
             }
             BluetoothManagerUtils.forEachSilently(governorListeners, GovernorListener::lastUpdatedChanged,
                     lastInteracted, logger,"Execution error of a governor listener: lastUpdatedChanged");
         });
     }
 
-    private void uninstallDelegate() {
+    private void uninstallDelegate(URL delegateURL) {
         CharacteristicGovernor delegate = this.delegate;
-        if (delegate != null) {
+        if (delegate != null && delegate.getURL().equals(delegateURL)) {
             synchronized (delegateListener) {
                 governorListeners.forEach(delegate::removeGovernorListener);
                 valueListeners.forEach(delegate::removeValueListener);
                 lastInteracted = delegate.getLastInteracted();
                 lastNotified = delegate.getLastNotified();
+                this.delegate = null;
             }
         }
-        this.delegate = null;
     }
 
     private CharacteristicGovernor getDelegate() {
@@ -258,28 +276,26 @@ class CombinedCharacteristicGovernorImpl
         throw new NotReadyException("Combined characteristic governor is not ready yet");
     }
 
-    private void registerTargetCharacteristic(URL deviceURL) {
-        bluetoothManager.getCharacteristicGovernor(url.copyWithAdapter(deviceURL.getAdapterAddress()));
-    }
-
-    private boolean targetDevice(URL registeredURL) {
-        return registeredURL.isDevice()
-                && !COMBINED_ADDRESS.equalsIgnoreCase(registeredURL.getAdapterAddress())
-                && registeredURL.getDeviceAddress().equalsIgnoreCase(url.getDeviceAddress())
-                && ((DeviceGovernor) bluetoothManager.getGovernor(registeredURL)).isServicesResolved();
-    }
-
     private class DelegatesListener implements ManagerListener {
         @Override
         public void ready(BluetoothGovernor governor, boolean isReady) {
-            if (governor instanceof CharacteristicGovernorImpl
+            if (governor instanceof CharacteristicGovernor
                     && governor.getURL().copyWithProtocol(null).copyWithAdapter(COMBINED_ADDRESS).equals(url)) {
                 if (isReady) {
                     installDelegate((CharacteristicGovernor) governor);
                 } else {
-                    uninstallDelegate();
+                    uninstallDelegate(governor.getURL());
                 }
             }
         }
     }
+
+    private static boolean notCombined(DiscoveredAdapter adapter) {
+        return !COMBINED_ADDRESS.equals(adapter.getURL().getAdapterAddress());
+    }
+
+    private CharacteristicGovernor getDelegate(DiscoveredAdapter adapter) {
+        return bluetoothManager.getCharacteristicGovernor(url.copyWithAdapter(adapter.getURL().getAdapterAddress()));
+    }
+
 }

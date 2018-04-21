@@ -327,6 +327,11 @@ class BluetoothManagerImpl implements BluetoothManager {
         managerListeners.remove(listener);
     }
 
+    @Override
+    public int getRefreshRate() {
+        return refreshRate;
+    }
+
     protected void disposeGovernor(URL url) {
         logger.debug("Explicitly disposing governor: {}", url);
         synchronized (governors) {

@@ -69,4 +69,8 @@ public interface BluetoothSmartDeviceListener {
      */
     default void manufacturerDataChanged(Map<Short, byte[]> manufacturerData) { }
 
+    default void authenticated() { }
+
+    default void authenticationFailure(Exception reason) { }
+
 }

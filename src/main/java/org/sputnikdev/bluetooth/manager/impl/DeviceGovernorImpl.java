@@ -35,6 +35,8 @@ import org.sputnikdev.bluetooth.manager.GattCharacteristic;
 import org.sputnikdev.bluetooth.manager.GattService;
 import org.sputnikdev.bluetooth.manager.GenericBluetoothDeviceListener;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
+import org.sputnikdev.bluetooth.manager.auth.AuthenticationProvider;
+import org.sputnikdev.bluetooth.manager.auth.BluetoothAuthenticationException;
 import org.sputnikdev.bluetooth.manager.transport.Characteristic;
 import org.sputnikdev.bluetooth.manager.transport.Device;
 import org.sputnikdev.bluetooth.manager.transport.Notification;
@@ -47,11 +49,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -70,8 +70,8 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     private final List<GenericBluetoothDeviceListener> genericBluetoothDeviceListeners = new CopyOnWriteArrayList<>();
     private final List<BluetoothSmartDeviceListener> bluetoothSmartDeviceListeners = new CopyOnWriteArrayList<>();
-    private final CompletableFutureService<DeviceGovernor> servicesResolvedService =
-            new CompletableFutureService<>(this, DeviceGovernor::isServicesResolved);
+
+    private boolean authenticated;
 
     private ConnectionNotification connectionNotification;
     private BlockedNotification blockedNotification;
@@ -83,6 +83,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     private boolean blockedControl;
     private boolean online;
     private int onlineTimeout = DEFAULT_ONLINE_TIMEOUT;
+    private AuthenticationProvider authenticationProvider;
 
     private final Lock rssiUpdateLock = new ReentrantLock();
     private Filter<Short> rssiFilter = new RssiKalmanFilter();
@@ -200,6 +201,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         blockedNotification = null;
         serviceDataNotification = null;
         manufacturerDataNotification = null;
+        setAuthenticated(false);
         logger.trace("Device governor reset performed: {}", url);
     }
 
@@ -387,12 +389,6 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     }
 
     @Override
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    public <G extends DeviceGovernor, V> CompletableFuture<V> whenServicesResolved(Function<G, V> function) {
-        return servicesResolvedService.submit((Function<DeviceGovernor, V>) function);
-    }
-
-    @Override
     public void removeBluetoothSmartDeviceListener(BluetoothSmartDeviceListener bluetoothSmartDeviceListener) {
         bluetoothSmartDeviceListeners.remove(bluetoothSmartDeviceListener);
     }
@@ -491,6 +487,20 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     }
 
     @Override
+    public void setAuthenticationProvider(AuthenticationProvider authenticationProvider) {
+        this.authenticationProvider = authenticationProvider;
+    }
+
+    @Override
+    public boolean isAuthenticated() {
+        return authenticated;
+    }
+
+    void setAuthenticated(boolean authenticated) {
+        this.authenticated = authenticated;
+    }
+
+    @Override
     void notifyLastChanged() {
         notifyLastChanged(BluetoothManagerUtils.max(getLastInteracted(), lastAdvertised));
     }
@@ -524,7 +534,6 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         BluetoothManagerUtils.forEachSilently(bluetoothSmartDeviceListeners,
                 BluetoothSmartDeviceListener::servicesResolved, services, logger,
                 "Execution error of a service resolved listener");
-        servicesResolvedService.completeSilently();
     }
 
     void notifyServicesUnresolved() {
@@ -699,6 +708,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
             resetCharacteristics();
             device.disconnect();
             connected = false;
+            setAuthenticated(false);
         }
         return connected;
     }
@@ -740,6 +750,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
             notifyConnected(connected);
             if (!connected) {
                 resetCharacteristics();
+                setAuthenticated(false);
             }
             updateLastInteracted();
         }
@@ -764,13 +775,34 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
                 if (gattServices != null && !gattServices.isEmpty()) {
                     notifyServicesResolved(gattServices);
                 }
+                authenticate();
                 updateCharacteristics();
                 updateLastInteracted();
             } else {
                 logger.debug("Resetting characteristic governors due to services unresolved event: {}", url);
+                setAuthenticated(false);
                 resetCharacteristics();
                 notifyServicesUnresolved();
             }
+        }
+    }
+
+    private void authenticate() {
+        logger.debug("Performing authentication with the device: {}", url);
+        try {
+            if (authenticationProvider != null) {
+                authenticationProvider.authenticate(bluetoothManager, this);
+            }
+            setAuthenticated(true);
+            BluetoothManagerUtils.forEachSilently(bluetoothSmartDeviceListeners,
+                    BluetoothSmartDeviceListener::authenticated, logger,
+                    "Execution error of a authenticated listener");
+        } catch (BluetoothAuthenticationException e) {
+            logger.warn("Authentication failure: {} : {}", url, e.getMessage());
+            setAuthenticated(false);
+            BluetoothManagerUtils.forEachSilently(bluetoothSmartDeviceListeners,
+                    listener -> listener.authenticationFailure(e), logger,
+                    "Execution error of a authentication failed listener");
         }
     }
 
