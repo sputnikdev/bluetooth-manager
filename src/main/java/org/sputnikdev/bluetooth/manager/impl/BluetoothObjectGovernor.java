@@ -19,6 +19,12 @@ interface BluetoothObjectGovernor extends BluetoothGovernor {
     void update();
 
     /**
+     * Objects may decide if they can be updated.
+     * @return
+     */
+    boolean isUpdatable();
+
+    /**
      * Resetting the governor to be reused later.
      */
     void reset();

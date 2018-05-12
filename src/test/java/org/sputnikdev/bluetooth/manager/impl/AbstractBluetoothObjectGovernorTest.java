@@ -46,9 +46,14 @@ public class AbstractBluetoothObjectGovernorTest {
     @Mock
     private GovernorListener governorListener;
 
-    @InjectMocks
+    //@InjectMocks
     @Spy
     private AbstractBluetoothObjectGovernor governor = new AbstractBluetoothObjectGovernor(bluetoothManager, URL) {
+
+        @Override
+        public boolean isUpdatable() {
+            return true;
+        }
 
         @Override void reset(BluetoothObject object) {
         }
@@ -75,33 +80,15 @@ public class AbstractBluetoothObjectGovernorTest {
         MockUtils.mockImplicitNotifications(bluetoothManager);
     }
 
-    @Test
-    public void testInteractGetReady() {
-        when(governor.isReady()).thenReturn(false, true);
-        Function<BluetoothObject, Boolean> function = spy(new Function<BluetoothObject, Boolean>() {
-            @Override
-            public Boolean apply(BluetoothObject object) {
-                assertEquals(bluetoothObject, object);
-                return false;
-            }
-        });
-        governor.interact("test", function);
-        InOrder inOrder = inOrder(governor, function);
-        inOrder.verify(governor).isReady();
-        inOrder.verify(governor).update();
-        inOrder.verify(governor).isReady();
-        inOrder.verify(function).apply(bluetoothObject);
-    }
-
     @Test(expected = BluetoothInteractionException.class)
     public void testInteractNotReady() {
-        when(governor.isReady()).thenReturn(false);
         governor.interact("test", (obj) -> true);
     }
 
     @Test
     public void testInteractReady() {
-        when(governor.isReady()).thenReturn(true);
+        governor.update();
+
         Function<BluetoothObject, Boolean> function = spy(new Function<BluetoothObject, Boolean>() {
             @Override
             public Boolean apply(BluetoothObject object) {
@@ -110,9 +97,7 @@ public class AbstractBluetoothObjectGovernorTest {
             }
         });
         governor.interact("test", function);
-        InOrder inOrder = inOrder(governor, function);
-        inOrder.verify(governor).isReady();
-        inOrder.verify(function).apply(bluetoothObject);
+        verify(function).apply(bluetoothObject);
     }
 
     @Test(expected = Exception.class)
@@ -154,7 +139,6 @@ public class AbstractBluetoothObjectGovernorTest {
         inOrder.verify(bluetoothManager).getBluetoothObject(URL);
         inOrder.verify(governor).init(bluetoothObject);
         inOrder.verify(governorListener).ready(true);
-        inOrder.verify(governor).update(bluetoothObject);
         inOrder.verify(governorListener, never()).lastUpdatedChanged(any());
 
         governor.updateLastInteracted();
@@ -244,21 +228,23 @@ public class AbstractBluetoothObjectGovernorTest {
     public void testResetReady() throws Exception {
         governor.addGovernorListener(governorListener);
 
+        governor.update();
+
         governor.reset();
 
         // check interactions
         InOrder inOrder = inOrder(governor, governorListener, bluetoothManager);
         inOrder.verify(bluetoothManager).resetDescendants(URL);
-        inOrder.verify(governor, times(1)).reset(bluetoothObject);
         inOrder.verify(governorListener, times(1)).ready(false);
     }
 
     @Test
     public void testIsReady() {
-        assertTrue(governor.isReady());
-
-        Whitebox.setInternalState(governor, "bluetoothObject", null);
         assertFalse(governor.isReady());
+
+        governor.update();
+
+        assertTrue(governor.isReady());
     }
 
     @Test

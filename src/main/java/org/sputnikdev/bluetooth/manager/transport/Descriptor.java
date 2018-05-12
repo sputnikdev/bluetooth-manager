@@ -24,7 +24,7 @@ package org.sputnikdev.bluetooth.manager.transport;
  *
  * @author Vlad Kolotov
  */
-public interface Descriptor extends BluetoothObject {
+public interface Descriptor {
 
     byte[] readValue();
 

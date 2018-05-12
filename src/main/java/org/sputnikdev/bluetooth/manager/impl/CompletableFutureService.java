@@ -59,7 +59,8 @@ class CompletableFutureService<G extends BluetoothGovernor> {
 
         for (Iterator<DeferredCompletableFuture<G, ?>> iterator = futures.iterator(); iterator.hasNext(); ) {
             DeferredCompletableFuture next = iterator.next();
-            if (next.isCancelled()) {
+            if (next.isCancelled() || next.isDone()) {
+                iterator.remove();
                 continue;
             }
 

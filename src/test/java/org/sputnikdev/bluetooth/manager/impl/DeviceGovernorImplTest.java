@@ -9,7 +9,6 @@ import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
-import org.mockito.internal.util.MockUtil;
 import org.mockito.internal.util.reflection.Whitebox;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.modules.junit4.PowerMockRunner;
@@ -36,7 +35,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -170,14 +168,25 @@ public class DeviceGovernorImplTest {
 
     @Test
     public void testInit() {
+        when(device.isConnected()).thenReturn(true);
+        when(device.isServicesResolved()).thenReturn(true);
+
         governor.init(device);
 
-        verify(device, times(1)).enableRSSINotifications(rssiCaptor.getValue());
-        verify(device, times(1)).enableBlockedNotifications(blockedCaptor.getValue());
-        verify(device, times(1)).enableConnectedNotifications(connectedCaptor.getValue());
-        verify(device, times(1)).enableServicesResolvedNotifications(servicesResolvedCaptor.getValue());
-        verify(device, times(1)).enableServiceDataNotifications(serviceDataCaptor.getValue());
-        verify(device, times(1)).enableManufacturerDataNotifications(manufacturerDataCaptor.getValue());
+        verify(device).enableRSSINotifications(rssiCaptor.getValue());
+        verify(device).enableBlockedNotifications(blockedCaptor.getValue());
+        verify(device).enableConnectedNotifications(connectedCaptor.getValue());
+        verify(device).enableServicesResolvedNotifications(servicesResolvedCaptor.getValue());
+        verify(device).enableServiceDataNotifications(serviceDataCaptor.getValue());
+        verify(device).enableManufacturerDataNotifications(manufacturerDataCaptor.getValue());
+
+        verify(device).isConnected();
+        verify(device).isServicesResolved();
+        verify(device).getServices();
+
+        verify(bluetoothSmartDeviceListener).connected();
+        verify(bluetoothSmartDeviceListener).servicesResolved(anyList());
+        verify(bluetoothSmartDeviceListener).authenticated();
 
         verifyNoMoreInteractions(device, genericDeviceListener, bluetoothSmartDeviceListener);
     }
@@ -243,9 +252,10 @@ public class DeviceGovernorImplTest {
 
     @Test
     public void testUpdateConnected() {
-        //this test checks if native device gets updated in accordance with various combination of:
-        // connection control and the native device is connected
+        // this test checks if native device gets updated in accordance with various combination of:
+        // connection control and the native device connection status
         doReturn(true).when(governor).isBleEnabled();
+        doReturn(false).when(governor).isOnline();
 
         governor.setBlockedControl(false);
         when(device.isBlocked()).thenReturn(false);
@@ -267,23 +277,32 @@ public class DeviceGovernorImplTest {
 
         // connected and control == false
         when(device.isConnected()).thenReturn(true);
+        when(device.disconnect()).thenReturn(true);
         governor.setConnectionControl(false);
         governor.update(device);
         verify(device, never()).connect();
         verify(device).disconnect();
 
-        // not connected and control == true
+        // not connected and control == true, but it is offline
         when(device.isConnected()).thenReturn(false, true);
         governor.setConnectionControl(true);
         governor.update(device);
-        verify(device).connect();
+        verify(device, never()).connect();
         verify(device).disconnect();
 
+        // not connected and control == true, and now it is online
+        when(device.isConnected()).thenReturn(false, true);
+        governor.setConnectionControl(true);
+        doReturn(true).when(governor).isOnline();
+        governor.update(device);
+        verify(device).connect();
+        verify(device).disconnect();
     }
 
     @Test
     public void testUpdateConnectAndBlock() {
         doReturn(true).when(governor).isBleEnabled();
+        doReturn(true).when(governor).isOnline();
 
         when(device.connect()).thenReturn(true);
         governor.setBlockedControl(true);
@@ -303,6 +322,7 @@ public class DeviceGovernorImplTest {
         governor.setBlockedControl(false);
 
         when(device.isConnected()).thenReturn(true);
+        when(device.disconnect()).thenReturn(true);
         governor.setConnectionControl(false);
         governor.update(device);
         verify(device, never()).connect();
@@ -345,6 +365,7 @@ public class DeviceGovernorImplTest {
         verify(genericDeviceListener, times(1)).online();
 
         governor.setConnectionControl(false);
+        when(device.disconnect()).thenReturn(true);
 
         governor.update(device);
         verify(genericDeviceListener, times(0)).offline();
@@ -926,30 +947,19 @@ public class DeviceGovernorImplTest {
 
         verify(device, times(1)).enableServicesResolvedNotifications(notificationCaptor.getValue());
 
-        List<GattService> tmp = governor.getResolvedServices();
-
-        doReturn(Collections.EMPTY_LIST).when(governor).getResolvedServices();
-        notificationCaptor.getValue().notify(Boolean.TRUE);
-
-        verify(bluetoothSmartDeviceListener, never()).servicesResolved(any());
-        verify(governor, never()).notifyServicesResolved(any());
-        verify(governor, times(1)).updateLastInteracted();
-        verify(bluetoothManager, times(1)).updateDescendants(URL);
-
-        when(governor.getResolvedServices()).thenReturn(tmp);
         notificationCaptor.getValue().notify(Boolean.TRUE);
 
         verify(bluetoothSmartDeviceListener, times(1)).servicesResolved(any());
-        verify(governor, times(1)).notifyServicesResolved(any());
-        verify(governor, times(2)).updateLastInteracted();
-        verify(bluetoothManager, times(2)).updateDescendants(URL);
+        verify(governor).notifyServicesResolved(any());
+        verify(governor).updateLastInteracted();
+        verify(bluetoothManager).updateDescendants(URL);
 
         notificationCaptor.getValue().notify(Boolean.FALSE);
         verify(bluetoothSmartDeviceListener, times(1)).servicesUnresolved();
-        verify(governor, times(1)).notifyServicesUnresolved();
-        verify(governor, times(2)).updateLastInteracted();
-        verify(bluetoothManager, times(2)).updateDescendants(URL);
-        verify(bluetoothManager, times(1)).resetDescendants(URL);
+        verify(governor).notifyServicesUnresolved();
+        verify(governor).updateLastInteracted();
+        verify(bluetoothManager).updateDescendants(URL);
+        verify(bluetoothManager).resetDescendants(URL);
     }
 
     @Test

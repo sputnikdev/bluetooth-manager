@@ -18,6 +18,8 @@ import org.sputnikdev.bluetooth.manager.GovernorListener;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -88,6 +90,11 @@ public class CombinedDeviceGovernorImplTest {
     @Captor
     private ArgumentCaptor<GenericBluetoothDeviceListener> bluegigaGenericBluetoothListenerDelegateCaptor;
 
+    @Captor
+    private ArgumentCaptor<Consumer<DeviceGovernor>> tinyReadyCaptor;
+    @Captor
+    private ArgumentCaptor<Consumer<DeviceGovernor>> bluegigaReadyCaptor;
+
     @InjectMocks
     private CombinedDeviceGovernorImpl governor = new CombinedDeviceGovernorImpl(bluetoothManager, URL);
 
@@ -155,6 +162,9 @@ public class CombinedDeviceGovernorImplTest {
         doNothing().when(tinybGovernor).addGenericBluetoothDeviceListener(tinybGenericBluetoothListenerDelegateCaptor.capture());
         doNothing().when(bluegigaGovernor).addGenericBluetoothDeviceListener(bluegigaGenericBluetoothListenerDelegateCaptor.capture());
 
+        when(tinybGovernor.doWhen(any(), tinyReadyCaptor.capture())).thenReturn(new CompletableFuture<>());
+        when(bluegigaGovernor.doWhen(any(), bluegigaReadyCaptor.capture())).thenReturn(new CompletableFuture<>());
+
         // actual method call
         governor.init();
 
@@ -182,8 +192,8 @@ public class CombinedDeviceGovernorImplTest {
         // emulate all of the delegates become ready
         when(tinybGovernor.isReady()).thenReturn(true);
         when(bluegigaGovernor.isReady()).thenReturn(true);
-        tinybGovernorListenerDelegateCaptor.getValue().ready(true);
-        bluegigaGovernorListenerDelegateCaptor.getValue().ready(true);
+        tinyReadyCaptor.getValue().accept(tinybGovernor);
+        bluegigaReadyCaptor.getValue().accept(bluegigaGovernor);
 
         // check if "unsafe" attributes are set
         assertEquals(BLUETOOTH_CLASS, governor.getBluetoothClass());
@@ -217,7 +227,14 @@ public class CombinedDeviceGovernorImplTest {
         doNothing().when(tinybGovernor).addBluetoothSmartDeviceListener(tinybBluetoothSmartListenerDelegateCaptor.capture());
         doNothing().when(bluegigaGovernor).addBluetoothSmartDeviceListener(bluegigaBluetoothSmartListenerDelegateCaptor.capture());
 
+        when(tinybGovernor.doWhen(any(), tinyReadyCaptor.capture())).thenReturn(new CompletableFuture<>());
+        when(bluegigaGovernor.doWhen(any(), bluegigaReadyCaptor.capture())).thenReturn(new CompletableFuture<>());
+
         governor.init();
+
+        tinyReadyCaptor.getValue().accept(tinybGovernor);
+        bluegigaReadyCaptor.getValue().accept(bluegigaGovernor);
+
         assertTrue(governor.isReady());
 
         tinybBluetoothSmartListenerDelegateCaptor.getValue().connected();

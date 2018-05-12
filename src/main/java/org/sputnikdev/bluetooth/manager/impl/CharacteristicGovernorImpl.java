@@ -51,6 +51,7 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
     private List<ValueListener> valueListeners = new CopyOnWriteArrayList<>();
     private ValueNotification valueNotification;
     private boolean canNotify;
+    private boolean notifying;
     private Instant lastNotified;
 
     CharacteristicGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
@@ -61,6 +62,9 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
     void init(Characteristic characteristic) {
         logger.debug("Initializing characteristic governor: {}", url);
         canNotify = canNotify(characteristic);
+        if (canNotify) {
+            notifying = characteristic.isNotifying();
+        }
         logger.trace("Characteristic governor initialization performed: {} : {}", url, canNotify);
     }
 
@@ -70,7 +74,6 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
         authenticated = bluetoothManager.getDeviceGovernor(url.getDeviceURL()).isAuthenticated();
 
         if (canNotify) {
-            boolean notifying = characteristic.isNotifying();
             logger.trace("Updating characteristic governor notifications state: {} : {} / {} / {}",
                     url, valueListeners.isEmpty(), notifying, valueNotification == null);
             if (!valueListeners.isEmpty() && (!notifying || valueNotification == null)) {
@@ -104,9 +107,14 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
     }
 
     @Override
+    public boolean isUpdatable() {
+        return bluetoothManager.getDeviceGovernor(url.getDeviceURL()).isAuthenticated();
+    }
+
+    @Override
     public void addValueListener(ValueListener valueListener) {
         valueListeners.add(valueListener);
-        bluetoothManager.scheduleUpdate(this);
+        bluetoothManager.scheduleForceUpdate(this);
     }
 
     @Override
@@ -199,6 +207,7 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
             ValueNotification notification = new ValueNotification();
             characteristic.enableValueNotifications(notification);
             valueNotification = notification;
+            notifying = true;
         }
     }
 
@@ -209,6 +218,7 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
         valueNotification = null;
         if (notification != null && canNotify) {
             characteristic.disableValueNotifications();
+            notifying = false;
         }
     }
 

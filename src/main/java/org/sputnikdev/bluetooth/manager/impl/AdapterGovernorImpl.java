@@ -99,6 +99,11 @@ class AdapterGovernorImpl extends AbstractBluetoothObjectGovernor<Adapter> imple
     }
 
     @Override
+    public boolean isUpdatable() {
+        return true;
+    }
+
+    @Override
     public boolean getPoweredControl() {
         return poweredControl;
     }

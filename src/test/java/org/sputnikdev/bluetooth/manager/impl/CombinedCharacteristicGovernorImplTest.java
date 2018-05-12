@@ -27,6 +27,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
@@ -146,7 +147,7 @@ public class CombinedCharacteristicGovernorImplTest {
         CombinedCharacteristicGovernorImpl spy = spy(governor);
         when(delegate2.isReady()).thenReturn(true);
 
-        CompletableFuture<Boolean> ready = spy.whenReady(gov -> { return true; });
+        CompletableFuture<Boolean> ready = spy.whenReady(gov -> true);
 
         assertFalse(ready.isDone());
         assertFalse(spy.isReady());
@@ -170,7 +171,7 @@ public class CombinedCharacteristicGovernorImplTest {
         verify(delegate2, atLeastOnce()).isReady();
 
         verify(bluetoothManager).addManagerListener(managerListenerArgumentCaptor.getValue());
-        verify(bluetoothManager).getCharacteristicGovernor(CHARACTERISTIC_1);
+        verify(bluetoothManager, atMost(1)).getCharacteristicGovernor(CHARACTERISTIC_1);
         verify(bluetoothManager).getCharacteristicGovernor(CHARACTERISTIC_2);
         verify(bluetoothManager).getDiscoveredAdapters();
         verify(bluetoothManager).notify(any(Runnable.class));
@@ -178,7 +179,7 @@ public class CombinedCharacteristicGovernorImplTest {
         verify(governorListener).ready(true);
         verify(governorListener).lastUpdatedChanged(LAST_INTERACTED);
 
-        verifyNoMoreInteractions(bluetoothManager, delegate2, governorListener, valueListener);
+        verifyNoMoreInteractions(bluetoothManager, governorListener, valueListener);
     }
 
     @Test
@@ -221,7 +222,7 @@ public class CombinedCharacteristicGovernorImplTest {
         verify(governorListener).ready(true);
         verify(governorListener).lastUpdatedChanged(LAST_INTERACTED);
 
-        verifyNoMoreInteractions(bluetoothManager, delegate1, delegate2, governorListener, valueListener);
+        verifyNoMoreInteractions(bluetoothManager, delegate1, governorListener, valueListener);
     }
 
     @Test

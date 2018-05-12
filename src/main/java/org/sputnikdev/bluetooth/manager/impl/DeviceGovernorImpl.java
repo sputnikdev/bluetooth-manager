@@ -108,6 +108,13 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         enableBlockedNotifications(device);
         enableManufacturerDataNotifications(device);
         enableServiceDataNotifications(device);
+        if (device.isConnected()) {
+            notifyConnected(true);
+            if (device.isServicesResolved()) {
+                notifyServicesResolved(getResolvedServices());
+                authenticate();
+            }
+        }
         logger.trace("Device governor initialization performed: {}", url);
     }
 
@@ -215,6 +222,11 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     }
 
     @Override
+    public boolean isUpdatable() {
+        return bluetoothManager.getAdapterGovernor(url.getAdapterURL()).isReady();
+    }
+
+    @Override
     public int getBluetoothClass() throws NotReadyException {
         return interact("getBluetoothClass", Device::getBluetoothClass);
     }
@@ -272,7 +284,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     @Override
     public boolean isConnected() throws NotReadyException {
-        return isReady() && interact("isConnected", Device::isConnected);
+        return interact("isConnected", Device::isConnected);
     }
 
     @Override
@@ -695,20 +707,22 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     private boolean updateConnected(Device device) {
         logger.trace("Updating device governor connected state: {}", url);
-        boolean connected = device.isConnected();
+        boolean connected = isConnected();
         logger.trace("Connected state: {} : {} (control) / {} (state)", url, connectionControl, connected);
-        if (connectionControl && !connected) {
+        if (connectionControl && !connected && isOnline()) {
             logger.debug("Connecting device: {}", url);
-            connected = device.connect();
-            if (!connected || !device.isConnected()) {
+            // if connect returns true, it does not mean that it is already connected, it means that the connection
+            // procedure has been started successfully, a connection event should indicate when the procedure finishes
+            if (!device.connect()) {
                 throw new NotReadyException("Could not connect to device: " + url);
             }
+            connected = true;
         } else if (!connectionControl && connected) {
             logger.debug("Disconnecting device: {}", url);
-            resetCharacteristics();
-            device.disconnect();
+            if (!device.disconnect()) {
+                throw new NotReadyException("Could not disconnect from device: " + url);
+            }
             connected = false;
-            setAuthenticated(false);
         }
         return connected;
     }
@@ -772,7 +786,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
             if (serviceResolved) {
                 List<GattService> gattServices = getResolvedServices();
-                if (gattServices != null && !gattServices.isEmpty()) {
+                if (gattServices != null) {
                     notifyServicesResolved(gattServices);
                 }
                 authenticate();
@@ -811,6 +825,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
         public void notify(Short rssi) {
             updateRSSI(rssi);
             updateLastAdvertised();
+            updateOnline(true);
         }
     }
 

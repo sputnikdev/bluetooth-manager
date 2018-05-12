@@ -197,10 +197,6 @@ class BluetoothManagerImpl implements BluetoothManager {
                 }
             }
         }
-        if (!governor.isReady()) {
-            logger.debug("Governor is not ready. Enforcing an explicit update: {}", governor.getURL());
-            update(governor);
-        }
         return governor;
     }
 
@@ -347,6 +343,12 @@ class BluetoothManagerImpl implements BluetoothManager {
     protected void scheduleUpdate(BluetoothObjectGovernor governor) {
         if (!governorScheduler.isShutdown()) {
             governorScheduler.submit(() -> update(governor));
+        }
+    }
+
+    protected void scheduleForceUpdate(BluetoothObjectGovernor governor) {
+        if (!governorScheduler.isShutdown()) {
+            governorScheduler.submit(() -> update(governor, true));
         }
     }
 
@@ -613,11 +615,17 @@ class BluetoothManagerImpl implements BluetoothManager {
     }
 
     private void update(BluetoothObjectGovernor governor) {
+        update(governor, false);
+    }
+
+    private void update(BluetoothObjectGovernor governor, boolean forceUpdate) {
         try {
             logger.trace("Updating governor: {}", governor.getURL());
-            governor.update();
+            if (forceUpdate || governor.isUpdatable()) {
+                governor.update();
+            }
         } catch (Exception ex) {
-            logger.warn("Error occurred while updating governor: " + governor, ex);
+            logger.warn("Error occurred while updating governor: " + governor.getURL(), ex);
         }
     }
 
@@ -811,17 +819,17 @@ class BluetoothManagerImpl implements BluetoothManager {
         AdapterDiscoveryJob adapterDiscoveryJob = new AdapterDiscoveryJob(factory);
         adapterDiscoveryJob.run();
         adapterDiscoveryFutures.put(factory.getProtocolName(),
-            discoveryScheduler.scheduleWithFixedDelay(adapterDiscoveryJob, 5, discoveryRate, TimeUnit.SECONDS));
+            discoveryScheduler.scheduleWithFixedDelay(adapterDiscoveryJob, 0, discoveryRate, TimeUnit.SECONDS));
 
         DeviceDiscoveryJob deviceDiscoveryJob = new DeviceDiscoveryJob(factory);
         deviceDiscoveryJob.run();
         deviceDiscoveryFutures.put(factory.getProtocolName(),
-            discoveryScheduler.scheduleWithFixedDelay(deviceDiscoveryJob, 5, discoveryRate, TimeUnit.SECONDS));
+            discoveryScheduler.scheduleWithFixedDelay(deviceDiscoveryJob, 0, discoveryRate, TimeUnit.SECONDS));
     }
 
     private void scheduleGovernor(BluetoothObjectGovernor governor) {
         governorFutures.put(governor.getURL(),
-            governorScheduler.scheduleWithFixedDelay(() -> update(governor),5, refreshRate, TimeUnit.SECONDS));
+            governorScheduler.scheduleWithFixedDelay(() -> update(governor),0, refreshRate, TimeUnit.SECONDS));
     }
 
     private void cancelAllFutures(boolean forceInterrupt) {

@@ -203,6 +203,11 @@ class CombinedCharacteristicGovernorImpl
     }
 
     @Override
+    public boolean isUpdatable() {
+        return true;
+    }
+
+    @Override
     public void reset() {
         if (delegate != null) {
             uninstallDelegate(delegate.getURL());
