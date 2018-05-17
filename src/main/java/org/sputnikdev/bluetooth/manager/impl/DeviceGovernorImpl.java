@@ -570,6 +570,8 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
             } finally {
                 rssiUpdateLock.unlock();
             }
+        } else {
+            logger.trace("Skipping RSSI update:  {} : {}", url, next);
         }
     }
 
