@@ -2,7 +2,7 @@ package org.sputnikdev.bluetooth.manager;
 
 /**
  * An exception that indicates an error that cannot be recovered from by the governor itself
- * so that higher level governor (adapter -> device -> characteristic) must take an action (reset itself).
+ * so that higher level governor (adapter -&gt; device -&gt; characteristic) must take an action (reset itself).
  */
 public class BluetoothFatalException extends RuntimeException  {
 
