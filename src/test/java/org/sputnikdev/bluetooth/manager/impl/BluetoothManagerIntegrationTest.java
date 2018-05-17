@@ -1,6 +1,7 @@
 package org.sputnikdev.bluetooth.manager.impl;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.runners.MockitoJUnitRunner;
@@ -17,6 +18,7 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 
+@Ignore
 @RunWith(MockitoJUnitRunner.class)
 public class BluetoothManagerIntegrationTest {
 

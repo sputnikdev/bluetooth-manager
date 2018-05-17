@@ -35,7 +35,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@Ignore
 @RunWith(MockitoJUnitRunner.class)
 public class PinCodeAuthenticationProviderTest {
 
