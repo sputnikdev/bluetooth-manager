@@ -31,13 +31,13 @@ import static org.mockito.Mockito.when;
 public class BluetoothManagerImplTest {
 
     private static final String TINYB_PROTOCOL_NAME = "tinyb";
-    private static final URL TINYB_ADAPTER_URL = new URL("tinyb://11:22:33:44:55:66");
+    private static final URL TINYB_ADAPTER_URL = new URL("tinyb:/11:22:33:44:55:66");
     private static final URL TINYB_DEVICE_URL = TINYB_ADAPTER_URL.copyWithDevice("12:34:56:78:90:12");
     private static final URL TINYB_CHARACTERISTIC_URL =
             TINYB_DEVICE_URL.copyWith("0000180f-0000-1000-8000-00805f9b34fb", "00002a19-0000-1000-8000-00805f9b34fb");
 
     private static final String DBUS_PROTOCOL_NAME = "dbus";
-    private static final URL DBUS_ADAPTER_URL = new URL("dbus://77:22:33:44:55:66");
+    private static final URL DBUS_ADAPTER_URL = new URL("dbus:/77:22:33:44:55:66");
     private static final URL DBUS_DEVICE_URL = DBUS_ADAPTER_URL.copyWithDevice("12:34:56:78:90:12");
     private static final URL DBUS_CHARACTERISTIC_URL =
             DBUS_DEVICE_URL.copyWith("0000180f-0000-1000-8000-00805f9b34fb", "00002a19-0000-1000-8000-00805f9b34fb");

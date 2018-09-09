@@ -142,7 +142,12 @@ public class DiscoveredDevice implements DiscoveredObject {
 
     @Override
     public String toString() {
-        String displayName = alias != null ? alias : name;
+        String displayName = getDisplayName();
         return "[Device] " + getURL() + " [" + displayName + "]";
+    }
+
+    @Override
+    public String getDisplayName() {
+        return alias != null ? alias : name;
     }
 }

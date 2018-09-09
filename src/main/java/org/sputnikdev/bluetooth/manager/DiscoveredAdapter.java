@@ -102,7 +102,13 @@ public class DiscoveredAdapter implements DiscoveredObject {
 
     @Override
     public String toString() {
-        String displayName = alias != null ? alias : name;
+        String displayName = getDisplayName();
         return "[Adapter] " + getURL() + " [" + displayName + "]";
     }
+
+    @Override
+    public String getDisplayName() {
+        return alias != null ? alias : name;
+    }
+
 }

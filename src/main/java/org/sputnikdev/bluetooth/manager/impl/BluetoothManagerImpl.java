@@ -275,19 +275,16 @@ class BluetoothManagerImpl implements BluetoothManager {
 
     @Override
     public Set<DiscoveredDevice> getDiscoveredDevices() {
-        long current = System.currentTimeMillis();
-        Stream<Map.Entry<URL, DeviceDiscoveryHolder>> filtered = discoveredDevices.entrySet().stream()
-                .filter(entry -> isStale(entry.getValue(), current));
         if (combinedDevices) {
-            Map<URL, List<DeviceDiscoveryHolder>> groupedByDeviceAddress =
-                    filtered.collect(Collectors.groupingBy(entry ->
-                                            entry.getKey().copyWithAdapter(CombinedGovernor.COMBINED_ADDRESS),
-                                    Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
-            return Collections.unmodifiableSet(new HashSet<>(groupedByDeviceAddress.entrySet().stream()
+            Map<URL, List<DeviceDiscoveryHolder>> grouped = discoveredDevices.values().stream().collect(
+                    Collectors.groupingBy(DeviceDiscoveryHolder::getCombinedURL));
+
+            return Collections.unmodifiableSet(new HashSet<>(grouped.entrySet().stream()
                     .collect(Collectors.toMap(Map.Entry::getKey,
-                            entry -> entry.getValue().stream().reduce(DeviceDiscoveryHolder::merge).get())).values()));
+                            entry -> entry.getValue().stream()
+                                    .reduce(DeviceDiscoveryHolder::merge).get().combined())).values()));
         } else {
-            return Collections.unmodifiableSet(filtered.map(Map.Entry::getValue).collect(Collectors.toSet()));
+            return Collections.unmodifiableSet(discoveredDevices.values().stream().collect(Collectors.toSet()));
         }
     }
 
@@ -449,13 +446,30 @@ class BluetoothManagerImpl implements BluetoothManager {
             if (objectURL.isAdapter()) {
                 bluetoothObject = factory.getAdapter(objectURL);
             } else if (objectURL.isDevice()) {
-                bluetoothObject = factory.getDevice(objectURL);
+
+                if (objectURL.getDeviceAddress() == null) {
+                    // matching device by its attributes (e.g. name, service values etc)
+                    DiscoveredDevice discoveredDevice =
+                            findDeviceByAttributes(factory.getProtocolName(), objectURL);
+                    if (discoveredDevice != null) {
+                        bluetoothObject = factory.getDevice(discoveredDevice.getURL());
+                    }
+                } else {
+                    bluetoothObject = factory.getDevice(objectURL);
+                }
             } else if (objectURL.isCharacteristic()) {
                 bluetoothObject = factory.getCharacteristic(objectURL);
             }
         }
         logger.trace("Returning native object: {} : {}", url, bluetoothObject);
         return (T) bluetoothObject;
+    }
+
+    private DiscoveredDevice findDeviceByAttributes(String protocol, URL url) {
+        //TODO expand searching criteria to use some other attributes, e.g. service values etc
+        return discoveredDevices.values().stream()
+                .filter(device -> protocol.equals(device.getURL().getProtocol()))
+                .filter(device -> device.getName().equals(url.getDeviceName())).findFirst().orElse(null);
     }
 
     void disposeBluetoothObject(URL url) {
@@ -583,9 +597,9 @@ class BluetoothManagerImpl implements BluetoothManager {
             }, logger, "Error in adapter discovery listener");
     }
 
-    private void notifyDeviceLost(URL url) {
-        logger.debug("Device has been lost: " + url);
-        BluetoothManagerUtils.forEachSilently(deviceDiscoveryListeners, DeviceDiscoveryListener::deviceLost, url,
+    private void notifyDeviceLost(DiscoveredDevice device) {
+        logger.debug("Device has been lost: " + device.getURL());
+        BluetoothManagerUtils.forEachSilently(deviceDiscoveryListeners, DeviceDiscoveryListener::deviceLost, device,
                 logger, "Error in device discovery listener");
     }
 
@@ -667,6 +681,14 @@ class BluetoothManagerImpl implements BluetoothManager {
             return merge(device, device.timestamp);
         }
 
+        private URL getCombinedURL() {
+            return getURL().copyWithProtocol(null).copyWithAdapter(CombinedGovernor.COMBINED_ADDRESS);
+        }
+        private DeviceDiscoveryHolder combined() {
+            return new DeviceDiscoveryHolder(getCombinedURL(),
+                    getName(), getAlias(), getRSSI(), getBluetoothClass(), isBleEnabled(), timestamp);
+        }
+
     }
 
     private final class DeviceDiscoveryJob implements Runnable {
@@ -718,7 +740,7 @@ class BluetoothManagerImpl implements BluetoothManager {
 
         private void handleLost(Set<DiscoveredDevice> lost) {
             lost.forEach(device -> {
-                notifyDeviceLost(device.getURL());
+                notifyDeviceLost(device);
                 discoveredDevices.remove(device.getURL());
             });
         }
@@ -744,7 +766,7 @@ class BluetoothManagerImpl implements BluetoothManager {
                             logger.warn("Removing stale device: {} : {} ",
                                     existingDevice.getURL(), existingDevice.getRSSI());
                             factory.dispose(existingDevice.getURL());
-                            notifyDeviceLost(existingDevice.getURL());
+                            notifyDeviceLost(existingDevice);
                         }
                         device = existingDevice;
                     } else {

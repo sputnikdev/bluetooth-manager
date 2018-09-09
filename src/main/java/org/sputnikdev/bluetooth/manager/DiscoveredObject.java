@@ -27,6 +27,12 @@ public interface DiscoveredObject {
     String getAlias();
 
     /**
+     * Returns bluetooth object display name.
+     * @return bluetooth object display name
+     */
+    String getDisplayName();
+
+    /**
      * Checks whether this discovery result represents a set of objects.
      * @return true if the object represents a set of objects
      */
