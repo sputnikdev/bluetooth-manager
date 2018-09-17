@@ -46,7 +46,8 @@ public class DiscoveredDevice implements DiscoveredObject {
      * @param device device to copy
      */
     public DiscoveredDevice(DiscoveredDevice device) {
-        this(device.url, device.name, device.alias, device.rssi, device.bluetoothClass, device.bleEnabled);
+        this(device.getURL(), device.getName(), device.getAlias(), device.getRSSI(),
+                device.getBluetoothClass(), device.isBleEnabled());
     }
 
     /**

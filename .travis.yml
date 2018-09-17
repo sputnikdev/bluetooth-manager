@@ -1,5 +1,5 @@
 language: java
-script: mvn test -P !build-extras -B
+script: mvn test -P !build-extras -B -DskipITs=true
 notifications:
   slack: kolotov:69j2qLZ0paybeuQMcKfyN2gP
 before_deploy: git checkout master

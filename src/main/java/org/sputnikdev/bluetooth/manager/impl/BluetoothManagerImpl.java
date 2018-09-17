@@ -266,13 +266,6 @@ class BluetoothManagerImpl implements BluetoothManager {
         logger.debug("Bluetooth manager has been disposed: {}", Integer.toHexString(hashCode()));
     }
 
-    private static void shutdownAndWait(ExecutorService executorService) {
-        executorService.shutdown();
-        try {
-            executorService.awaitTermination(5, TimeUnit.SECONDS);
-        } catch (InterruptedException ignore) { /* do nothing */ }
-    }
-
     @Override
     public Set<DiscoveredDevice> getDiscoveredDevices() {
         if (combinedDevices) {
@@ -465,11 +458,18 @@ class BluetoothManagerImpl implements BluetoothManager {
         return (T) bluetoothObject;
     }
 
-    private DiscoveredDevice findDeviceByAttributes(String protocol, URL url) {
+    boolean matchDeviceByAttribute(DiscoveredDevice device, URL url) {
+        //TODO expand searching criteria to use some other attributes, e.g. service values etc
+        return device.getName().equals(url.getDeviceName());
+    }
+
+    DeviceDiscoveryHolder findDeviceByAttributes(String protocol, URL url) {
         //TODO expand searching criteria to use some other attributes, e.g. service values etc
         return discoveredDevices.values().stream()
                 .filter(device -> protocol.equals(device.getURL().getProtocol()))
-                .filter(device -> device.getName().equals(url.getDeviceName())).findFirst().orElse(null);
+                .filter(device -> matchDeviceByAttribute(device, url))
+                .max(Comparator.comparing(DeviceDiscoveryHolder::getTimestamp))
+                .orElse(null);
     }
 
     void disposeBluetoothObject(URL url) {
@@ -484,6 +484,13 @@ class BluetoothManagerImpl implements BluetoothManager {
         } else {
             return createBasicGovernor(url);
         }
+    }
+
+    private static void shutdownAndWait(ExecutorService executorService) {
+        executorService.shutdown();
+        try {
+            executorService.awaitTermination(5, TimeUnit.SECONDS);
+        } catch (InterruptedException ignore) { /* do nothing */ }
     }
 
     private BluetoothObjectGovernor createCombinedGovernor(URL url) {
@@ -652,7 +659,7 @@ class BluetoothManagerImpl implements BluetoothManager {
         }
     }
 
-    private static final class DeviceDiscoveryHolder extends DiscoveredDevice {
+    static final class DeviceDiscoveryHolder extends DiscoveredDevice {
         private long timestamp;
 
         private DeviceDiscoveryHolder(DiscoveredDevice device, long timestamp) {
@@ -687,6 +694,10 @@ class BluetoothManagerImpl implements BluetoothManager {
         private DeviceDiscoveryHolder combined() {
             return new DeviceDiscoveryHolder(getCombinedURL(),
                     getName(), getAlias(), getRSSI(), getBluetoothClass(), isBleEnabled(), timestamp);
+        }
+
+        long getTimestamp() {
+            return timestamp;
         }
 
     }

@@ -358,23 +358,23 @@ public class DeviceGovernorImplTest {
         when(device.connect()).thenReturn(true);
         governor.setOnlineTimeout(onlineTimeout);
 
-        governor.update(device);
+        governor.update();
         verify(genericDeviceListener, times(1)).online();
 
-        governor.update(device);
+        governor.update();
         verify(genericDeviceListener, times(1)).online();
 
         governor.setConnectionControl(false);
         when(device.disconnect()).thenReturn(true);
 
-        governor.update(device);
+        governor.update();
         verify(genericDeviceListener, times(0)).offline();
 
         Whitebox.setInternalState(governor, "lastInteracted", Instant.now().minusSeconds(onlineTimeout));
         governor.setBlockedControl(true);
         when(device.isBlocked()).thenReturn(true);
 
-        governor.update(device);
+        governor.update();
         verify(genericDeviceListener, times(1)).offline();
     }
 
@@ -411,7 +411,7 @@ public class DeviceGovernorImplTest {
         verify(device, times(2)).isConnected();
         verify(device, times(1)).disconnect();
         verify(bluetoothSmartDeviceListener, times(1)).disconnected();
-        verify(genericDeviceListener, times(1)).offline();
+        verify(genericDeviceListener, never()).offline();
 
         verifyNoMoreInteractions(device, genericDeviceListener, bluetoothSmartDeviceListener);
     }

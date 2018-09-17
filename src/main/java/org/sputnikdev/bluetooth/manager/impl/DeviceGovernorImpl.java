@@ -22,6 +22,8 @@ package org.sputnikdev.bluetooth.manager.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.sputnikdev.bluetooth.AddressType;
+import org.sputnikdev.bluetooth.AddressUtils;
 import org.sputnikdev.bluetooth.Filter;
 import org.sputnikdev.bluetooth.RssiKalmanFilter;
 import org.sputnikdev.bluetooth.URL;
@@ -151,8 +153,30 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
             }
             txPower = device.getTxPower();
         }
-        updateOnline(isOnline());
+
+        boolean newOnline = isOnline();
+
+        // if BT device has a private address which changes evey so often, then we have to check if provided native
+        // object is stale by looking into new discovered devices and trying to match the old one with new discoveries
+        // if the bluetooth device changed its address, then we reset this governor letting it to re-initialize
+        if (online && !newOnline && url.getDeviceAddress() == null) {
+            AddressType addressType = AddressUtils.guessDeviceAddressType(device.getURL());
+            if (addressType == AddressType.RESOLVABLE || addressType == AddressType.NON_RESOLVABLE) {
+                BluetoothManagerImpl.DeviceDiscoveryHolder discoveredDevice =
+                        bluetoothManager.findDeviceByAttributes(device.getURL().getProtocol(), url);
+                if (!discoveredDevice.getURL().equals(device.getURL())) {
+                    lastAdvertised = Instant.ofEpochMilli(discoveredDevice.getTimestamp());
+                    throw new RuntimeException("Stale object detected");
+                }
+            }
+        }
         logger.trace("Device governor update performed: {}", url);
+    }
+
+    @Override
+    public void update() {
+        super.update();
+        updateOnline(isOnline());
     }
 
     /**
@@ -185,7 +209,6 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     @Override
     void reset(Device device) {
         logger.debug("Resetting device governor: {}", url);
-        updateOnline(false);
         try {
             logger.trace("Disable device notifications: {}", url);
             device.disableConnectedNotifications();
