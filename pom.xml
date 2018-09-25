@@ -162,7 +162,7 @@
         <dependency>
             <groupId>org.sputnikdev</groupId>
             <artifactId>bluetooth-utils</artifactId>
-            <version>1.14-SNAPSHOT</version>
+            <version>1.14</version>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
