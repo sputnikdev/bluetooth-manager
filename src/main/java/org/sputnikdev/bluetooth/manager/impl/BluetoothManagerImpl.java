@@ -30,6 +30,7 @@ import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
 import org.sputnikdev.bluetooth.manager.BluetoothManager;
 import org.sputnikdev.bluetooth.manager.CharacteristicGovernor;
 import org.sputnikdev.bluetooth.manager.CombinedGovernor;
+import org.sputnikdev.bluetooth.manager.ConnectionMethod;
 import org.sputnikdev.bluetooth.manager.DeviceDiscoveryListener;
 import org.sputnikdev.bluetooth.manager.DeviceGovernor;
 import org.sputnikdev.bluetooth.manager.DiscoveredAdapter;
@@ -215,7 +216,7 @@ class BluetoothManagerImpl implements BluetoothManager {
         DeviceGovernor deviceGovernor = getDeviceGovernor(url);
         if (forceConnect) {
             logger.debug("Forcing device governor to be connected: {}", deviceGovernor.getURL());
-            deviceGovernor.setConnectionControl(true);
+            deviceGovernor.setConnectionMethod(ConnectionMethod.CONNECTED);
             if (!deviceGovernor.isReady() || !deviceGovernor.isConnected()) {
                 logger.debug("Governor is not connected. Enforcing an explicit update: {}", deviceGovernor.getURL());
                 update((BluetoothObjectGovernor) deviceGovernor);

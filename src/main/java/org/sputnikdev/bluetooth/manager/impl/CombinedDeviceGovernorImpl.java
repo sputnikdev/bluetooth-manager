@@ -32,6 +32,7 @@ import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
 import org.sputnikdev.bluetooth.manager.BluetoothSmartDeviceListener;
 import org.sputnikdev.bluetooth.manager.CharacteristicGovernor;
 import org.sputnikdev.bluetooth.manager.CombinedDeviceGovernor;
+import org.sputnikdev.bluetooth.manager.ConnectionMethod;
 import org.sputnikdev.bluetooth.manager.ConnectionStrategy;
 import org.sputnikdev.bluetooth.manager.DeviceGovernor;
 import org.sputnikdev.bluetooth.manager.DiscoveredAdapter;
@@ -119,7 +120,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     private final ReentrantLock rssiLock = new ReentrantLock();
 
     // controlling fields
-    private boolean connectionControl;
+    private ConnectionMethod connectionMethod = ConnectionMethod.DISCONNECTED;
     private boolean blockedControl;
 
     private AuthenticationProvider authenticationProvider;
@@ -177,20 +178,32 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
 
     @Override
     public boolean getConnectionControl() {
-        return connectionControl;
+        return connectionMethod == ConnectionMethod.CONNECTED;
+    }
+
+    public void setConnectionControl(boolean connectionControl) {
+        logger.debug("Setting connection control: {} : {} / {}", url, this.connectionMethod, connectionControl);
+        ConnectionMethod connectionMethod =
+                connectionControl ? ConnectionMethod.CONNECTED : ConnectionMethod.DISCONNECTED;
+        setConnectionMethod(connectionMethod);
     }
 
     @Override
-    public void setConnectionControl(boolean connected) {
-        logger.debug("Setting connection control: {} : {}", url, connected);
-        connectionControl = connected;
-        if (connected) {
+    public ConnectionMethod getConnectionMethod() {
+        return connectionMethod;
+    }
+
+    @Override
+    public void setConnectionMethod(ConnectionMethod method) {
+        logger.debug("Setting connection method: {} : {}", url, method);
+        connectionMethod = method;
+        if (ConnectionMethod.DISCONNECTED != method) {
             updateConnectionTarget();
         } else {
             // make sure nothing sets connectionTarget and calls setConnectionControls
             synchronized (this.connected) {
                 governors.values().forEach(deviceGovernorHandler -> deviceGovernorHandler.delegate
-                        .setConnectionControl(false));
+                        .setConnectionMethod(ConnectionMethod.DISCONNECTED));
             }
         }
     }
@@ -238,8 +251,8 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     }
 
     private void updateConnectionTarget() {
-        logger.debug("Updating connection target: {} : {}", url, connectionControl);
-        boolean connectionControl = this.connectionControl;
+        logger.debug("Updating connection target: {} : {}", url, connectionMethod);
+        ConnectionMethod connectionMethod = this.connectionMethod;
         // make sure nothing sets connectionTarget and calls setConnectionControls
         synchronized (this.connected) {
             if (!isConnected()) {
@@ -248,10 +261,10 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
                         connectionTarget != null ? connectionTarget.getURL() : null,
                         newTarget != null ? newTarget.getURL() : null);
                 if (connectionTarget != null && !connectionTarget.equals(newTarget)) {
-                    connectionTarget.setConnectionControl(false);
+                    connectionTarget.setConnectionMethod(ConnectionMethod.DISCONNECTED);
                 }
-                if (newTarget != null && newTarget.getConnectionControl() != connectionControl) {
-                    newTarget.setConnectionControl(connectionControl);
+                if (newTarget != null && newTarget.getConnectionMethod() != connectionMethod) {
+                    newTarget.setConnectionMethod(connectionMethod);
                 }
                 connectionTarget = newTarget;
             } else {
@@ -464,7 +477,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
     public void dispose() {
         logger.debug("Disposing combined device governor: {}", url);
         bluetoothManager.removeAdapterDiscoveryListener(delegateRegistrar);
-        setConnectionControl(false);
+        setConnectionMethod(ConnectionMethod.DISCONNECTED);
         governors.values().forEach(DeviceGovernorHandler::dispose);
         governors.clear();
         governorListeners.clear();
@@ -664,7 +677,7 @@ class CombinedDeviceGovernorImpl implements DeviceGovernor, CombinedDeviceGovern
             }
             delegate.setOnlineTimeout(onlineTimeout);
             delegate.setBlockedControl(blockedControl);
-            delegate.setConnectionControl(false);
+            delegate.setConnectionMethod(ConnectionMethod.DISCONNECTED);
             delegate.setRssiFilteringEnabled(rssiFilteringEnabled);
             delegate.setRssiReportingRate(0);
             delegate.setSignalPropagationExponent(signalPropagationExponent);

@@ -92,14 +92,27 @@ public interface DeviceGovernor extends BluetoothGovernor {
     /**
      * Returns device connection control status.
      * @return device connection control status
+     * @deprecated in favour of {@link #getConnectionMethod()}
      */
     boolean getConnectionControl();
 
     /**
      * Sets device connection control status.
      * @param connected device connection control status
+     * @deprecated in favour of {@link #setConnectionMethod(ConnectionMethod)}}
      */
     void setConnectionControl(boolean connected);
+
+    /**
+     * Returns connection method.
+     * @return connection method
+     */
+    ConnectionMethod getConnectionMethod();
+
+    /**
+     * Sets connection method.
+     */
+    void setConnectionMethod(ConnectionMethod connectionMethod);
 
     /**
      * Checks whether the device is blocked.

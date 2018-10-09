@@ -32,6 +32,7 @@ import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
 import org.sputnikdev.bluetooth.manager.BluetoothSmartDeviceListener;
 import org.sputnikdev.bluetooth.manager.CharacteristicGovernor;
+import org.sputnikdev.bluetooth.manager.ConnectionMethod;
 import org.sputnikdev.bluetooth.manager.DeviceGovernor;
 import org.sputnikdev.bluetooth.manager.GattCharacteristic;
 import org.sputnikdev.bluetooth.manager.GattService;
@@ -81,7 +82,7 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     private RSSINotification rssiNotification;
     private ServiceDataNotification serviceDataNotification;
     private ManufacturerDataNotification manufacturerDataNotification;
-    private boolean connectionControl;
+    private ConnectionMethod connectionMethod = ConnectionMethod.DISCONNECTED;
     private boolean blockedControl;
     private boolean online;
     private int onlineTimeout = DEFAULT_ONLINE_TIMEOUT;
@@ -282,14 +283,27 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
 
     @Override
     public boolean getConnectionControl() {
-        return connectionControl;
+        return connectionMethod == ConnectionMethod.CONNECTED;
     }
 
     public void setConnectionControl(boolean connectionControl) {
-        logger.debug("Setting connection control: {} : {} / {}", url, this.connectionControl, connectionControl);
-        boolean changed = this.connectionControl != connectionControl;
+        logger.debug("Setting connection control: {} : {} / {}", url, this.connectionMethod, connectionControl);
+        ConnectionMethod connectionMethod =
+                connectionControl ? ConnectionMethod.CONNECTED : ConnectionMethod.DISCONNECTED;
+        setConnectionMethod(connectionMethod);
+    }
+
+    @Override
+    public ConnectionMethod getConnectionMethod() {
+        return connectionMethod;
+    }
+
+    @Override
+    public void setConnectionMethod(ConnectionMethod connectionMethod) {
+        logger.debug("Setting connection method: {} : {} / {}", url, this.connectionMethod, connectionMethod);
+        boolean changed = this.connectionMethod != connectionMethod;
         if (changed) {
-            this.connectionControl = connectionControl;
+            this.connectionMethod = connectionMethod;
             scheduleUpdate();
         }
     }
@@ -731,9 +745,19 @@ class DeviceGovernorImpl extends AbstractBluetoothObjectGovernor<Device> impleme
     }
 
     private boolean updateConnected(Device device) {
+        switch (connectionMethod) {
+            case CONNECTED: return updateConnected(device, true);
+            case DISCONNECTED: return updateConnected(device, false);
+            default: return true;
+        }
+    }
+
+    private boolean updateConnected(Device device, boolean connectionControl) {
         logger.trace("Updating device governor connected state: {}", url);
         boolean connected = isConnected();
-        logger.trace("Connected state: {} : {} (control) / {} (state)", url, connectionControl, connected);
+        logger.trace("Connected state: {} : {} (connectionControl) / {} (method) / {} (state)",
+                url, connectionControl, connectionMethod, connected);
+
         if (connectionControl && !connected && isOnline()) {
             logger.debug("Connecting device: {}", url);
             // if connect returns true, it does not mean that it is already connected, it means that the connection

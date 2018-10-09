@@ -11,6 +11,7 @@ import org.mockito.runners.MockitoJUnitRunner;
 import org.sputnikdev.bluetooth.RssiKalmanFilter;
 import org.sputnikdev.bluetooth.URL;
 import org.sputnikdev.bluetooth.manager.BluetoothSmartDeviceListener;
+import org.sputnikdev.bluetooth.manager.ConnectionMethod;
 import org.sputnikdev.bluetooth.manager.DeviceGovernor;
 import org.sputnikdev.bluetooth.manager.DiscoveredAdapter;
 import org.sputnikdev.bluetooth.manager.GenericBluetoothDeviceListener;
@@ -259,7 +260,7 @@ public class CombinedDeviceGovernorImplTest {
     }
 
     private static void verifySafe(DeviceGovernor deviceGovernor) {
-        verify(deviceGovernor).setConnectionControl(false);
+        verify(deviceGovernor).setConnectionMethod(ConnectionMethod.DISCONNECTED);
         verify(deviceGovernor).setBlockedControl(BLOCKED_CONTROL);
         verify(deviceGovernor).setOnlineTimeout(ONLINE_TIMEOUT);
         verify(deviceGovernor).setRssiFilteringEnabled(RSSI_FILTERING_ENABLED);
