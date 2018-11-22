@@ -23,9 +23,12 @@ package org.sputnikdev.bluetooth.manager.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sputnikdev.bluetooth.URL;
+import org.sputnikdev.bluetooth.manager.BluetoothGovernor;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectType;
 import org.sputnikdev.bluetooth.manager.BluetoothObjectVisitor;
 import org.sputnikdev.bluetooth.manager.CharacteristicGovernor;
+import org.sputnikdev.bluetooth.manager.ConnectionMethod;
+import org.sputnikdev.bluetooth.manager.DeviceGovernor;
 import org.sputnikdev.bluetooth.manager.NotReadyException;
 import org.sputnikdev.bluetooth.manager.ValueListener;
 import org.sputnikdev.bluetooth.manager.transport.Characteristic;
@@ -33,9 +36,15 @@ import org.sputnikdev.bluetooth.manager.transport.CharacteristicAccessType;
 import org.sputnikdev.bluetooth.manager.transport.Notification;
 
 import java.time.Instant;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  *
@@ -53,6 +62,7 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
     private boolean canNotify;
     private boolean notifying;
     private Instant lastNotified;
+    private Set<CharacteristicAccessType> flags;
 
     CharacteristicGovernorImpl(BluetoothManagerImpl bluetoothManager, URL url) {
         super(bluetoothManager, url);
@@ -65,13 +75,14 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
         if (canNotify) {
             notifying = characteristic.isNotifying();
         }
+        flags = Collections.unmodifiableSet(characteristic.getFlags());
         logger.trace("Characteristic governor initialization performed: {} : {}", url, canNotify);
     }
 
     @Override
     void update(Characteristic characteristic) {
         logger.trace("Updating characteristic governor: {}", url);
-        authenticated = bluetoothManager.getDeviceGovernor(url.getDeviceURL()).isAuthenticated();
+        authenticated = getDeviceGovernor().isAuthenticated();
 
         if (canNotify) {
             logger.trace("Updating characteristic governor notifications state: {} : {} / {} / {}",
@@ -124,7 +135,7 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
 
     @Override
     public Set<CharacteristicAccessType> getFlags() throws NotReadyException {
-        return interact("getFlags", Characteristic::getFlags);
+        return flags;
     }
 
     @Override
@@ -192,6 +203,24 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
     }
 
     @Override
+    protected <R> R interact(String name, Function<Characteristic, R> delegate, boolean update) {
+        DeviceGovernor deviceGovernor = getDeviceGovernor();
+        ConnectionMethod connectionMethod = deviceGovernor.getConnectionMethod();
+        if (connectionMethod.isOnDemand()) {
+            return deviceGovernor
+                    .whenAuthenticated(gov -> super.interact(name, delegate, update))
+            .getNow(null);
+        } else {
+            return super.interact(name, delegate, update);
+        }
+    }
+
+    @Override
+    public <G extends BluetoothGovernor, V> CompletableFuture<V> whenReady(Function<G, V> function) {
+        return super.whenReady(function);
+    }
+
+    @Override
     void notifyLastChanged() {
         notifyLastChanged(BluetoothManagerUtils.max(getLastInteracted(), lastNotified));
     }
@@ -236,6 +265,10 @@ class CharacteristicGovernorImpl extends AbstractBluetoothObjectGovernor<Charact
             BluetoothManagerUtils.forEachSilently(valueListeners, ValueListener::changed, data, logger,
                     "Execution error of a characteristic listener");
         }
+    }
+
+    private DeviceGovernor getDeviceGovernor() {
+        return bluetoothManager.getDeviceGovernor(url.getDeviceURL());
     }
 
 }
